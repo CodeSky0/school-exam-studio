@@ -1,0 +1,176 @@
+"use client";
+
+import { useState } from "react";
+import { CaretDownIcon, CaretRightIcon, ChevronLeftIcon, ChevronRightIcon, Pencil1Icon, TrashIcon } from "@radix-ui/react-icons";
+import type { CurrentUser } from "@/lib/schemas";
+import { normalizeChoiceAnswer, questionStatusLabels, questionTypeLabels, type Question, type QuestionList } from "@/lib/question-schemas";
+import { cn } from "@/lib/utils";
+import { FormError } from "@/components/auth-form";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { RichTextView } from "./rich-text-view";
+
+const statusStyles = {
+  draft: "border-amber-200 bg-amber-50 text-amber-800",
+  published: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  archived: "border-slate-200 bg-slate-100 text-slate-600",
+};
+
+function formatUpdatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Shanghai" }).format(date);
+}
+
+function QuestionAnswer({ question }: { question: Question }) {
+  if (question.question_type === "true_false") return <span>{question.answer === "true" ? "正确" : "错误"}</span>;
+  if (question.question_type === "single_choice" || question.question_type === "multiple_choice") {
+    return <span className="font-mono font-semibold text-primary-strong">{normalizeChoiceAnswer(question.answer).split("").join("、")}</span>;
+  }
+  return <RichTextView content={question.answer} />;
+}
+
+function QuestionDetails({ question }: { question: Question }) {
+  return (
+    <div className="grid gap-5 border-t border-blue-100 bg-slate-50/70 px-5 py-5 lg:grid-cols-2">
+      <section>
+        <h3 className="text-xs font-semibold tracking-wide text-slate-500">完整题干</h3>
+        <div className="mt-2 rounded-lg border border-border bg-white p-4"><RichTextView content={question.content} /></div>
+        {question.options.length > 0 ? (
+          <div className="mt-4 grid gap-2">
+            {question.options.map((option) => (
+              <div key={option.key} className="grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-2 rounded-lg border border-border bg-white px-3 py-2">
+                <span className="font-mono text-sm font-semibold text-primary-strong">{option.key}.</span>
+                <RichTextView content={option.content} />
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+      <section className="grid content-start gap-4">
+        <div>
+          <h3 className="text-xs font-semibold tracking-wide text-slate-500">答案</h3>
+          <div className="mt-2 rounded-lg border border-border bg-white p-4 text-sm"><QuestionAnswer question={question} /></div>
+        </div>
+        <div>
+          <h3 className="text-xs font-semibold tracking-wide text-slate-500">解析</h3>
+          <div className="mt-2 rounded-lg border border-border bg-white p-4"><RichTextView content={question.explanation} /></div>
+        </div>
+        <dl className="grid grid-cols-2 gap-3 text-xs text-slate-500">
+          <div><dt>题目 ID</dt><dd className="mt-1 break-all font-mono text-slate-700">{question.id}</dd></div>
+          <div><dt>创建时间</dt><dd className="mt-1 text-slate-700">{formatUpdatedAt(question.created_at)}</dd></div>
+        </dl>
+      </section>
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="grid animate-pulse gap-px bg-border" aria-label="正在读取题目列表">
+      {Array.from({ length: 5 }, (_, index) => <div key={index} className="h-20 bg-white" />)}
+    </div>
+  );
+}
+
+export function QuestionTable({ user, data, isPending, isFetching, error, deletingId, onRetry, onEdit, onDelete, onPageChange, onPageSizeChange, renderActions, emptyDescription }: {
+  user: CurrentUser;
+  data?: QuestionList;
+  isPending: boolean;
+  isFetching: boolean;
+  error: unknown;
+  deletingId?: string;
+  onRetry: () => void;
+  onEdit?: (question: Question) => void;
+  onDelete?: (question: Question) => void;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  renderActions?: (question: Question) => React.ReactNode;
+  emptyDescription?: string;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  if (isPending) return <TableSkeleton />;
+  if (error) return <div className="border-b border-border bg-white p-5"><FormError error={error} /><Button variant="outline" size="sm" className="mt-3" onClick={onRetry}>重新读取</Button></div>;
+  if (!data || data.items.length === 0) return <div className="border-b border-border bg-white px-5 py-14 text-center"><h2 className="text-sm font-semibold text-slate-900">当前筛选下没有题目</h2><p className="mt-2 text-sm text-slate-500">{emptyDescription ?? "调整筛选条件，或新建一道草稿。"}</p></div>;
+
+  const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
+  return (
+    <div aria-busy={isFetching}>
+      <div className="flex min-h-9 items-center justify-between px-4 text-xs text-slate-500">
+        <span>共 {data.total} 道题{isFetching ? " · 正在更新列表…" : ""}</span>
+        <span>每页最多 100 条</span>
+      </div>
+      <div className="overflow-x-auto border-y border-border" tabIndex={0} role="region" aria-label="题目列表，可横向滚动">
+        <table className="w-full min-w-[1120px] border-collapse bg-white text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-medium text-slate-500">
+            <tr className="border-b border-border">
+              <th scope="col" className="w-[31%] px-4 py-3">题目</th><th scope="col" className="px-3 py-3">学科 / 年级</th><th scope="col" className="px-3 py-3">题型</th><th scope="col" className="px-3 py-3">难度</th><th scope="col" className="px-3 py-3">标签</th><th scope="col" className="px-3 py-3">创建人</th><th scope="col" className="px-3 py-3">状态</th><th scope="col" className="px-3 py-3">更新时间</th><th scope="col" className="px-4 py-3 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {data.items.map((question) => {
+              const canEdit = question.creator_id === user.id && question.status === "draft";
+              const expanded = expandedId === question.id;
+              return (
+                <QuestionRow
+                  key={question.id}
+                  question={question}
+                  canEdit={canEdit}
+                  expanded={expanded}
+                  isDeleting={deletingId === question.id}
+                  onToggle={() => setExpandedId(expanded ? null : question.id)}
+                  onEdit={() => onEdit?.(question)}
+                  onDelete={() => onDelete?.(question)}
+                  renderActions={renderActions ? () => renderActions(question) : undefined}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="question-page-size" className="text-xs">每页</Label>
+          <Select id="question-page-size" className="h-8 w-20" value={data.page_size} onChange={(event) => onPageSizeChange(Number(event.target.value))}><option value={10}>10</option><option value={20}>20</option><option value={50}>50</option></Select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-xs text-slate-600">第 {data.page} / {totalPages} 页</span>
+          <Button variant="outline" size="sm" disabled={data.page <= 1} onClick={() => onPageChange(data.page - 1)}><ChevronLeftIcon />上一页</Button>
+          <Button variant="outline" size="sm" disabled={data.page >= totalPages} onClick={() => onPageChange(data.page + 1)}>下一页<ChevronRightIcon /></Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit, onDelete, renderActions }: {
+  question: Question;
+  canEdit: boolean;
+  expanded: boolean;
+  isDeleting: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  renderActions?: () => React.ReactNode;
+}) {
+  return (
+    <>
+      <tr className={cn("align-top transition-colors", expanded ? "bg-blue-50/40" : "hover:bg-slate-50/70")}>
+        <td className="px-4 py-4">
+          <Button type="button" variant="ghost" size="sm" className="mb-2 -ml-2 h-7 px-2 text-xs" aria-expanded={expanded} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起" : "查看"}</Button>
+          <RichTextView content={question.content} className="max-h-20 overflow-hidden text-[13px] leading-5" />
+        </td>
+        <td className="px-3 py-4 text-xs leading-5 text-slate-700">{question.subject}<br /><span className="text-slate-500">{question.grade}</span></td>
+        <td className="whitespace-nowrap px-3 py-4 text-xs">{questionTypeLabels[question.question_type]}</td>
+        <td className="px-3 py-4 font-mono text-xs">{question.difficulty} / 5</td>
+        <td className="max-w-36 px-3 py-4"><div className="flex flex-wrap gap-1">{question.tags.length ? question.tags.map((tag) => <span key={tag} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">{tag}</span>) : <span className="text-xs text-slate-400">无</span>}</div></td>
+        <td className="px-3 py-4 text-xs text-slate-700">{question.creator_name}</td>
+        <td className="px-3 py-4"><span className={cn("inline-flex rounded-full border px-2 py-0.5 text-xs font-medium", statusStyles[question.status])}>{questionStatusLabels[question.status]}</span></td>
+        <td className="whitespace-nowrap px-3 py-4 text-xs text-slate-500"><time dateTime={question.updated_at}>{formatUpdatedAt(question.updated_at)}</time></td>
+        <td className="px-4 py-4">{renderActions ? renderActions() : <div className="flex justify-end gap-1">{canEdit ? <><Button type="button" variant="ghost" size="sm" onClick={onEdit}><Pencil1Icon />编辑</Button><Button type="button" variant="ghost" size="sm" className="text-red-700 hover:bg-red-50 hover:text-red-800" disabled={isDeleting} onClick={onDelete}><TrashIcon />{isDeleting ? "删除中" : "删除"}</Button></> : <span className="text-xs text-slate-400">仅查看</span>}</div>}</td>
+      </tr>
+      {expanded ? <tr><td colSpan={9} className="p-0"><QuestionDetails question={question} /></td></tr> : null}
+    </>
+  );
+}

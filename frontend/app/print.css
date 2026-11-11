@@ -1,0 +1,291 @@
+@page {
+  size: A4;
+  margin: 16mm 14mm 18mm;
+}
+
+.paper-print-page {
+  min-height: 100dvh;
+  background: #e8edf3;
+  padding: 24px 16px 56px;
+}
+
+.print-toolbar {
+  display: flex;
+  width: 210mm;
+  max-width: 100%;
+  margin: 0 auto 16px;
+  justify-content: flex-end;
+}
+
+.paper-preview-stage {
+  overflow-x: auto;
+  padding: 4px 4px 32px;
+}
+
+.paper-sheet {
+  box-sizing: border-box;
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 16mm 14mm 18mm;
+  overflow: visible;
+  background: #ffffff;
+  box-shadow: 0 18px 45px -24px rgb(51 65 85 / 0.32);
+  color: #172033;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 11pt;
+  line-height: 1.65;
+}
+
+.paper-candidate-info {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2mm 7mm;
+  color: #334155;
+  font-size: 9pt;
+}
+
+.paper-seal {
+  margin: 3mm 0 5mm;
+  border-top: 1px dashed #64748b;
+  border-bottom: 1px dashed #64748b;
+  padding: 1.5mm 0;
+  color: #475569;
+  font-size: 8pt;
+  letter-spacing: 0.35em;
+  text-align: center;
+}
+
+.paper-document-header {
+  border-bottom: 2px solid #334155;
+  padding-bottom: 4mm;
+  text-align: center;
+}
+
+.paper-school-name {
+  color: #334155;
+  font-size: 11pt;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.paper-title {
+  margin: 2mm 0 3mm;
+  color: #172033;
+  font-size: 20pt;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+}
+
+.paper-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5mm 6mm;
+  color: #334155;
+  font-size: 9.5pt;
+}
+
+.paper-sections {
+  margin-top: 5mm;
+}
+
+.paper-section + .paper-section {
+  margin-top: 6mm;
+}
+
+.paper-section-heading {
+  margin-bottom: 4mm;
+  color: #172033;
+  font-size: 12pt;
+  font-weight: 650;
+  break-after: avoid;
+}
+
+.paper-section-heading span {
+  font-size: 9.5pt;
+  font-weight: 400;
+}
+
+.paper-question {
+  position: relative;
+  margin-bottom: 7mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.paper-question-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5mm;
+  min-height: 6mm;
+  font-weight: 600;
+}
+
+.paper-question-number {
+  min-width: 6mm;
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-answer-bracket {
+  font-weight: 400;
+  letter-spacing: 0.15em;
+}
+
+.paper-question-score {
+  margin-left: auto;
+  color: #334155;
+  font-size: 9.5pt;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.paper-question > .question-rich-text {
+  margin-left: 7.5mm;
+}
+
+.paper-rich-text.question-rich-text,
+.paper-rich-text.question-rich-text p,
+.paper-rich-text.question-rich-text h2,
+.paper-rich-text.question-rich-text h3 {
+  color: #172033;
+  font-size: 11pt;
+  line-height: 1.7;
+}
+
+.paper-rich-text.question-rich-text p {
+  margin-bottom: 1.5mm;
+}
+
+.paper-options {
+  display: grid;
+  gap: 1.5mm;
+  margin: 2mm 0 0 7.5mm;
+}
+
+.paper-option {
+  display: grid;
+  grid-template-columns: 6mm minmax(0, 1fr);
+  align-items: start;
+}
+
+.paper-option-key {
+  font-weight: 600;
+}
+
+.paper-answer-space {
+  margin-left: 7.5mm;
+}
+
+.paper-answer-space--short {
+  height: 15mm;
+  margin-top: 2mm;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.paper-answer-space--long {
+  display: flex;
+  height: 44mm;
+  margin-top: 3mm;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+.paper-answer-space--long span {
+  display: block;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.paper-empty {
+  padding: 20mm 0;
+  color: #64748b;
+  text-align: center;
+}
+
+.paper-sheet .katex {
+  font-size: 1em;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.paper-sheet .question-rich-text [data-type="block-math"],
+.paper-sheet .question-rich-text [data-type="blockMath"] {
+  overflow: visible;
+  background: transparent;
+}
+
+@media print {
+  html,
+  body {
+    min-height: 0;
+    background: #ffffff !important;
+  }
+
+  .no-print,
+  .app-shell-sidebar,
+  .app-shell-header,
+  aside,
+  nav,
+  button,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  .app-shell-content {
+    padding-left: 0 !important;
+  }
+
+  .app-shell-main {
+    padding: 0 !important;
+  }
+
+  .paper-print-page,
+  .paper-preview-stage {
+    min-height: 0;
+    overflow: visible;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .paper-sheet {
+    width: auto !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .paper-section {
+    break-inside: auto !important;
+  }
+
+  .paper-section-heading {
+    break-after: avoid-page;
+  }
+
+  .paper-question {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .paper-rich-text,
+  .paper-rich-text p,
+  .paper-rich-text [data-type="block-math"],
+  .paper-rich-text [data-type="blockMath"],
+  .paper-sheet .katex,
+  .paper-sheet .katex-html {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .paper-sheet,
+  .paper-sheet * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

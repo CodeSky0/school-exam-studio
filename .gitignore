@@ -1,4 +1,5 @@
 .codeartsdoer/
+.tools/
 .env
 .env.*
 !.env.example

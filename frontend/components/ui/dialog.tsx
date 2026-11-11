@@ -1,0 +1,51 @@
+"use client";
+
+import { useEffect, useId, useRef } from "react";
+import { Cross2Icon } from "@radix-ui/react-icons";
+import { cn } from "@/lib/utils";
+import { Button } from "./button";
+
+export function Dialog({ open, title, description, children, footer, onClose, isPending = false, className }: {
+  open: boolean;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  onClose: () => void;
+  isPending?: boolean;
+  className?: string;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!isPending) onClose();
+      }}
+      className={cn("m-auto flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-white p-0 text-foreground shadow-xl backdrop:bg-slate-950/40", className)}
+    >
+      <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+        <div>
+          <h2 id={titleId} className="text-lg font-semibold tracking-tight text-slate-950">{title}</h2>
+          {description ? <p id={descriptionId} className="mt-1.5 text-sm leading-6 text-slate-600">{description}</p> : null}
+        </div>
+        <Button type="button" variant="ghost" size="icon" className="-mr-2 -mt-2 size-8" aria-label="关闭对话框" disabled={isPending} onClick={onClose}><Cross2Icon /></Button>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+      {footer ? <footer className="flex flex-wrap justify-end gap-3 border-t border-border bg-slate-50 px-5 py-4">{footer}</footer> : null}
+    </dialog>
+  );
+}
