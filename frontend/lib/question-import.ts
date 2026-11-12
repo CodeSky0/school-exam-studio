@@ -48,7 +48,7 @@ export function validateCsvFile(file: File): string | null {
 
 function csvFormData(file: File): FormData {
   const body = new FormData();
-  body.append("file", file, file.name);
+  body.append("file", file);
   return body;
 }
 

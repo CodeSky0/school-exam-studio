@@ -60,7 +60,7 @@ describe("管理端 API", () => {
   });
 
   it("学校名称更新只发送 name", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(school), { status: 200 }));
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify(school), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     await getSchool();
     await updateSchoolName("明德实验中学");
