@@ -48,38 +48,38 @@ export function QuestionPicker({ defaultSubject }: { defaultSubject: string }) {
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / (data?.page_size ?? filters.page_size)));
 
   return (
-    <section aria-labelledby="question-picker-title" className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+    <section aria-labelledby="question-picker-title" className="overflow-hidden rounded-lg border border-border bg-neutral-1 shadow-sm">
       <div className="border-b border-border px-5 py-4">
-        <h2 id="question-picker-title" className="text-base font-semibold text-slate-950">选择题库题目</h2>
-        <p className="mt-1 text-xs leading-5 text-slate-500">仅检索本校已发布题目，加入后可调整顺序与分值。</p>
+        <h2 id="question-picker-title" className="text-title-20 font-medium text-neutral-10">选择题库题目</h2>
+        <p className="mt-1 text-label-12 leading-5 text-neutral-7">仅检索本校已发布题目，加入后可调整顺序与分值。</p>
       </div>
-      <form onSubmit={applyFilters} className="border-b border-border bg-slate-50/60 p-4" aria-label="组卷题目筛选">
+      <form onSubmit={applyFilters} className="border-b border-border bg-neutral-2/60 p-4" aria-label="组卷题目筛选">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className="grid gap-1.5">
-            <Label htmlFor="picker-subject" className="text-xs">学科</Label>
-            <Input id="picker-subject" className="h-9 bg-white" value={draft.subject ?? ""} placeholder="全部学科" onChange={(event) => setDraft({ ...draft, subject: event.target.value })} />
+            <Label htmlFor="picker-subject" className="text-label-12">学科</Label>
+            <Input id="picker-subject" className="h-9 bg-neutral-1" value={draft.subject ?? ""} placeholder="全部学科" onChange={(event) => setDraft({ ...draft, subject: event.target.value })} />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="picker-grade" className="text-xs">年级</Label>
-            <Input id="picker-grade" className="h-9 bg-white" value={draft.grade ?? ""} placeholder="全部年级" onChange={(event) => setDraft({ ...draft, grade: event.target.value })} />
+            <Label htmlFor="picker-grade" className="text-label-12">年级</Label>
+            <Input id="picker-grade" className="h-9 bg-neutral-1" value={draft.grade ?? ""} placeholder="全部年级" onChange={(event) => setDraft({ ...draft, grade: event.target.value })} />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="picker-type" className="text-xs">题型</Label>
-            <Select id="picker-type" className="h-9 bg-white" value={draft.question_type ?? ""} onChange={(event) => setDraft({ ...draft, question_type: (event.target.value || undefined) as QuestionType | undefined })}>
+            <Label htmlFor="picker-type" className="text-label-12">题型</Label>
+            <Select id="picker-type" className="h-9 bg-neutral-1" value={draft.question_type ?? ""} onChange={(event) => setDraft({ ...draft, question_type: (event.target.value || undefined) as QuestionType | undefined })}>
               <option value="">全部题型</option>
               {Object.entries(questionTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="picker-difficulty" className="text-xs">难度</Label>
-            <Select id="picker-difficulty" className="h-9 bg-white" value={draft.difficulty ?? ""} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value ? Number(event.target.value) : undefined })}>
+            <Label htmlFor="picker-difficulty" className="text-label-12">难度</Label>
+            <Select id="picker-difficulty" className="h-9 bg-neutral-1" value={draft.difficulty ?? ""} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value ? Number(event.target.value) : undefined })}>
               <option value="">全部难度</option>
               {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value} 级</option>)}
             </Select>
           </div>
           <div className="grid gap-1.5 sm:col-span-2 xl:col-span-1">
-            <Label htmlFor="picker-tag" className="text-xs">知识点标签</Label>
-            <Input id="picker-tag" className="h-9 bg-white" value={draft.tag ?? ""} placeholder="精确标签" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />
+            <Label htmlFor="picker-tag" className="text-label-12">知识点标签</Label>
+            <Input id="picker-tag" className="h-9 bg-neutral-1" value={draft.tag ?? ""} placeholder="精确标签" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />
           </div>
         </div>
         <div className="mt-3 flex justify-end gap-2">
@@ -91,18 +91,18 @@ export function QuestionPicker({ defaultSubject }: { defaultSubject: string }) {
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
       {listQuery.isPending ? (
         <div className="grid animate-pulse gap-px bg-border" aria-label="正在读取已发布题目">
-          {[0, 1, 2].map((item) => <div key={item} className="h-36 bg-white" />)}
+          {[0, 1, 2].map((item) => <div key={item} className="h-36 bg-neutral-1" />)}
         </div>
       ) : listQuery.error ? (
         <div className="p-5"><FormError error={listQuery.error} /><Button variant="outline" size="sm" className="mt-3" onClick={() => { void listQuery.refetch(); }}>重新读取</Button></div>
       ) : !data || data.items.length === 0 ? (
         <div className="px-5 py-14 text-center">
-          <h3 className="text-sm font-semibold text-slate-900">没有符合条件的已发布题目</h3>
-          <p className="mt-2 text-sm text-slate-500">调整学科、年级或其他筛选条件后再试。</p>
+          <h3 className="text-copy-13 font-medium text-neutral-10">没有符合条件的已发布题目</h3>
+          <p className="mt-2 text-copy-13 text-neutral-7">调整学科、年级或其他筛选条件后再试。</p>
         </div>
       ) : (
         <div aria-busy={listQuery.isFetching}>
-          <div className="flex items-center justify-between px-5 py-3 text-xs text-slate-500">
+          <div className="flex items-center justify-between px-5 py-3 text-label-12 text-neutral-7">
             <span>共 {data.total} 道已发布题目</span>
             {listQuery.isFetching ? <span>正在更新…</span> : null}
           </div>
@@ -111,25 +111,25 @@ export function QuestionPicker({ defaultSubject }: { defaultSubject: string }) {
               const isAdded = items.some((item) => item.question.id === question.id);
               return (
                 <li key={question.id} className="px-5 py-4">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <span className="rounded-full bg-primary-soft px-2 py-0.5 font-medium text-primary-strong">{questionTypeLabels[question.question_type]}</span>
+                  <div className="flex flex-wrap items-center gap-2 text-label-12 text-neutral-7">
+                    <span className="rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent-strong">{questionTypeLabels[question.question_type]}</span>
                     <span>{question.subject} · {question.grade}</span>
                     <span className="font-mono">难度 {question.difficulty}/5</span>
                   </div>
-                  <RichTextView content={question.content} className="mt-3 text-sm leading-6 text-slate-800" />
+                  <RichTextView content={question.content} className="mt-3 text-copy-13 leading-6 text-neutral-9" />
                   {question.options.length > 0 ? (
-                    <div className="mt-3 grid gap-1.5 text-xs text-slate-600 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-1.5 text-label-12 text-neutral-7 sm:grid-cols-2">
                       {question.options.map((option) => (
                         <div key={option.key} className="flex items-start gap-2">
-                          <span className="shrink-0 font-mono font-semibold text-slate-700">{option.key}.</span>
-                          <RichTextView content={option.content} className="text-xs leading-5" />
+                          <span className="shrink-0 font-mono font-medium text-neutral-8">{option.key}.</span>
+                          <RichTextView content={option.content} className="text-label-12 leading-5" />
                         </div>
                       ))}
                     </div>
                   ) : null}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-1">
-                      {question.tags.map((tag) => <span key={tag} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">{tag}</span>)}
+                      {question.tags.map((tag) => <span key={tag} className="rounded bg-neutral-3 px-1.5 py-0.5 text-label-12 text-neutral-7">{tag}</span>)}
                     </div>
                     <Button
                       type="button"
@@ -150,7 +150,7 @@ export function QuestionPicker({ defaultSubject }: { defaultSubject: string }) {
           </ul>
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
             <div className="flex items-center gap-2">
-              <Label htmlFor="picker-page-size" className="text-xs">每页</Label>
+              <Label htmlFor="picker-page-size" className="text-label-12">每页</Label>
               <Select id="picker-page-size" className="h-8 w-20" value={data.page_size} onChange={(event) => {
                 const next = { ...filters, page: 1, page_size: Number(event.target.value) };
                 setFilters(next);
@@ -160,7 +160,7 @@ export function QuestionPicker({ defaultSubject }: { defaultSubject: string }) {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-slate-600">第 {data.page} / {totalPages} 页</span>
+              <span className="font-mono text-label-12 text-neutral-7">第 {data.page} / {totalPages} 页</span>
               <Button variant="outline" size="sm" disabled={data.page <= 1} onClick={() => setFilters({ ...filters, page: data.page - 1 })}><ChevronLeftIcon />上一页</Button>
               <Button variant="outline" size="sm" disabled={data.page >= totalPages} onClick={() => setFilters({ ...filters, page: data.page + 1 })}>下一页<ChevronRightIcon /></Button>
             </div>

@@ -23,9 +23,9 @@ function AdminStats() {
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      <p className="text-xs font-semibold tracking-[0.16em] text-primary">管理员工作区 / 实时数据</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">学校总览</h1>
-      <p className="mt-2 text-sm leading-6 text-slate-600">统计直接来自管理接口，覆盖教师、题目状态和试卷数量。</p>
+      <p className="text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">管理员工作区 / 实时数据</p>
+      <h1 className="mt-2 text-title-28 font-medium tracking-[0.01em] text-neutral-10">学校总览</h1>
+      <p className="mt-2 text-copy-14 leading-7 text-neutral-7">统计直接来自管理接口，覆盖教师、题目状态和试卷数量。</p>
       <div className="mt-7"><StatsCards items={items} isPending={query.isPending} error={query.error} onRetry={() => { void query.refetch(); }} /></div>
       <nav aria-label="管理快捷入口" className="mt-7 grid gap-3 border-t border-border pt-5 sm:grid-cols-3">
         <Link href="/admin/teachers" className={buttonVariants({ variant: "outline", className: "justify-between" })}>管理教师<ArrowRightIcon /></Link>

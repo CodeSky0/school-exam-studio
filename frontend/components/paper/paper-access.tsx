@@ -27,8 +27,8 @@ export function PaperAccess({ children, standalone = false }: {
   if (!currentUser.data) {
     return (
       <main className="no-print mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-6 py-16">
-        <h1 className="text-2xl font-semibold text-slate-950">无法验证教师会话</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">确认身份前不会请求或展示试卷数据。</p>
+        <h1 className="text-title-24 font-medium text-neutral-10">无法验证教师会话</h1>
+        <p className="mt-3 text-copy-14 leading-7 text-neutral-7">确认身份前不会请求或展示试卷数据。</p>
         <div className="mt-6"><FormError error={currentUser.error} /></div>
         <div className="mt-6 flex gap-3">
           <Button variant="outline" onClick={() => { void currentUser.refetch(); }}>重新验证</Button>
@@ -41,10 +41,10 @@ export function PaperAccess({ children, standalone = false }: {
   const user = currentUser.data;
   if (user.role !== "teacher") {
     const denied = (
-      <div className="no-print mx-auto max-w-2xl border-l-2 border-amber-400 py-4 pl-5">
-        <p className="text-xs font-semibold tracking-wide text-amber-800">无权限</p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-950">组卷中心仅面向学科教师</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">当前角色不会请求或展示教师试卷数据。</p>
+      <div className="no-print mx-auto max-w-2xl border-l-2 border-warning py-4 pl-5">
+        <p className="text-label-12 font-medium tracking-wide text-warning">无权限</p>
+        <h1 className="mt-2 text-title-24 font-medium text-neutral-10">组卷中心仅面向学科教师</h1>
+        <p className="mt-3 text-copy-14 leading-7 text-neutral-7">当前角色不会请求或展示教师试卷数据。</p>
         <Link href="/" className={buttonVariants({ variant: "outline", className: "mt-6" })}>返回工作区</Link>
       </div>
     );

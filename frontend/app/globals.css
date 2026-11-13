@@ -1,53 +1,240 @@
 @import "tailwindcss";
 
+/*
+ * Yohaku Design System
+ * One accent, three neutral tiers, the rest is whitespace.
+ * Contract: https://github.com/Innei/Yohaku/tree/main/design-system
+ */
+
 :root {
-  --background: #f8fafc;
-  --foreground: #172033;
-  --primary: #2563eb;
-  --primary-strong: #1d4ed8;
-  --primary-soft: #eff6ff;
-  --primary-soft-strong: #dbeafe;
-  --primary-foreground: #ffffff;
-  --muted-foreground: #526075;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
+  color-scheme: light;
+
+  --surface-paper: #fefefb;
+  --surface-desk: #f0efeb;
+
+  --n1: #f9f8f5;
+  --n2: #f0efeb;
+  --n3: #e3e1db;
+  --n4: #d0cec6;
+  --n5: #a8a69f;
+  --n6: #787670;
+  --n7: #5c5a55;
+  --n8: #403f3a;
+  --n9: #24231f;
+  --n10: #141312;
+
+  --a: #c56473;
+  --a-strong: #a84d5d;
+  --a-soft: #f7ecee;
+  --a-soft-strong: #efd9dd;
+  --a-foreground: #ffffff;
+
+  --line: rgb(20 19 18 / 0.1);
+  --line-strong: #d0cec6;
+
+  --info: #3d6896;
+  --info-soft: #edf1f6;
+  --success: #5e9f7e;
+  --success-soft: #edf4f0;
+  --warning: #a87a3d;
+  --warning-soft: #f7f1e7;
+  --error: #a64953;
+  --error-soft: #f8edef;
+  --error-soft-strong: #eccfd3;
+
+  --paper-glow-a: rgb(197 100 115 / 0.05);
+  --paper-glow-b: rgb(61 104 150 / 0.035);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --surface-paper: #1c1c1e;
+    --surface-desk: #141414;
+
+    --n1: #141414;
+    --n2: #242424;
+    --n3: #404040;
+    --n4: #5c5c5c;
+    --n5: #787878;
+    --n6: #a8a8a8;
+    --n7: #d0d0d0;
+    --n8: #e3e3e3;
+    --n9: #f0f0f0;
+    --n10: #f8f8f8;
+
+    --a: #e095a4;
+    --a-strong: #eab0bc;
+    --a-soft: #35262a;
+    --a-soft-strong: #4a3238;
+    --a-foreground: #1c1c1e;
+
+    --line: rgb(255 255 255 / 0.12);
+    --line-strong: #5c5c5c;
+
+    --info: #7090b3;
+    --info-soft: #212a34;
+    --success: #8cbea3;
+    --success-soft: #1e2b25;
+    --warning: #c8a06b;
+    --warning-soft: #30291f;
+    --error: #c8767f;
+    --error-soft: #332225;
+    --error-soft-strong: #4a2e33;
+
+    --paper-glow-a: rgb(224 149 164 / 0.06);
+    --paper-glow-b: rgb(112 144 179 / 0.05);
+  }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-strong: var(--primary-strong);
-  --color-primary-soft: var(--primary-soft);
-  --color-primary-soft-strong: var(--primary-soft-strong);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --font-sans: "Geist", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
+  --color-paper: var(--surface-paper);
+  --color-desk: var(--surface-desk);
+  --color-background: var(--surface-paper);
+  --color-foreground: var(--n9);
+
+  --color-neutral-1: var(--n1);
+  --color-neutral-2: var(--n2);
+  --color-neutral-3: var(--n3);
+  --color-neutral-4: var(--n4);
+  --color-neutral-5: var(--n5);
+  --color-neutral-6: var(--n6);
+  --color-neutral-7: var(--n7);
+  --color-neutral-8: var(--n8);
+  --color-neutral-9: var(--n9);
+  --color-neutral-10: var(--n10);
+
+  --color-accent: var(--a);
+  --color-accent-strong: var(--a-strong);
+  --color-accent-soft: var(--a-soft);
+  --color-accent-soft-strong: var(--a-soft-strong);
+  --color-accent-foreground: var(--a-foreground);
+
+  --color-primary: var(--a);
+  --color-primary-strong: var(--a-strong);
+  --color-primary-soft: var(--a-soft);
+  --color-primary-soft-strong: var(--a-soft-strong);
+  --color-primary-foreground: var(--a-foreground);
+
+  --color-border: var(--line);
+  --color-border-strong: var(--line-strong);
+  --color-muted-foreground: var(--n7);
+
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-error: var(--error);
+  --color-error-soft: var(--error-soft);
+  --color-error-soft-strong: var(--error-soft-strong);
+
+  --shadow-sm: 0 1px 2px rgb(20 19 18 / 0.04);
+  --shadow-md: 0 4px 24px rgb(20 19 18 / 0.05);
+  --shadow-lg: 0 4px 24px rgb(20 19 18 / 0.06);
+  --shadow-xl: 0 4px 24px rgb(20 19 18 / 0.08);
+  --shadow-2xl: 0 4px 24px rgb(20 19 18 / 0.1);
+}
+
+@theme {
+  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Noto Serif CJK SC", "Noto Serif SC", "Source Han Serif SC", "Source Han Serif", "Songti SC", "STSong", "SimSun", "Hiragino Sans GB", Georgia, serif;
+  --font-mono: "JetBrainsMono", "Cascadia Code PL", "Fira Code", "Consolas", "Monaco", "Noto Sans Mono CJK SC", monospace;
+  --font-logo-cjk: "Noto Serif JP", "Source Han Serif", "Noto Serif CJK SC", serif;
+  --font-logo-latin: "EB Garamond", "Tiempos Headline", Georgia, serif;
+
+  --text-caption-10: 10px;
+  --text-caption-10--line-height: 1.4;
+  --text-label-12: 12px;
+  --text-label-12--line-height: 1.5;
+  --text-copy-13: 13px;
+  --text-copy-13--line-height: 1.54;
+  --text-copy-14: 14px;
+  --text-copy-14--line-height: 1.57;
+  --text-copy-15: 15px;
+  --text-copy-15--line-height: 1.6;
+  --text-copy-16: 16px;
+  --text-copy-16--line-height: 1.625;
+  --text-title-20: 20px;
+  --text-title-20--line-height: 1.4;
+  --text-title-24: 24px;
+  --text-title-24--line-height: 1.33;
+  --text-title-28: 28px;
+  --text-title-28--line-height: 1.29;
+  --text-display-36: 36px;
+  --text-display-36--line-height: 1.22;
+  --text-display-48: 48px;
+  --text-display-48--line-height: 1.17;
+  --text-icon-sm: 14px;
+  --text-icon-md: 16px;
+  --text-icon-lg: 18px;
 }
 
 @layer base {
   * {
-    border-color: var(--border);
+    border-color: var(--color-border);
   }
 
   html {
-    color-scheme: light;
+    font-size: 14px;
+    letter-spacing: 0.01em;
+    background: var(--surface-paper);
   }
 
   body {
     min-height: 100dvh;
-    background: var(--background);
-    color: var(--foreground);
+    background-color: var(--surface-paper);
+    background-image:
+      radial-gradient(1200px 620px at 12% -12%, var(--paper-glow-a), transparent 62%),
+      radial-gradient(900px 520px at 100% 0%, var(--paper-glow-b), transparent 58%);
+    color: var(--n9);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: 0.01em;
   }
 
   ::selection {
-    background: var(--primary-soft-strong);
-    color: #1e3a8a;
+    background: var(--a-soft-strong);
+    color: var(--n10);
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+  }
+}
+
+@media (max-width: 1023px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  body {
+    background-image: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-sans);
   }
 }
 
@@ -55,7 +242,7 @@
   min-width: 0;
   padding: 0.875rem 1rem;
   overflow-wrap: anywhere;
-  color: #1e293b;
+  color: var(--n8);
   font-size: 0.875rem;
   line-height: 1.75;
   outline: none;
@@ -67,7 +254,7 @@
 
 .question-rich-text {
   overflow-wrap: anywhere;
-  color: #334155;
+  color: var(--n8);
   font-size: 0.875rem;
   line-height: 1.75;
 }
@@ -85,17 +272,17 @@
 .question-prosemirror h2,
 .question-rich-text h2 {
   margin: 0.75rem 0 0.5rem;
-  color: #0f172a;
+  color: var(--n10);
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .question-prosemirror h3,
 .question-rich-text h3 {
   margin: 0.65rem 0 0.4rem;
-  color: #0f172a;
+  color: var(--n10);
   font-size: 0.95rem;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .question-prosemirror ul,
@@ -115,14 +302,14 @@
 .question-prosemirror blockquote,
 .question-rich-text blockquote {
   margin: 0.75rem 0;
-  border-left: 3px solid var(--primary-soft-strong);
+  border-left: 3px solid var(--a);
   padding-left: 0.875rem;
-  color: #526075;
+  color: var(--n7);
 }
 
 .tiptap-mathematics-render {
   border-radius: 0.3rem;
-  background: var(--primary-soft);
+  background: var(--a-soft);
   padding: 0.05rem 0.25rem;
   cursor: default;
 }

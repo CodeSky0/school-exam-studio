@@ -5,7 +5,7 @@
 
 .paper-print-page {
   min-height: 100dvh;
-  background: #e8edf3;
+  background: var(--surface-desk);
   padding: 24px 16px 56px;
 }
 
@@ -24,6 +24,7 @@
 
 .paper-sheet {
   box-sizing: border-box;
+  border-radius: 2px;
   width: 210mm;
   max-width: 100%;
   min-height: 297mm;
@@ -31,8 +32,9 @@
   padding: 16mm 14mm 18mm;
   overflow: visible;
   background: #ffffff;
-  box-shadow: 0 18px 45px -24px rgb(51 65 85 / 0.32);
-  color: #172033;
+  border: 1px solid rgb(20 19 18 / 0.08);
+  box-shadow: 0 4px 24px rgb(20 19 18 / 0.08);
+  color: #141312;
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 11pt;
   line-height: 1.65;
@@ -43,7 +45,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 2mm 7mm;
-  color: #334155;
+  color: #403f3a;
   font-size: 9pt;
 }
 
@@ -52,7 +54,7 @@
   border-top: 1px dashed #64748b;
   border-bottom: 1px dashed #64748b;
   padding: 1.5mm 0;
-  color: #475569;
+  color: #5c5a55;
   font-size: 8pt;
   letter-spacing: 0.35em;
   text-align: center;
@@ -65,17 +67,18 @@
 }
 
 .paper-school-name {
-  color: #334155;
+  color: #403f3a;
   font-size: 11pt;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.12em;
 }
 
 .paper-title {
   margin: 2mm 0 3mm;
-  color: #172033;
+  color: #141312;
+  font-family: var(--font-serif);
   font-size: 20pt;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.35;
   letter-spacing: 0.02em;
 }
@@ -85,7 +88,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 1.5mm 6mm;
-  color: #334155;
+  color: #403f3a;
   font-size: 9.5pt;
 }
 
@@ -99,9 +102,9 @@
 
 .paper-section-heading {
   margin-bottom: 4mm;
-  color: #172033;
+  color: #141312;
   font-size: 12pt;
-  font-weight: 650;
+  font-weight: 500;
   break-after: avoid;
 }
 
@@ -122,7 +125,7 @@
   align-items: baseline;
   gap: 1.5mm;
   min-height: 6mm;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .paper-question-number {
@@ -137,7 +140,7 @@
 
 .paper-question-score {
   margin-left: auto;
-  color: #334155;
+  color: #403f3a;
   font-size: 9.5pt;
   font-weight: 400;
   white-space: nowrap;
@@ -151,7 +154,7 @@
 .paper-rich-text.question-rich-text p,
 .paper-rich-text.question-rich-text h2,
 .paper-rich-text.question-rich-text h3 {
-  color: #172033;
+  color: #141312;
   font-size: 11pt;
   line-height: 1.7;
 }
@@ -173,7 +176,7 @@
 }
 
 .paper-option-key {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .paper-answer-space {
@@ -183,7 +186,7 @@
 .paper-answer-space--short {
   height: 15mm;
   margin-top: 2mm;
-  border-bottom: 1px solid #cbd5e1;
+  border-bottom: 1px solid #d0cec6;
 }
 
 .paper-answer-space--long {
@@ -196,12 +199,12 @@
 
 .paper-answer-space--long span {
   display: block;
-  border-bottom: 1px solid #cbd5e1;
+  border-bottom: 1px solid #d0cec6;
 }
 
 .paper-empty {
   padding: 20mm 0;
-  color: #64748b;
+  color: #787670;
   text-align: center;
 }
 

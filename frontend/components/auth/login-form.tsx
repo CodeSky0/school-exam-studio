@@ -36,9 +36,9 @@ export function LoginForm() {
         <FormField label="密码" type="password" autoComplete="current-password" placeholder="请输入登录密码" hint="密码长度为 10 至 72 个字符" error={form.formState.errors.password?.message} {...form.register("password")} />
         <Button type="submit" size="lg" className="mt-2 w-full" disabled={mutation.isPending}>{mutation.isPending ? "正在登录…" : "登录"}</Button>
       </form>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
-        <Link href="/register" className="font-medium text-primary hover:underline">注册教师账号</Link>
-        <Link href="/init" className="text-slate-500 hover:text-slate-800">首次使用，初始化学校</Link>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-copy-13">
+        <Link href="/register" className="font-medium text-accent-strong hover:text-accent hover:underline">注册教师账号</Link>
+        <Link href="/init" className="text-neutral-7 hover:text-neutral-9">首次使用，初始化学校</Link>
       </div>
     </div>
   );

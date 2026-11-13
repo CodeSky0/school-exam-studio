@@ -50,19 +50,19 @@ export function InitPanel() {
   if (mutation.data) {
     return (
       <div aria-live="polite">
-        <p className="mb-3 text-xs font-semibold tracking-[0.18em] text-primary">初始化完成</p>
-        <h2 className="text-3xl font-semibold tracking-tight text-slate-950">请保存学校代码</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-600">教师注册时需要输入此代码。本次结果仅在当前页面展示一次，离开或刷新前请妥善保存。</p>
-        <div className="mt-8 rounded-xl border border-primary/25 bg-primary-soft p-5">
-          <p className="text-xs font-medium text-primary-strong">8 位学校代码</p>
+        <p className="mb-3 text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">初始化完成</p>
+        <h2 className="text-title-28 font-medium tracking-[0.01em] text-neutral-10">请保存学校代码</h2>
+        <p className="mt-3 text-copy-14 leading-7 text-neutral-7">教师注册时需要输入此代码。本次结果仅在当前页面展示一次，离开或刷新前请妥善保存。</p>
+        <div className="mt-8 rounded-lg border border-accent/25 bg-accent-soft p-5">
+          <p className="text-label-12 font-medium text-accent-strong">8 位学校代码</p>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-            <output className="font-mono text-3xl font-semibold tracking-[0.22em] text-slate-950">{mutation.data.school_code}</output>
+            <output className="font-mono text-title-28 font-medium tracking-[0.22em] text-neutral-10">{mutation.data.school_code}</output>
             <Button variant="outline" size="sm" onClick={() => { void copySchoolCode(mutation.data.school_code); }}>
               {copyState === "copied" ? <CheckIcon /> : <CopyIcon />}
               {copyState === "copied" ? "已复制" : "复制代码"}
             </Button>
           </div>
-          {copyState === "error" ? <p className="mt-3 text-xs text-red-600">复制失败，请手动选择并复制代码。</p> : null}
+          {copyState === "error" ? <p className="mt-3 text-label-12 text-error">复制失败，请手动选择并复制代码。</p> : null}
         </div>
         <Link href="/login" className={buttonVariants({ size: "lg", className: "mt-8 w-full" })}>使用管理员账号登录</Link>
       </div>
@@ -80,7 +80,7 @@ export function InitPanel() {
         <FormField label="登录密码" type="password" autoComplete="new-password" placeholder="至少 10 个字符" hint="10 至 72 个字符，请使用独立的高强度密码" error={form.formState.errors.password?.message} {...form.register("password")} />
         <Button type="submit" size="lg" className="mt-2 w-full" disabled={mutation.isPending}>{mutation.isPending ? "正在初始化…" : "创建学校与管理员"}</Button>
       </form>
-      <p className="mt-6 text-sm text-slate-500">已完成初始化？<Link href="/login" className="ml-1 font-medium text-primary hover:underline">前往登录</Link></p>
+      <p className="mt-6 text-copy-13 text-neutral-7">已完成初始化？<Link href="/login" className="ml-1 font-medium text-accent-strong hover:text-accent hover:underline">前往登录</Link></p>
     </div>
   );
 }

@@ -61,10 +61,10 @@ export function OcrUpload({ activeField, onActiveFieldChange, onApply }: {
   const error = localError ?? (recognizeMutation.isError ? recognizeMutation.error : null);
 
   return (
-    <section aria-labelledby="ocr-panel-title" className="rounded-xl border border-border bg-white">
+    <section aria-labelledby="ocr-panel-title" className="rounded-lg border border-border bg-neutral-1">
       <div className="border-b border-border px-4 py-3">
-        <h2 id="ocr-panel-title" className="text-sm font-semibold text-slate-900">图片识别辅助录入</h2>
-        <p className="mt-1 text-xs leading-5 text-slate-500">单张不超过 5 MB，支持 JPEG、PNG、WebP。图片不会写入题目。</p>
+        <h2 id="ocr-panel-title" className="text-copy-16 font-medium text-neutral-10">图片识别辅助录入</h2>
+        <p className="mt-1 text-label-12 leading-5 text-neutral-7">单张不超过 5 MB，支持 JPEG、PNG、WebP。图片不会写入题目。</p>
       </div>
       <div className="grid gap-4 p-4">
         <div className="grid gap-2">
@@ -72,7 +72,7 @@ export function OcrUpload({ activeField, onActiveFieldChange, onApply }: {
           <Select id="ocr-target-field" value={activeField} onChange={(event) => onActiveFieldChange(event.target.value as EditableQuestionField)}>
             {Object.entries(fieldLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </Select>
-          <p className="text-xs leading-5 text-slate-500">聚焦题干、答案或解析编辑器也会更新此选项。</p>
+          <p className="text-label-12 leading-5 text-neutral-7">聚焦题干、答案或解析编辑器也会更新此选项。</p>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="ocr-image">题目截图</Label>
@@ -81,10 +81,10 @@ export function OcrUpload({ activeField, onActiveFieldChange, onApply }: {
             id="ocr-image"
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            className="h-auto cursor-pointer py-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-strong"
+            className="h-auto cursor-pointer py-2 text-label-12 file:mr-3 file:rounded-md file:border-0 file:bg-accent-soft file:px-3 file:py-1.5 file:text-label-12 file:font-medium file:text-accent-strong"
             onChange={(event) => chooseFile(event.target.files?.[0])}
           />
-          {file ? <p className="break-all text-xs text-slate-600">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</p> : null}
+          {file ? <p className="break-all text-label-12 text-neutral-7">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</p> : null}
         </div>
         <Button
           type="button"
@@ -102,7 +102,7 @@ export function OcrUpload({ activeField, onActiveFieldChange, onApply }: {
           <UploadIcon />{recognizeMutation.isPending ? "正在识别…" : "开始识别"}
         </Button>
         {error ? <FormError error={error} /> : null}
-        {message ? <p role="status" className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">{message}</p> : null}
+        {message ? <p role="status" className="rounded-lg border border-accent-soft-strong bg-accent-soft px-3 py-2 text-label-12 leading-5 text-info">{message}</p> : null}
         <div className="grid gap-2">
           <Label htmlFor="ocr-result">识别结果（可校对）</Label>
           <Textarea id="ocr-result" rows={8} value={resultText} placeholder="识别文本与 $…$、$$…$$ 公式将在这里显示" onChange={(event) => { setResultText(event.target.value); setMessage(null); }} />
@@ -120,7 +120,7 @@ export function OcrUpload({ activeField, onActiveFieldChange, onApply }: {
           >写入{fieldLabels[activeField]}</Button>
           <Button type="button" variant="outline" disabled={!resultText} onClick={() => { setResultText(""); setMessage(null); }}>清空结果</Button>
         </div>
-        <p className="text-xs leading-5 text-slate-500">写入会替换所选字段的当前内容。OCR 不会创建题目，保存前仍可继续编辑。</p>
+        <p className="text-label-12 leading-5 text-neutral-7">写入会替换所选字段的当前内容。OCR 不会创建题目，保存前仍可继续编辑。</p>
       </div>
     </section>
   );

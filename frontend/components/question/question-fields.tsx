@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { RichTextEditor } from "./rich-text-editor";
 
 export function FieldError({ id, message }: { id: string; message?: string }) {
-  return message ? <p id={id} className="text-xs leading-5 text-red-600">{message}</p> : null;
+  return message ? <p id={id} className="text-label-12 leading-5 text-error">{message}</p> : null;
 }
 
 export function QuestionMetadataFields({ state, errors, onChange }: {
@@ -22,8 +22,8 @@ export function QuestionMetadataFields({ state, errors, onChange }: {
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <div className="grid gap-2">
         <Label htmlFor="question-subject">学科</Label>
-        <Input id="question-subject" value={state.subject} readOnly aria-readonly="true" className="bg-slate-50 text-slate-600" aria-invalid={Boolean(errors.subject)} aria-describedby="question-subject-message" />
-        <p id="question-subject-message" className={errors.subject ? "text-xs text-red-600" : "text-xs text-slate-500"}>{errors.subject ?? "须与教师账号学科一致"}</p>
+        <Input id="question-subject" value={state.subject} readOnly aria-readonly="true" className="bg-neutral-2 text-neutral-7" aria-invalid={Boolean(errors.subject)} aria-describedby="question-subject-message" />
+        <p id="question-subject-message" className={errors.subject ? "text-label-12 text-error" : "text-label-12 text-neutral-7"}>{errors.subject ?? "须与教师账号学科一致"}</p>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="question-grade">年级</Label>
@@ -54,7 +54,7 @@ export function QuestionMetadataFields({ state, errors, onChange }: {
       <div className="grid gap-2 sm:col-span-2 xl:col-span-1">
         <Label htmlFor="question-tags">知识点标签</Label>
         <Input id="question-tags" value={state.tagsText} placeholder="方程；函数" aria-invalid={Boolean(errors.tags)} aria-describedby="question-tags-hint" onChange={(event) => onChange({ tagsText: event.target.value })} />
-        <p id="question-tags-hint" className={errors.tags ? "text-xs text-red-600" : "text-xs text-slate-500"}>{errors.tags ?? "逗号或分号分隔，最多 10 个"}</p>
+        <p id="question-tags-hint" className={errors.tags ? "text-label-12 text-error" : "text-label-12 text-neutral-7"}>{errors.tags ?? "逗号或分号分隔，最多 10 个"}</p>
       </div>
     </div>
   );
@@ -72,7 +72,7 @@ export function ChoiceOptionsField({ options, errors, onChange }: {
   return (
     <section aria-labelledby="choice-options-title" className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 id="choice-options-title" className="text-sm font-semibold text-slate-800">选项</h3>
+        <h3 id="choice-options-title" className="text-copy-13 font-medium text-neutral-9">选项</h3>
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" disabled={options.length <= 2} onClick={() => onChange(options.slice(0, -1))}><MinusIcon />删除末项</Button>
           <Button type="button" variant="outline" size="sm" disabled={options.length >= 4} onClick={() => onChange([...options, { key: nextOptionKey(options), content: "" }])}><PlusIcon />添加选项</Button>
@@ -110,18 +110,18 @@ export function AnswerField({ type, options, answer, error, onChange, onActivate
   const selected = normalizeChoiceAnswer(answer).split("");
   return (
     <fieldset className="grid gap-3" onFocus={onActivate}>
-      <legend className="text-sm font-medium text-slate-700">答案</legend>
+      <legend className="text-copy-13 font-medium text-neutral-8">答案</legend>
       <div className="flex flex-wrap gap-2" aria-describedby="question-answer-error">
         {type === "true_false" ? [
           { value: "true", label: "正确" },
           { value: "false", label: "错误" },
         ].map((item) => (
-          <label key={item.value} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border bg-white px-4 text-sm has-checked:border-primary has-checked:bg-primary-soft has-checked:text-primary-strong">
+          <label key={item.value} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border bg-neutral-1 px-4 text-copy-13 has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-strong">
             <input type="radio" name="true-false-answer" value={item.value} checked={answer === item.value} onChange={() => onChange(item.value)} className="accent-primary" />
             {item.label}
           </label>
         )) : options.map((option) => (
-          <label key={option.key} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border bg-white px-4 text-sm has-checked:border-primary has-checked:bg-primary-soft has-checked:text-primary-strong">
+          <label key={option.key} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border bg-neutral-1 px-4 text-copy-13 has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-strong">
             <input
               type={type === "single_choice" ? "radio" : "checkbox"}
               name={type === "single_choice" ? "single-choice-answer" : `multiple-choice-${option.key}`}
@@ -136,7 +136,7 @@ export function AnswerField({ type, options, answer, error, onChange, onActivate
           </label>
         ))}
       </div>
-      {type === "multiple_choice" ? <p className="text-xs text-slate-500">至少选择一项，保存时按后端约定转换为逗号分隔的选项键。</p> : null}
+      {type === "multiple_choice" ? <p className="text-label-12 text-neutral-7">至少选择一项，保存时按后端约定转换为逗号分隔的选项键。</p> : null}
       <FieldError id="question-answer-error" message={error} />
     </fieldset>
   );

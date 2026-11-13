@@ -34,12 +34,12 @@ export function ConfirmDialog({ open, title, description, confirmLabel, isPendin
         event.preventDefault();
         if (!isPending) onCancel();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-white p-0 text-foreground shadow-xl backdrop:bg-slate-950/40"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-paper p-0 text-neutral-9 shadow-xl backdrop:bg-neutral-10/25 backdrop:backdrop-blur-sm"
     >
       <div className="p-6">
-        <h2 id="confirm-dialog-title" className="text-lg font-semibold tracking-tight text-slate-950">{title}</h2>
-        <p id="confirm-dialog-description" className="mt-3 text-sm leading-6 text-slate-600">{description}</p>
-        {error ? <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm leading-5 text-red-700">{error}</p> : null}
+        <h2 id="confirm-dialog-title" className="text-title-20 font-medium tracking-[0.01em] text-neutral-10">{title}</h2>
+        <p id="confirm-dialog-description" className="mt-3 text-copy-14 leading-7 text-neutral-7">{description}</p>
+        {error ? <p role="alert" className="mt-4 rounded-md border border-error-soft-strong bg-error-soft px-3 py-2 text-copy-13 leading-5 text-error">{error}</p> : null}
         <div className="mt-6 flex justify-end gap-3">
           <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>取消</Button>
           <Button type="button" variant={confirmVariant} disabled={isPending} onClick={onConfirm}>

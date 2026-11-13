@@ -19,7 +19,7 @@ function PrintContent({ paperId }: { paperId: string }) {
   if (paperQuery.error || !paperQuery.data) {
     return (
       <main className="no-print mx-auto max-w-lg px-6 py-16">
-        <h1 className="mb-5 text-2xl font-semibold text-slate-950">无法读取试卷</h1>
+        <h1 className="mb-5 text-title-24 font-medium text-neutral-10">无法读取试卷</h1>
         <FormError error={paperQuery.error} />
         <Button variant="outline" className="mt-5" onClick={() => { void paperQuery.refetch(); }}>重新读取</Button>
       </main>

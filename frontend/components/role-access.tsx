@@ -27,8 +27,8 @@ export function RoleAccess({ role, children }: {
   if (!currentUser.data) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-6 py-16">
-        <h1 className="text-2xl font-semibold text-slate-950">无法验证当前会话</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">确认身份前不会请求或展示此页面的业务数据。</p>
+        <h1 className="text-title-24 font-medium text-neutral-10">无法验证当前会话</h1>
+        <p className="mt-3 text-copy-14 leading-7 text-neutral-7">确认身份前不会请求或展示此页面的业务数据。</p>
         <div className="mt-6"><FormError error={currentUser.error} /></div>
         <div className="mt-6 flex gap-3"><Button variant="outline" onClick={() => { void currentUser.refetch(); }}>重新验证</Button><Link href="/login" className={buttonVariants({ variant: "ghost" })}>返回登录</Link></div>
       </main>
@@ -40,10 +40,10 @@ export function RoleAccess({ role, children }: {
     const requiredLabel = role === "admin" ? "学校管理员" : "学科教师";
     return (
       <AppShell user={user}>
-        <div role="alert" className="mx-auto max-w-2xl border-l-2 border-amber-400 py-4 pl-5">
-          <p className="font-mono text-xs font-semibold tracking-wide text-amber-800">403 · 无权限</p>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-950">此页面仅面向{requiredLabel}</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">当前角色不会请求或展示此页面的业务数据，请通过导航进入可用工作区。</p>
+        <div role="alert" className="mx-auto max-w-2xl border-l-2 border-warning py-4 pl-5">
+          <p className="font-mono text-label-12 font-medium tracking-wide text-warning">403 · 无权限</p>
+          <h1 className="mt-2 text-title-24 font-medium text-neutral-10">此页面仅面向{requiredLabel}</h1>
+          <p className="mt-3 text-copy-14 leading-7 text-neutral-7">当前角色不会请求或展示此页面的业务数据，请通过导航进入可用工作区。</p>
           <Link href={user.role === "admin" ? "/admin/dashboard" : "/teacher/dashboard"} className={buttonVariants({ variant: "outline", className: "mt-6" })}>返回我的工作区</Link>
         </div>
       </AppShell>

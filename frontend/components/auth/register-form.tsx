@@ -19,9 +19,9 @@ export function RegisterForm() {
   if (mutation.isSuccess) {
     return (
       <div aria-live="polite">
-        <p className="mb-3 text-xs font-semibold tracking-[0.18em] text-primary">注册完成</p>
-        <h2 className="text-3xl font-semibold tracking-tight text-slate-950">教师账号已创建</h2>
-        <p className="mt-4 text-sm leading-7 text-slate-600">现在可以使用注册邮箱和密码登录，进入当前学校的工作区。</p>
+        <p className="mb-3 text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">注册完成</p>
+        <h2 className="text-title-28 font-medium tracking-[0.01em] text-neutral-10">教师账号已创建</h2>
+        <p className="mt-4 text-copy-13 leading-7 text-neutral-7">现在可以使用注册邮箱和密码登录，进入当前学校的工作区。</p>
         <Link href="/login" className={buttonVariants({ size: "lg", className: "mt-8 w-full" })}>前往登录</Link>
       </div>
     );
@@ -41,7 +41,7 @@ export function RegisterForm() {
         <FormField label="密码" type="password" autoComplete="new-password" placeholder="至少 10 个字符" hint="10 至 72 个字符" error={form.formState.errors.password?.message} {...form.register("password")} />
         <Button type="submit" size="lg" className="mt-2 w-full" disabled={mutation.isPending}>{mutation.isPending ? "正在注册…" : "创建教师账号"}</Button>
       </form>
-      <p className="mt-6 text-sm text-slate-500">已有账号？<Link href="/login" className="ml-1 font-medium text-primary hover:underline">直接登录</Link></p>
+      <p className="mt-6 text-copy-13 text-neutral-7">已有账号？<Link href="/login" className="ml-1 font-medium text-accent-strong hover:text-accent hover:underline">直接登录</Link></p>
     </div>
   );
 }

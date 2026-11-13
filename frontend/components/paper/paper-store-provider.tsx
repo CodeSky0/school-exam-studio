@@ -16,9 +16,9 @@ export function PaperStoreProvider({ userId, children }: { userId: string; child
     <PaperStoreContext.Provider value={store}>
       {hasHydrated ? children : (
         <div className="mx-auto max-w-[1500px] animate-pulse" aria-label="正在恢复当前教师的组卷内容">
-          <div className="h-4 w-32 rounded bg-slate-200" />
-          <div className="mt-4 h-9 w-72 max-w-full rounded bg-slate-200" />
-          <div className="mt-8 h-80 rounded-xl bg-slate-100" />
+          <div className="h-4 w-32 rounded bg-neutral-4" />
+          <div className="mt-4 h-9 w-72 max-w-full rounded bg-neutral-4" />
+          <div className="mt-8 h-80 rounded-lg bg-neutral-3" />
         </div>
       )}
     </PaperStoreContext.Provider>

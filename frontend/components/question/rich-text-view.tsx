@@ -26,7 +26,7 @@ export function RichTextView({ content, className }: { content: string; classNam
     });
   }, [sanitized]);
 
-  if (!content) return <span className="text-slate-400">未填写</span>;
+  if (!content) return <span className="text-neutral-6">未填写</span>;
   return (
     <div
       ref={rootRef}

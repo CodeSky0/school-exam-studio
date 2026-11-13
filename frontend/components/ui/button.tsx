@@ -4,21 +4,21 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-[background-color,border-color,color,transform,box-shadow] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-copy-13 font-medium transition-[background-color,border-color,color,transform] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary-strong",
-        secondary: "bg-primary-soft text-primary-strong hover:bg-primary-soft-strong",
-        outline: "border border-border-strong bg-white text-foreground shadow-sm hover:border-primary/40 hover:bg-slate-50",
-        ghost: "text-muted-foreground hover:bg-slate-100 hover:text-foreground",
-        destructive: "bg-red-600 text-white shadow-sm hover:bg-red-700",
+        default: "bg-accent text-accent-foreground hover:bg-accent-strong",
+        secondary: "bg-neutral-2 text-neutral-9 ring-1 ring-border hover:bg-neutral-3",
+        outline: "border border-border-strong bg-transparent text-neutral-9 hover:border-neutral-5 hover:bg-neutral-2",
+        ghost: "text-neutral-7 hover:bg-neutral-2 hover:text-neutral-10",
+        destructive: "bg-error text-accent-foreground hover:bg-error/90",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-12 rounded-xl px-5",
-        icon: "size-10 p-0",
+        default: "h-9 px-3.5 py-2",
+        sm: "h-8 rounded-md px-3 text-label-12",
+        lg: "h-11 rounded-md px-5 text-copy-14",
+        icon: "size-9 p-0",
       },
     },
     defaultVariants: {

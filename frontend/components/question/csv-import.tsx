@@ -118,38 +118,38 @@ export function CsvImport({ onImported }: { onImported: (count: number) => void 
               <Label htmlFor="question-csv-file">选择 CSV 文件</Label>
               <Button type="button" variant="ghost" size="sm" disabled={downloadMutation.isPending || isPending} onClick={() => downloadMutation.mutate()}><DownloadIcon />{downloadMutation.isPending ? "正在下载…" : "下载模板"}</Button>
             </div>
-            <Input ref={inputRef} id="question-csv-file" type="file" accept=".csv,text/csv" disabled={isPending} className="h-auto cursor-pointer py-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-strong" onChange={(event) => chooseFile(event.target.files?.[0])} />
-            <p className="text-xs leading-5 text-slate-500">UTF-8 编码，最多 5 MB、1,000 行。更换文件后必须重新校验。</p>
-            {file ? <p className="break-all text-xs text-slate-700">{file.name} · {(file.size / 1024).toFixed(1)} KB</p> : null}
+            <Input ref={inputRef} id="question-csv-file" type="file" accept=".csv,text/csv" disabled={isPending} className="h-auto cursor-pointer py-2 text-label-12 file:mr-3 file:rounded-md file:border-0 file:bg-accent-soft file:px-3 file:py-1.5 file:text-label-12 file:font-medium file:text-accent-strong" onChange={(event) => chooseFile(event.target.files?.[0])} />
+            <p className="text-label-12 leading-5 text-neutral-7">UTF-8 编码，最多 5 MB、1,000 行。更换文件后必须重新校验。</p>
+            {file ? <p className="break-all text-label-12 text-neutral-8">{file.name} · {(file.size / 1024).toFixed(1)} KB</p> : null}
           </div>
-          {localError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700">{localError}</p> : null}
+          {localError ? <p role="alert" className="rounded-lg border border-error-soft-strong bg-error-soft px-3.5 py-3 text-copy-13 text-error">{localError}</p> : null}
           {downloadMutation.isError ? <FormError error={downloadMutation.error} /> : null}
           {mutationError ? <FormError error={mutationError} /> : null}
 
           {validation ? (
             <section aria-label="CSV 校验结果" className="grid gap-4">
-              <div className={validation.errors.length ? "rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"} role="status">
+              <div className={validation.errors.length ? "rounded-lg border border-error-soft-strong bg-error-soft px-4 py-3 text-copy-13 text-error" : "rounded-lg border border-success/25 bg-success-soft px-4 py-3 text-copy-13 text-success"} role="status">
                 {validation.errors.length ? `校验未通过：${validation.valid_count} 行有效，${validation.errors.length} 个错误。请修正文件后重新上传。` : `校验通过：共 ${validation.valid_count} 行可导入，以下为最多 50 行预览。`}
               </div>
               {validation.errors.length ? (
-                <div className="overflow-x-auto rounded-lg border border-red-200" tabIndex={0} role="region" aria-label="CSV 逐行错误，可横向滚动">
-                  <table className="w-full min-w-[600px] border-collapse text-left text-sm">
-                    <thead className="bg-red-50 text-xs text-red-800"><tr><th className="px-3 py-2">CSV 行号</th><th className="px-3 py-2">字段</th><th className="px-3 py-2">错误说明</th></tr></thead>
-                    <tbody className="divide-y divide-red-100 bg-white">{validation.errors.map((error, index) => <tr key={`${error.line}-${error.field}-${index}`}><td className="px-3 py-2 font-mono text-xs">{error.line}</td><td className="px-3 py-2 text-xs">{error.field || "整行"}</td><td className="px-3 py-2 text-xs leading-5 text-red-700">{error.message}</td></tr>)}</tbody>
+                <div className="overflow-x-auto rounded-lg border border-error-soft-strong" tabIndex={0} role="region" aria-label="CSV 逐行错误，可横向滚动">
+                  <table className="w-full min-w-[600px] border-collapse text-left text-copy-13">
+                    <thead className="bg-error-soft text-label-12 text-error"><tr><th className="px-3 py-2">CSV 行号</th><th className="px-3 py-2">字段</th><th className="px-3 py-2">错误说明</th></tr></thead>
+                    <tbody className="divide-y divide-error-soft bg-neutral-1">{validation.errors.map((error, index) => <tr key={`${error.line}-${error.field}-${index}`}><td className="px-3 py-2 font-mono text-label-12">{error.line}</td><td className="px-3 py-2 text-label-12">{error.field || "整行"}</td><td className="px-3 py-2 text-label-12 leading-5 text-error">{error.message}</td></tr>)}</tbody>
                   </table>
                 </div>
               ) : null}
               {validation.preview.length ? (
                 <div className="overflow-x-auto rounded-lg border border-border" tabIndex={0} role="region" aria-label="CSV 校验预览，可横向滚动">
-                  <table className="w-full min-w-[1000px] border-collapse text-left text-sm">
-                    <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-3 py-2">行号</th><th className="px-3 py-2">题型</th><th className="px-3 py-2">学科 / 年级</th><th className="px-3 py-2">难度</th><th className="px-3 py-2">标签</th><th className="w-[34%] px-3 py-2">题干</th><th className="px-3 py-2">答案</th></tr></thead>
-                    <tbody className="divide-y divide-border bg-white">{validation.preview.map((row, index) => <tr key={`${row.line ?? index + 2}-${index}`} className="align-top"><td className="px-3 py-3 font-mono text-xs">{row.line ?? index + 2}</td><td className="whitespace-nowrap px-3 py-3 text-xs">{questionTypeLabels[row.question_type]}<span className="mt-1 block text-slate-400">{row.options.length} 个选项</span></td><td className="px-3 py-3 text-xs">{row.subject}<span className="mt-1 block text-slate-500">{row.grade}</span></td><td className="px-3 py-3 font-mono text-xs">{row.difficulty} / 5</td><td className="max-w-32 px-3 py-3 text-xs leading-5">{row.tags.join("、") || "无"}</td><td className="max-w-md px-3 py-3"><RichTextView content={row.content} className="max-h-28 overflow-hidden text-xs" /></td><td className="max-w-48 px-3 py-3"><RichTextView content={row.answer} className="max-h-28 overflow-hidden text-xs" /></td></tr>)}</tbody>
+                  <table className="w-full min-w-[1000px] border-collapse text-left text-copy-13">
+                    <thead className="bg-neutral-2 text-label-12 text-neutral-7"><tr><th className="px-3 py-2">行号</th><th className="px-3 py-2">题型</th><th className="px-3 py-2">学科 / 年级</th><th className="px-3 py-2">难度</th><th className="px-3 py-2">标签</th><th className="w-[34%] px-3 py-2">题干</th><th className="px-3 py-2">答案</th></tr></thead>
+                    <tbody className="divide-y divide-border bg-neutral-1">{validation.preview.map((row, index) => <tr key={`${row.line ?? index + 2}-${index}`} className="align-top"><td className="px-3 py-3 font-mono text-label-12">{row.line ?? index + 2}</td><td className="whitespace-nowrap px-3 py-3 text-label-12">{questionTypeLabels[row.question_type]}<span className="mt-1 block text-neutral-6">{row.options.length} 个选项</span></td><td className="px-3 py-3 text-label-12">{row.subject}<span className="mt-1 block text-neutral-7">{row.grade}</span></td><td className="px-3 py-3 font-mono text-label-12">{row.difficulty} / 5</td><td className="max-w-32 px-3 py-3 text-label-12 leading-5">{row.tags.join("、") || "无"}</td><td className="max-w-md px-3 py-3"><RichTextView content={row.content} className="max-h-28 overflow-hidden text-label-12" /></td><td className="max-w-48 px-3 py-3"><RichTextView content={row.answer} className="max-h-28 overflow-hidden text-label-12" /></td></tr>)}</tbody>
                   </table>
                 </div>
               ) : null}
             </section>
           ) : null}
-          <p className="text-xs leading-5 text-slate-500">确认导入会重新上传当前文件并由服务端再次完整校验；校验结果不等于已写入题库。</p>
+          <p className="text-label-12 leading-5 text-neutral-7">确认导入会重新上传当前文件并由服务端再次完整校验；校验结果不等于已写入题库。</p>
         </div>
       </Dialog>
     </>

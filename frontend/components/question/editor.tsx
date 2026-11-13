@@ -94,17 +94,17 @@ export function QuestionEditor({ user, question, onSaved, onCancel }: {
           <div>
             <Button type="button" variant="ghost" size="sm" className="-ml-3 mb-3" onClick={cancelEditing}><ArrowLeftIcon />返回题目列表</Button>
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">{question ? "编辑自己的草稿" : "新建题目草稿"}</h2>
-              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">{questionStatusLabels[question?.status ?? "draft"]}</span>
+              <h2 className="text-title-24 font-medium tracking-[0.01em] text-neutral-10">{question ? "编辑自己的草稿" : "新建题目草稿"}</h2>
+              <span className="rounded-full bg-warning-soft px-2.5 py-1 text-label-12 font-medium text-warning">{questionStatusLabels[question?.status ?? "draft"]}</span>
             </div>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{questionTypeLabels[form.question_type]} · 教师只能保存草稿，发布与归档由管理员处理。</p>
+            <p className="mt-2 text-copy-14 leading-7 text-neutral-7">{questionTypeLabels[form.question_type]} · 教师只能保存草稿，发布与归档由管理员处理。</p>
           </div>
           <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? "正在保存…" : "保存草稿"}</Button>
         </div>
       </section>
 
       {saveMutation.isError ? <FormError error={saveMutation.error} /> : null}
-      {errors.form ? <p role="alert" className="text-sm text-red-600">{errors.form}</p> : null}
+      {errors.form ? <p role="alert" className="text-copy-13 text-error">{errors.form}</p> : null}
       <QuestionMetadataFields state={form} errors={errors} onChange={updateForm} />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
@@ -123,7 +123,7 @@ export function QuestionEditor({ user, question, onSaved, onCancel }: {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-        <p className="text-xs leading-5 text-slate-500">保存前会在浏览器再次移除脚本、图片和危险属性，服务端仍需执行白名单消毒。</p>
+        <p className="text-label-12 leading-5 text-neutral-7">保存前会在浏览器再次移除脚本、图片和危险属性，服务端仍需执行白名单消毒。</p>
         <div className="flex gap-3">
           <Button type="button" variant="outline" disabled={saveMutation.isPending} onClick={cancelEditing}>取消</Button>
           <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? "正在保存…" : "保存草稿"}</Button>
