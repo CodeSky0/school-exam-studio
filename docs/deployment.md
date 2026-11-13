@@ -1,0 +1,97 @@
+# 部署指南
+
+本文档面向单学校生产部署。系统一套实例只允许初始化一所学校，所有业务数据通过 `school_id` 隔离。
+
+## 1. 组件与端口
+
+| 组件 | 默认地址 | 说明 |
+|---|---|---|
+| Next.js 前端 | `http://localhost:3000` | 生产使用 `pnpm build && pnpm start` |
+| Go API | `http://localhost:8080` | `cmd/api`，迁移使用 `cmd/migrate` |
+| PostgreSQL 16 | `localhost:5432` | 唯一业务持久化存储，需要 pgcrypto |
+| Redis 7 | `localhost:6379` | 仅登录/注册限流与短期缓存 |
+| OCR sidecar | `127.0.0.1:8001` | 仅回环或内网访问，禁止暴露公网 |
+
+## 2. 环境变量
+
+| 变量 | 要求 |
+|---|---|
+| `APP_ENV` | 生产必须为 `production`，启用 Secure Cookie |
+| `HTTP_ADDR` | 默认 `:8080` |
+| `DATABASE_URL` | 指向生产 PostgreSQL 业务库，建议独立低权限账号 |
+| `REDIS_URL` | 指向 Redis，不保存业务数据 |
+| `OCR_URL` | 指向内网 OCR sidecar，例如 `http://127.0.0.1:8001` |
+| `JWT_SECRET` | 至少 32 字节的高强度随机值，使用密钥管理系统注入 |
+| `CORS_ORIGIN` | 前端完整源，例如 `https://exam.school.edu.cn` |
+| `NEXT_PUBLIC_API_URL` | 构建时注入的 API 地址，修改后必须重新构建前端 |
+
+禁止把 `.env`、访问令牌、密码或模型缓存提交到 Git。
+
+## 3. 启动顺序
+
+```bash
+docker compose up -d                # PostgreSQL、Redis、OCR
+cd backend
+go run cmd/migrate/main.go          # 版本化迁移，幂等
+go run cmd/api/main.go              # 或编译后由 systemd 托管
+cd ../frontend
+pnpm install --frozen-lockfile
+pnpm build
+pnpm start
+```
+
+生产建议使用进程管理器（systemd、Supervisor 或容器编排）托管 API 与前端，并为 PostgreSQL 数据卷和 OCR 模型卷配置独立持久化。
+
+## 4. TLS 与反向代理
+
+- 生产必须由反向代理（Nginx、Caddy 等）终止 TLS，并将前端与 API 暴露为预期的同源或跨源地址。
+- `APP_ENV=production` 时认证 Cookie 带 `Secure`、`HttpOnly`、`SameSite=Strict`。
+- `CORS_ORIGIN` 必须与浏览器地址栏中的前端源完全一致；所有修改请求会校验 `Origin`。
+- 不要在反向代理日志中记录认证头、Cookie 或密码。
+
+Nginx 示例（前端与 API 分别转发）：
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name exam.school.edu.cn;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+若按上述同域部署，`NEXT_PUBLIC_API_URL=https://exam.school.edu.cn`、`CORS_ORIGIN=https://exam.school.edu.cn`。
+
+## 5. 数据安全与备份
+
+- 每日备份 PostgreSQL：`pg_dump -Fc school_db > backup.dump`，定期演练 `pg_restore`。
+- Redis 无需备份，限流数据丢失不影响业务一致性。
+- 原题图片只在内存中处理，数据库与磁盘均不保存；OCR 模型卷只含缓存，可安全重建。
+- 迁移前必须备份数据库；`migrations/*.down.sql` 仅用于受控回滚演练。
+
+## 6. OCR 网络安全与资源
+
+- OCR 仅监听回环或内网地址，安全组/防火墙不得对公网开放 8001。
+- 首次识别自动下载模型，预留约 2 GB 磁盘与至少 4 GB 可用内存；生产建议预热模型后再开放录题功能。
+- `/healthz` 用于存活检查，`/readyz` 仅在模型加载完成后返回 200。
+- Go 客户端已限制 5 MB 图片、真实 MIME、像素上限、并发与超时，上游失败映射为 502/503/504。
+
+## 7. 上线检查清单
+
+1. `APP_ENV=production`、强 `JWT_SECRET`、正确 `CORS_ORIGIN` 已配置。
+2. 迁移成功，`/healthz`、`/readyz` 正常。
+3. 首次访问 `/init` 创建学校与管理员，页面仅展示一次学校代码；初始化后重复调用返回 409。
+4. 教师注册、录题、管理员审核、组卷、打印全流程人工验收。
+5. 禁用教师或重置密码后旧会话立即失效。
+6. 第二所学校越权、CSV 全量回滚、XSS 白名单消毒等自动化测试全部通过。
+7. 备份策略生效，日志不含密码、Token、认证头或完整题目图片。
