@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paperInputSchema, paperSchema } from "./paper-schemas";
+import { paperInputSchema, paperListSchema, paperSchema } from "./paper-schemas";
 
 const questionId = "1f08b234-0a69-4a1f-a2f5-f8a24f2f77a1";
 const creatorId = "c2dd2e3f-b0c6-4b0c-a8ce-970e7ac3cf94";
@@ -81,5 +81,26 @@ describe("试卷 Zod 契约", () => {
   it("拒绝结构不完整的试卷响应", () => {
     expect(paperSchema.safeParse({ ...paper, school_name: undefined }).success).toBe(false);
     expect(paperSchema.safeParse({ ...paper, total_score: 5 }).success).toBe(false);
+  });
+
+  it("列表摘要不要求题目明细并使用 question_count 展示题数", () => {
+    const summary = {
+      id: paper.id,
+      creator_id: paper.creator_id,
+      school_name: paper.school_name,
+      title: paper.title,
+      subject: paper.subject,
+      grade: paper.grade,
+      total_score: paper.total_score,
+      duration_minutes: paper.duration_minutes,
+      question_count: 1,
+      created_at: paper.created_at,
+      updated_at: paper.updated_at,
+    };
+    const parsed = paperListSchema.parse({ items: [summary], total: 1, page: 1, page_size: 10 });
+    expect(parsed.items[0].question_count).toBe(1);
+
+    const legacy = paperListSchema.parse({ items: [{ ...summary, question_count: undefined }], total: 1, page: 1, page_size: 10 });
+    expect(legacy.items[0].question_count).toBe(0);
   });
 });

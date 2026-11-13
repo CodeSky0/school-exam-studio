@@ -50,7 +50,7 @@ func TestPaperAPIContractAndPermissions(t *testing.T) {
 	}
 	var listed paper.ListResult
 	decodeAPIBody(t, response, &listed)
-	if listed.Total != 1 || listed.PageSize != 100 || len(listed.Items) != 1 || listed.Items[0].Questions != nil {
+	if listed.Total != 1 || listed.PageSize != 100 || len(listed.Items) != 1 || listed.Items[0].Questions != nil || listed.Items[0].QuestionCount != 1 {
 		t.Fatalf("unexpected paper list response: %s", response.Body.String())
 	}
 

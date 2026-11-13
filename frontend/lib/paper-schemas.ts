@@ -59,8 +59,12 @@ export const paperSchema = z.object({
   updated_at: z.string(),
 });
 
+export const paperSummarySchema = paperSchema.omit({ questions: true }).extend({
+  question_count: z.number().int().nonnegative().default(0),
+});
+
 export const paperListSchema = z.object({
-  items: z.array(paperSchema),
+  items: z.array(paperSummarySchema),
   total: z.number().int().nonnegative(),
   page: z.number().int().positive(),
   page_size: z.number().int().positive().max(100),
@@ -70,4 +74,5 @@ export type PaperQuestionInput = z.infer<typeof paperQuestionInputSchema>;
 export type PaperInput = z.infer<typeof paperInputSchema>;
 export type PaperQuestion = z.infer<typeof paperQuestionSchema>;
 export type Paper = z.infer<typeof paperSchema>;
+export type PaperSummary = z.infer<typeof paperSummarySchema>;
 export type PaperList = z.infer<typeof paperListSchema>;

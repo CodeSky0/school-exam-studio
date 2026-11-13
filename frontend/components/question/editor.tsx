@@ -55,7 +55,8 @@ export function QuestionEditor({ user, question, onSaved, onCancel }: {
       const nextErrors: Record<string, string> = {};
       result.error.issues.forEach((issue) => {
         const path = issue.path.join(".") || "form";
-        if (!nextErrors[path]) nextErrors[path] = issue.message;
+        const key = issue.path[0] === "tags" ? "tags" : path;
+        if (!nextErrors[key]) nextErrors[key] = issue.message;
       });
       setErrors(nextErrors);
       return;

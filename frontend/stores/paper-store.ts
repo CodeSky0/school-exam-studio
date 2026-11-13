@@ -187,11 +187,13 @@ export function createPaperStore(userId: string, options: PaperStoreOptions = {}
             const resolved = await resolve(ids);
             if (request !== restoreRequest || !isCurrentCart()) return;
             const resolvedById = new Map(resolved.filter((question) => question.status === "published").map((question) => [question.id, question]));
-            const items = snapshot.items.flatMap((item) => {
-              const question = resolvedById.get(item.question.id);
-              return question ? [{ ...item, question }] : [];
+            set((state) => {
+              const items = state.items.flatMap((item) => {
+                const question = resolvedById.get(item.question.id);
+                return question ? [{ ...item, question }] : [];
+              });
+              return { items, removedInvalidCount: state.items.length - items.length };
             });
-            set({ items, removedInvalidCount: snapshot.items.length - items.length });
           } catch (error) {
             if (request === restoreRequest && isCurrentCart()) {
               set({ resolutionError: error instanceof Error ? error.message : "无法校验已恢复的题目" });
@@ -225,3 +227,15 @@ export function createPaperStore(userId: string, options: PaperStoreOptions = {}
 }
 
 export type PaperStoreApi = ReturnType<typeof createPaperStore>;
+
+export async function rehydratePaperStore(store: PaperStoreApi): Promise<void> {
+  try {
+    await store.persist.rehydrate();
+  } catch (error) {
+    store.getState().completeHydration(error);
+    return;
+  }
+  if (!store.getState().hasHydrated) {
+    store.getState().completeHydration(new Error("persist rehydration failed"));
+  }
+}

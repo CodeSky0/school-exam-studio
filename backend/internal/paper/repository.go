@@ -160,6 +160,9 @@ func (r *Repository) List(ctx context.Context, principal auth.Principal, filter 
 		WithSchool(func(schoolQuery *ent.SchoolQuery) {
 			schoolQuery.Where(entschool.IDEQ(principal.SchoolID))
 		}).
+		WithPaperQuestions(func(questionQuery *ent.PaperQuestionQuery) {
+			questionQuery.Where(entpaperquestion.SchoolIDEQ(principal.SchoolID))
+		}).
 		Order(
 			entpaper.ByUpdatedAt(entsql.OrderDesc()),
 			entpaper.ByID(entsql.OrderDesc()),
@@ -323,6 +326,7 @@ func fromEnt(entity *ent.Paper, includeQuestions bool) (Paper, error) {
 		Subject:         entity.Subject,
 		Grade:           entity.Grade,
 		TotalScore:      total.String(),
+		QuestionCount:   len(entity.Edges.PaperQuestions),
 		DurationMinutes: entity.DurationMinutes,
 		CreatedAt:       entity.CreatedAt,
 		UpdatedAt:       entity.UpdatedAt,
@@ -379,4 +383,3 @@ func questionFromEnt(entity *ent.Question) question.Question {
 		UpdatedAt:    entity.UpdatedAt,
 	}
 }
-

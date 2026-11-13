@@ -258,7 +258,7 @@ func TestServiceListFiltersStablePaginationAndCapsPageSize(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if listed.Total != 2 || len(listed.Items) != 1 || listed.Items[0].ID != expectedID || listed.Items[0].Questions != nil {
+		if listed.Total != 2 || len(listed.Items) != 1 || listed.Items[0].ID != expectedID || listed.Items[0].Questions != nil || listed.Items[0].QuestionCount != 1 {
 			t.Fatalf("page %d = %+v, want ID %s", pageIndex+1, listed, expectedID)
 		}
 	}

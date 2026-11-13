@@ -3,7 +3,7 @@ import type { StateStorage } from "zustand/middleware";
 import type { Question, QuestionStatus } from "@/lib/question-schemas";
 import type { Paper } from "@/lib/paper-schemas";
 import { sumScores } from "@/lib/score";
-import { createPaperStore, paperCartStorageKey } from "./paper-store";
+import { createPaperStore, paperCartStorageKey, rehydratePaperStore } from "./paper-store";
 
 const userId = "c2dd2e3f-b0c6-4b0c-a8ce-970e7ac3cf94";
 const otherUserId = "ee996bd9-d35e-4a62-960c-a853d18d197f";
@@ -117,6 +117,50 @@ describe("组卷购物车", () => {
     expect(resolveQuestions).toHaveBeenCalledWith([firstQuestionId, secondQuestionId]);
     expect(store.getState().removedInvalidCount).toBe(1);
     expect(store.getState().items[0].assignedScore).toBe("0.10");
+  });
+
+  it("恢复校验期间修改的分值不会被旧快照覆盖", async () => {
+    const storage = memoryStorage();
+    const first = makeQuestion(firstQuestionId);
+    const second = makeQuestion(secondQuestionId);
+    storage.setItem(paperCartStorageKey(userId), JSON.stringify({
+      state: {
+        paperId: null,
+        title: "待恢复试卷",
+        subject: "数学",
+        grade: "八年级",
+        durationMinutes: "90",
+        items: [
+          { question: first, assignedScore: "0.10" },
+          { question: second, assignedScore: "0.20" },
+        ],
+      },
+      version: 1,
+    }));
+    let release!: (questions: Question[]) => void;
+    const resolveQuestions = vi.fn(() => new Promise<Question[]>((resolve) => { release = resolve; }));
+    const store = createPaperStore(userId, options(storage, resolveQuestions));
+    await store.persist.rehydrate();
+    expect(resolveQuestions).toHaveBeenCalledWith([firstQuestionId, secondQuestionId]);
+
+    store.getState().setScore(firstQuestionId, "1.00");
+    release([first, second]);
+    await vi.waitFor(() => {
+      expect(store.getState().isResolving).toBe(false);
+      expect(store.getState().items[0].assignedScore).toBe("1.00");
+    });
+  });
+
+  it("本地存储损坏时结束水合并展示恢复错误", async () => {
+    const brokenStorage: StateStorage = {
+      getItem: () => { throw new Error("storage corrupted"); },
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    const store = createPaperStore(userId, options(brokenStorage));
+    await rehydratePaperStore(store);
+    expect(store.getState().hasHydrated).toBe(true);
+    expect(store.getState().resolutionError).toBe("无法恢复本地组卷内容");
   });
 
   it("载入已有试卷时按 order_index 排序", () => {

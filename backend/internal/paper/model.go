@@ -30,6 +30,7 @@ type Paper struct {
 	Subject         string          `json:"subject"`
 	Grade           string          `json:"grade"`
 	TotalScore      string          `json:"total_score"`
+	QuestionCount   int             `json:"question_count"`
 	DurationMinutes int             `json:"duration_minutes"`
 	Questions       []PaperQuestion `json:"questions,omitempty"`
 	CreatedAt       time.Time       `json:"created_at"`

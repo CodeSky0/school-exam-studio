@@ -72,6 +72,27 @@ describe("试卷 API", () => {
     );
   });
 
+  it("读取不含题目明细的列表摘要并使用 question_count", async () => {
+    const summary = {
+      id: paper.id,
+      creator_id: paper.creator_id,
+      school_name: paper.school_name,
+      title: paper.title,
+      subject: paper.subject,
+      grade: paper.grade,
+      total_score: paper.total_score,
+      duration_minutes: paper.duration_minutes,
+      question_count: 1,
+      created_at: paper.created_at,
+      updated_at: paper.updated_at,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [summary], total: 1, page: 1, page_size: 10 }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await listPapers({ page: 1, page_size: 10 });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].question_count).toBe(1);
+  });
+
   it("按顺序创建试卷并发送两位小数字符串分值", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(paper), { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeftIcon, ChevronRightIcon, EyeOpenIcon, MagnifyingGlassIcon, Pencil1Icon, FileTextIcon, ResetIcon, TrashIcon } from "@radix-ui/react-icons";
 import { deletePaper, listPapers, paperQueryKeys, type PaperFilters } from "@/lib/papers";
-import type { Paper } from "@/lib/paper-schemas";
+import type { PaperSummary } from "@/lib/paper-schemas";
 import { FormError } from "@/components/auth-form";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -31,7 +31,7 @@ export function PaperList() {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState<PaperFilters>({ page: 1, page_size: 10 });
   const [draft, setDraft] = useState<PaperFilters>(filters);
-  const [deleteTarget, setDeleteTarget] = useState<Paper | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PaperSummary | null>(null);
   const [message, setMessage] = useState("");
   const listQuery = useQuery({
     queryKey: paperQueryKeys.list(filters),
@@ -116,7 +116,7 @@ export function PaperList() {
                   <tr key={paper.id} className="align-middle hover:bg-neutral-2/70">
                     <td className="max-w-sm px-5 py-4"><p className="font-medium text-neutral-10">{paper.title}</p><p className="mt-1 break-all font-mono text-label-12 text-neutral-6">{paper.id}</p></td>
                     <td className="px-3 py-4 text-copy-13 leading-5 text-neutral-8">{paper.subject}<br /><span className="text-neutral-7">{paper.grade}</span></td>
-                    <td className="px-3 py-4 font-mono text-copy-13">{paper.questions.length}</td>
+                    <td className="px-3 py-4 font-mono text-copy-13">{paper.question_count}</td>
                     <td className="px-3 py-4 font-mono text-copy-13">{paper.total_score} 分</td>
                     <td className="px-3 py-4 font-mono text-copy-13">{paper.duration_minutes} 分钟</td>
                     <td className="whitespace-nowrap px-3 py-4 text-copy-13 text-neutral-7"><time dateTime={paper.updated_at}>{formatUpdatedAt(paper.updated_at)}</time></td>

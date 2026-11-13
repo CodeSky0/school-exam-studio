@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
-import { createPaperStore, type PaperStoreApi, type PaperStoreState } from "@/stores/paper-store";
+import { createPaperStore, rehydratePaperStore, type PaperStoreApi, type PaperStoreState } from "@/stores/paper-store";
 
 const PaperStoreContext = createContext<PaperStoreApi | null>(null);
 
@@ -10,7 +10,7 @@ export function PaperStoreProvider({ userId, children }: { userId: string; child
   const store = useMemo(() => createPaperStore(userId), [userId]);
   const hasHydrated = useStore(store, (state) => state.hasHydrated);
   useEffect(() => {
-    void store.persist.rehydrate();
+    void rehydratePaperStore(store);
   }, [store]);
   return (
     <PaperStoreContext.Provider value={store}>
