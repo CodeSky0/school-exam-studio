@@ -11,7 +11,7 @@ test("教师通过登录页登录并退出", async ({ page }) => {
   await page.getByLabel("邮箱").fill(TEACHER_EMAIL);
   await page.getByLabel("密码").fill(TEACHER_PASSWORD);
   await page.getByRole("button", { name: "登录" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/teacher\/dashboard$/);
 
   await page.goto("/teacher/questions");
   await expect(page.getByRole("heading", { name: "题库", exact: true })).toBeVisible();
@@ -40,5 +40,5 @@ test("访客使用学校代码注册教师并登录", async ({ page }) => {
   await page.getByLabel("邮箱").fill(email);
   await page.getByLabel("密码").fill(password);
   await page.getByRole("button", { name: "登录" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/teacher\/dashboard$/);
 });

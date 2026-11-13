@@ -165,9 +165,10 @@ export async function registerTeacherAccount(
       password,
     },
   });
+  const body = await response.text();
   await api.dispose();
   if (!response.ok()) {
-    throw new Error(`注册教师失败：${response.status()} ${await response.text()}`);
+    throw new Error(`注册教师失败：${response.status()} ${body}`);
   }
 }
 

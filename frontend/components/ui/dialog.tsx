@@ -26,6 +26,8 @@ export function Dialog({ open, title, description, children, footer, onClose, is
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
+  if (!open) return null;
+
   return (
     <dialog
       ref={dialogRef}

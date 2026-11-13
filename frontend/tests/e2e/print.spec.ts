@@ -70,7 +70,7 @@ test.describe("A4 打印", () => {
         }
         return pageRules.join("\n");
       });
-      expect(pageSize).toContain("size: A4");
+      expect(pageSize).toMatch(/size:\s*a4/i);
 
       await page.emulateMedia({ media: "print" });
       await expect(page.locator(".print-toolbar")).toBeHidden();

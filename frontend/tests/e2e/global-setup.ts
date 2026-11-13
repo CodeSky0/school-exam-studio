@@ -54,7 +54,8 @@ export default async function globalSetup(): Promise<void> {
     schoolCode = ((await response.json()) as { school_code: string }).school_code;
   }
 
-  if (schoolCode) {
+  let teacher = await loginAndStore(TEACHER_EMAIL, TEACHER_PASSWORD, teacherStorage);
+  if (!teacher && schoolCode) {
     const register = await api.post("/api/v1/auth/register", {
       data: {
         school_code: schoolCode,
@@ -67,10 +68,10 @@ export default async function globalSetup(): Promise<void> {
     if (!register.ok() && register.status() !== 409) {
       throw new Error(`注册 E2E 教师失败：${register.status()} ${await register.text()}`);
     }
+    teacher = await loginAndStore(TEACHER_EMAIL, TEACHER_PASSWORD, teacherStorage);
   }
   await api.dispose();
 
-  const teacher = await loginAndStore(TEACHER_EMAIL, TEACHER_PASSWORD, teacherStorage);
   if (!teacher) {
     throw new Error("无法登录 E2E 教师账号。若 E2E 数据库由其他流程初始化且学校代码未知，请重建 school_db_e2e 后重试。");
   }

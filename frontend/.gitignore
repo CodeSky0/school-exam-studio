@@ -7,3 +7,4 @@ coverage/
 .env.development.local
 .env.test.local
 .env.production.local
+tests/e2e/.auth/
