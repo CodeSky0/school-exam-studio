@@ -9,10 +9,10 @@
 :root {
   color-scheme: light;
 
-  --surface-paper: #fefefb;
-  --surface-desk: #f0efeb;
+  --surface-paper: #f7f5f2;
+  --surface-desk: #eeeae5;
 
-  --n1: #f9f8f5;
+  --n1: #fdfcf9;
   --n2: #f0efeb;
   --n3: #e3e1db;
   --n4: #d0cec6;
@@ -20,12 +20,12 @@
   --n6: #787670;
   --n7: #5c5a55;
   --n8: #403f3a;
-  --n9: #24231f;
+  --n9: #292624;
   --n10: #141312;
 
-  --a: #c56473;
-  --a-strong: #a84d5d;
-  --a-soft: #f7ecee;
+  --a: #9f4256;
+  --a-strong: #87384a;
+  --a-soft: #f5e9eb;
   --a-soft-strong: #efd9dd;
   --a-foreground: #ffffff;
 
@@ -34,16 +34,13 @@
 
   --info: #3d6896;
   --info-soft: #edf1f6;
-  --success: #5e9f7e;
+  --success: #3f6b54;
   --success-soft: #edf4f0;
-  --warning: #a87a3d;
+  --warning: #80551f;
   --warning-soft: #f7f1e7;
-  --error: #a64953;
+  --error: #963f4d;
   --error-soft: #f8edef;
   --error-soft-strong: #eccfd3;
-
-  --paper-glow-a: rgb(197 100 115 / 0.05);
-  --paper-glow-b: rgb(61 104 150 / 0.035);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -82,9 +79,6 @@
     --error: #c8767f;
     --error-soft: #332225;
     --error-soft-strong: #4a2e33;
-
-    --paper-glow-a: rgb(224 149 164 / 0.06);
-    --paper-glow-b: rgb(112 144 179 / 0.05);
   }
 }
 
@@ -139,9 +133,9 @@
 }
 
 @theme {
-  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-geist), "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: "Noto Serif CJK SC", "Noto Serif SC", "Source Han Serif SC", "Source Han Serif", "Songti SC", "STSong", "SimSun", "Hiragino Sans GB", Georgia, serif;
-  --font-mono: "JetBrainsMono", "Cascadia Code PL", "Fira Code", "Consolas", "Monaco", "Noto Sans Mono CJK SC", monospace;
+  --font-mono: var(--font-geist-mono), "Cascadia Code PL", "Fira Code", "Consolas", "Monaco", "Noto Sans Mono CJK SC", monospace;
   --font-logo-cjk: "Noto Serif JP", "Source Han Serif", "Noto Serif CJK SC", serif;
   --font-logo-latin: "EB Garamond", "Tiempos Headline", Georgia, serif;
 
@@ -186,9 +180,6 @@
   body {
     min-height: 100dvh;
     background-color: var(--surface-paper);
-    background-image:
-      radial-gradient(1200px 620px at 12% -12%, var(--paper-glow-a), transparent 62%),
-      radial-gradient(900px 520px at 100% 0%, var(--paper-glow-b), transparent 58%);
     color: var(--n9);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -199,9 +190,14 @@
   h2,
   h3,
   h4 {
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-weight: 500;
     letter-spacing: 0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--a);
+    outline-offset: 2px;
   }
 
   ::selection {
@@ -217,24 +213,19 @@
   }
 }
 
+@media (pointer: coarse) {
+  button,
+  [role="button"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 1023px) {
   input,
   textarea,
   select {
     font-size: 16px;
-  }
-}
-
-@media print {
-  body {
-    background-image: none;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4 {
-    font-family: var(--font-sans);
   }
 }
 
