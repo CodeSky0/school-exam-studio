@@ -107,7 +107,7 @@ func validationError(field, message string) error {
 
 func normalizeInitializeInput(input InitializeInput) (InitializeInput, error) {
 	var err error
-	if input.SchoolName, err = normalizeText(input.SchoolName, "school_name", 1, 200); err != nil {
+	if input.SchoolName, err = normalizeText(input.SchoolName, "school_name", 2, 200); err != nil {
 		return InitializeInput{}, err
 	}
 	if input.AdminName, err = normalizeText(input.AdminName, "admin_name", 2, 50); err != nil {

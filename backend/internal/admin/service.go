@@ -102,8 +102,8 @@ func (s *Service) UpdateSchool(ctx context.Context, principal auth.Principal, na
 	}
 	name = strings.TrimSpace(name)
 	length := utf8.RuneCountInString(name)
-	if !utf8.ValidString(name) || length < 1 || length > 200 {
-		return School{}, validationError("name", "学校名称长度必须为1-200个字符")
+	if !utf8.ValidString(name) || length < 2 || length > 200 {
+		return School{}, validationError("name", "学校名称长度必须为2-200个字符")
 	}
 	for _, r := range name {
 		if unicode.IsControl(r) {

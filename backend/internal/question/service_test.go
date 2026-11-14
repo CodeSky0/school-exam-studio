@@ -3,9 +3,11 @@ package question_test
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
+	"school-exam-studio/backend/internal/auth"
 	"school-exam-studio/backend/internal/platform/platformtest"
 	"school-exam-studio/backend/internal/question"
 )
@@ -69,3 +71,13 @@ func TestFillBlankAndEssayAnswersAreSanitized(t *testing.T) {
 	}
 }
 
+func TestListRejectsOverflowingPagination(t *testing.T) {
+	service := question.NewService(nil, question.NewSanitizer())
+	_, err := service.List(context.Background(), auth.Principal{}, question.QuestionFilter{
+		Page:     math.MaxInt,
+		PageSize: 100,
+	})
+	if !errors.Is(err, question.ErrValidation) {
+		t.Fatalf("expected overflow pagination rejection, got %v", err)
+	}
+}

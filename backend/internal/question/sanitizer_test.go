@@ -46,7 +46,12 @@ func TestQuestionInputValidation(t *testing.T) {
 		}},
 		{"true false answer", func(input *question.Input) {
 			input.QuestionType = question.TypeTrueFalse
+			input.Options = nil
 			input.Answer = "yes"
+		}},
+		{"true false options", func(input *question.Input) {
+			input.QuestionType = question.TypeTrueFalse
+			input.Answer = "true"
 		}},
 		{"empty tag", func(input *question.Input) { input.Tags = []string{"代数", "  "} }},
 		{"too many tags", func(input *question.Input) {
@@ -76,6 +81,15 @@ func TestQuestionInputValidation(t *testing.T) {
 	formulaOnly.Content = `<span data-type="blockMath" data-latex="x^2"></span>`
 	if _, err := sanitizer.Normalize(formulaOnly); err != nil {
 		t.Fatalf("formula-only content should be accepted: %v", err)
+	}
+	kebabFormula := validQuestionInput()
+	kebabFormula.Content = `<span data-type="inline-math" data-latex="x^2"></span>`
+	kebabNormalized, err := sanitizer.Normalize(kebabFormula)
+	if err != nil {
+		t.Fatalf("kebab-case formula-only content should be accepted: %v", err)
+	}
+	if !strings.Contains(kebabNormalized.Content, `data-type="inline-math"`) {
+		t.Fatalf("kebab-case formula data-type was lost: %s", kebabNormalized.Content)
 	}
 }
 

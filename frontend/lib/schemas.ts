@@ -4,7 +4,16 @@ export const schoolCodeSchema = z.string().regex(/^\d{8}$/, "学校代码须为 
 export const nameSchema = z.string().trim().min(2, "姓名须为 2 至 50 个字符").max(50, "姓名须为 2 至 50 个字符");
 export const subjectSchema = z.string().trim().min(1, "请输入学科").max(30, "学科不能超过 30 个字符");
 export const emailSchema = z.string().trim().toLowerCase().pipe(z.email("请输入有效邮箱"));
-export const passwordSchema = z.string().min(10, "密码须为 10 至 72 个字符").max(72, "密码须为 10 至 72 个字符");
+const PASSWORD_MAX_BYTES = 72;
+
+function passwordByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+export const passwordSchema = z.string()
+  .min(10, "密码须为 10 至 72 个字符")
+  .max(72, "密码须为 10 至 72 个字符")
+  .refine((value) => passwordByteLength(value) <= PASSWORD_MAX_BYTES, "密码 UTF-8 编码不能超过 72 字节");
 
 export const initSchema = z.object({
   schoolName: z.string().trim().min(2, "学校名称须为 2 至 200 个字符").max(200, "学校名称须为 2 至 200 个字符"),

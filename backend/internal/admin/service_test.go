@@ -85,6 +85,9 @@ func TestAdministrationTenantIsolationSessionsAndStats(t *testing.T) {
 	if _, err := service.UpdateSchool(ctx, adminPrincipal, ""); !errors.Is(err, admin.ErrValidation) {
 		t.Fatalf("empty school name should fail: %v", err)
 	}
+	if _, err := service.UpdateSchool(ctx, adminPrincipal, "甲"); !errors.Is(err, admin.ErrValidation) {
+		t.Fatalf("one-character school name should fail: %v", err)
+	}
 
 	createAdminStatFixtures(t, client)
 	stats, err := service.Stats(ctx, adminPrincipal)

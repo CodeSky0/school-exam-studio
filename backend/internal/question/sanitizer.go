@@ -18,7 +18,7 @@ const (
 	maxOptions        = 4
 )
 
-var mathDataType = regexp.MustCompile(`^(inlineMath|blockMath)$`)
+var mathDataType = regexp.MustCompile(`^(inlineMath|blockMath|inline-math|block-math)$`)
 
 type Sanitizer struct {
 	policy *bluemonday.Policy
@@ -105,7 +105,7 @@ func richTextPresent(value string) bool {
 			mathNode := false
 			latexPresent := false
 			for _, attribute := range node.Attr {
-				if attribute.Key == "data-type" && (attribute.Val == "inlineMath" || attribute.Val == "blockMath") {
+				if attribute.Key == "data-type" && isMathDataType(attribute.Val) {
 					mathNode = true
 				}
 				if attribute.Key == "data-latex" && strings.TrimSpace(attribute.Val) != "" {
@@ -175,10 +175,22 @@ func normalizeTags(tags []string) ([]string, error) {
 	return normalized, nil
 }
 
+func isMathDataType(value string) bool {
+	switch value {
+	case "inlineMath", "blockMath", "inline-math", "block-math":
+		return true
+	default:
+		return false
+	}
+}
+
 func normalizeAnswer(input *Input) error {
 	optionKeys := make(map[string]struct{}, len(input.Options))
 	for _, option := range input.Options {
 		optionKeys[option.Key] = struct{}{}
+	}
+	if input.QuestionType != TypeSingleChoice && input.QuestionType != TypeMultipleChoice && len(input.Options) > 0 {
+		return validationError("options", "当前题型不应包含选项")
 	}
 	switch input.QuestionType {
 	case TypeSingleChoice:

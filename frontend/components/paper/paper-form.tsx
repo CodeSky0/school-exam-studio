@@ -45,7 +45,13 @@ export function PaperForm({ paperId, onSaved }: { paperId?: string; onSaved: (pa
       result.error.issues.forEach((issue) => {
         const path = issue.path.join(".") || "form";
         const key = issue.path[0] === "questions" && issue.path.length > 1 ? "questions" : path;
-        if (!nextErrors[key]) nextErrors[key] = key === "questions" && issue.path.length > 1 ? "请检查每题分值，须为大于 0 的两位小数" : issue.message;
+        if (!nextErrors[key]) {
+          nextErrors[key] = key === "questions" && issue.path.length > 1
+            ? "请检查每题分值，须为大于 0 的两位小数"
+            : key === "duration_minutes"
+              ? "考试时长须为 1 至 600 的整数"
+              : issue.message;
+        }
       });
       setErrors(nextErrors);
       return;

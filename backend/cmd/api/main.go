@@ -68,6 +68,7 @@ func main() {
 		OCRClient:       ocrClient,
 		CORSOrigin:      cfg.CORSOrigin,
 		SecureCookie:    cfg.SecureCookie,
+		TrustProxy:      cfg.TrustProxy,
 		LoginLimiter: platformmiddleware.NewRedisRateLimiter(
 			redisClient, "login", 10, 15*time.Minute,
 		),

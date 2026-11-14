@@ -31,9 +31,11 @@ export function OcrUpload({ activeField, onActiveFieldChange, onApply }: {
 
   const recognizeMutation = useMutation({
     mutationFn: recognizeQuestionImage,
+    onError: () => { setMessage(null); },
     onSuccess: (result) => {
       if (!result.text.trim()) {
         setLocalError("识别结果为空，请重试或手动录入");
+        setMessage(null);
         return;
       }
       setResultText(result.text);

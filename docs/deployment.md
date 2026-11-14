@@ -23,6 +23,7 @@
 | `OCR_URL` | 指向内网 OCR sidecar，例如 `http://127.0.0.1:8001` |
 | `JWT_SECRET` | 至少 32 字节的高强度随机值，使用密钥管理系统注入 |
 | `CORS_ORIGIN` | 前端完整源，例如 `https://exam.school.edu.cn` |
+| `TRUST_PROXY` | 默认 `false`。仅当 API 位于可信反向代理之后时设为 `true`，限流将使用 `X-Forwarded-For` / `X-Real-IP`；直接暴露 API 时必须保持 `false`，否则限流身份可被伪造 |
 | `NEXT_PUBLIC_API_URL` | 构建时注入的 API 地址，修改后必须重新构建前端 |
 
 禁止把 `.env`、访问令牌、密码或模型缓存提交到 Git。
@@ -66,11 +67,13 @@ server {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP $remote_addr;
     }
 }
 ```
 
-若按上述同域部署，`NEXT_PUBLIC_API_URL=https://exam.school.edu.cn`、`CORS_ORIGIN=https://exam.school.edu.cn`。
+若按上述同域部署，`NEXT_PUBLIC_API_URL=https://exam.school.edu.cn`、`CORS_ORIGIN=https://exam.school.edu.cn`，并设置 `TRUST_PROXY=true`。否则所有请求会以反向代理自身的 IP 参与限流，导致全校共用同一份额度。启用 `TRUST_PROXY` 后必须确保 8080 端口只对反向代理开放，不能直接暴露公网。
 
 ## 5. 数据安全与备份
 

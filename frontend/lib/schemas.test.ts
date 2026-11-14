@@ -42,6 +42,11 @@ describe("表单字段校验", () => {
     expect(passwordSchema.safeParse("1".repeat(9)).success).toBe(false);
     expect(passwordSchema.safeParse("1".repeat(73)).success).toBe(false);
   });
+
+  it("拒绝 UTF-8 编码超过七十二字节的密码", () => {
+    expect(passwordSchema.safeParse("密".repeat(24)).success).toBe(true);
+    expect(passwordSchema.safeParse("密".repeat(25)).success).toBe(false);
+  });
 });
 
 describe("认证表单与响应校验", () => {

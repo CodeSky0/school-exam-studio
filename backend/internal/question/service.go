@@ -2,6 +2,7 @@ package question
 
 import (
 	"context"
+	"math"
 	"strings"
 
 	"github.com/google/uuid"
@@ -69,6 +70,9 @@ func (s *Service) List(ctx context.Context, principal auth.Principal, filter Que
 	}
 	if filter.PageSize > 100 {
 		filter.PageSize = 100
+	}
+	if int64(filter.Page-1) > math.MaxInt64/int64(filter.PageSize) {
+		return ListResult{}, validationError("page", "分页参数过大")
 	}
 	return s.repository.List(ctx, principal, filter)
 }

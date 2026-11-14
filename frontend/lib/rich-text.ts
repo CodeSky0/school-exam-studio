@@ -1,7 +1,10 @@
 import sanitizeHtml from "sanitize-html";
 
 const allowedTags = [
-  "p", "br", "strong", "em", "u", "s", "ul", "ol", "li", "blockquote", "h2", "h3", "span", "div",
+  "p", "br", "hr", "strong", "b", "em", "i", "u", "s", "del", "sub", "sup",
+  "code", "pre", "ul", "ol", "li", "blockquote",
+  "h1", "h2", "h3", "h4", "h5", "h6", "span", "div",
+  "table", "caption", "colgroup", "col", "thead", "tbody", "tfoot", "tr", "th", "td",
 ];
 
 export function sanitizeRichText(value: string): string {
@@ -10,6 +13,8 @@ export function sanitizeRichText(value: string): string {
     allowedAttributes: {
       span: ["data-type", "data-latex"],
       div: ["data-type", "data-latex"],
+      th: ["colspan", "rowspan"],
+      td: ["colspan", "rowspan"],
     },
     allowedSchemes: [],
     allowProtocolRelative: false,

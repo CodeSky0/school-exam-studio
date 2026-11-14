@@ -37,6 +37,12 @@ func TestInputValidation(t *testing.T) {
 			_, err := service.Initialize(context.Background(), input)
 			return err
 		}},
+		{"school name too short", "school_name", func() error {
+			input := validInitialize
+			input.SchoolName = "甲"
+			_, err := service.Initialize(context.Background(), input)
+			return err
+		}},
 		{"school name too long", "school_name", func() error {
 			input := validInitialize
 			input.SchoolName = strings.Repeat("校", 201)

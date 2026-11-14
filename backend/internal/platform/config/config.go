@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -13,6 +14,7 @@ type Config struct {
 	CORSOrigin   string
 	HTTPAddr     string
 	SecureCookie bool
+	TrustProxy   bool
 }
 
 func Load() (Config, error) {
@@ -24,6 +26,7 @@ func Load() (Config, error) {
 		CORSOrigin:   envOr("CORS_ORIGIN", "http://localhost:3000"),
 		HTTPAddr:     envOr("HTTP_ADDR", ":8080"),
 		SecureCookie: os.Getenv("APP_ENV") == "production",
+		TrustProxy:   envBool("TRUST_PROXY"),
 	}
 	if cfg.DatabaseURL == "" || cfg.RedisURL == "" || cfg.OCRURL == "" {
 		return Config{}, errors.New("DATABASE_URL, REDIS_URL and OCR_URL are required")
@@ -39,4 +42,13 @@ func envOr(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func envBool(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes":
+		return true
+	default:
+		return false
+	}
 }

@@ -33,7 +33,7 @@ export function ProfileContent({ user }: { user: CurrentUser }) {
         </section>
         <section aria-labelledby="password-title" className="border-t border-border pt-7 xl:border-l xl:border-t-0 xl:pl-10 xl:pt-0">
           <h2 id="password-title" className="text-copy-16 font-medium text-neutral-10">修改密码</h2>
-          <p className="mb-5 mt-1.5 text-label-12 leading-5 text-neutral-7">为其他设备保存的会话可能仍然有效；当前会话将立即退出。</p>
+          <p className="mb-5 mt-1.5 text-label-12 leading-5 text-neutral-7">修改成功后，当前账号在所有设备上的旧会话都会立即失效，请使用新密码重新登录。</p>
           <ChangePasswordForm />
         </section>
       </div>

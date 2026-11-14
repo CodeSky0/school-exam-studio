@@ -101,15 +101,15 @@ func redisInteger(value any) (int64, error) {
 	}
 }
 
-func LoginRateLimit(limiter RateLimiter) echo.MiddlewareFunc {
-	return rateLimit(limiter, true)
+func LoginRateLimit(limiter RateLimiter, trustProxy bool) echo.MiddlewareFunc {
+	return rateLimit(limiter, true, trustProxy)
 }
 
-func RegisterRateLimit(limiter RateLimiter) echo.MiddlewareFunc {
-	return rateLimit(limiter, false)
+func RegisterRateLimit(limiter RateLimiter, trustProxy bool) echo.MiddlewareFunc {
+	return rateLimit(limiter, false, trustProxy)
 }
 
-func rateLimit(limiter RateLimiter, login bool) echo.MiddlewareFunc {
+func rateLimit(limiter RateLimiter, login, trustProxy bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if limiter == nil {
@@ -119,15 +119,13 @@ func rateLimit(limiter RateLimiter, login bool) echo.MiddlewareFunc {
 			if err != nil {
 				return err
 			}
-			identity := requestIP(c.Request())
+			identity := requestIP(c.Request(), trustProxy)
 			if login {
 				var credentials struct {
-					SchoolCode string `json:"school_code"`
-					Email      string `json:"email"`
+					Email string `json:"email"`
 				}
 				if json.Unmarshal(body, &credentials) == nil {
-					identity += "\x00" + credentials.SchoolCode + "\x00" +
-						strings.ToLower(strings.TrimSpace(credentials.Email))
+					identity += "\x00" + strings.ToLower(strings.TrimSpace(credentials.Email))
 				}
 			}
 			allowed, retryAfter, err := limiter.Allow(c.Request().Context(), identity)
@@ -164,7 +162,18 @@ func readBody(c echo.Context) ([]byte, error) {
 	return body, nil
 }
 
-func requestIP(request *http.Request) string {
+func requestIP(request *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if forwarded := request.Header.Get("X-Forwarded-For"); forwarded != "" {
+			first := strings.TrimSpace(strings.Split(forwarded, ",")[0])
+			if net.ParseIP(first) != nil {
+				return first
+			}
+		}
+		if realIP := strings.TrimSpace(request.Header.Get("X-Real-IP")); net.ParseIP(realIP) != nil {
+			return realIP
+		}
+	}
 	host, _, err := net.SplitHostPort(request.RemoteAddr)
 	if err == nil {
 		return host

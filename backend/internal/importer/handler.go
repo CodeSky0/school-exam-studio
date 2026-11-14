@@ -88,6 +88,8 @@ func importError(err error) error {
 	switch {
 	case errors.Is(err, ErrFileTooLarge):
 		return apperror.New(http.StatusRequestEntityTooLarge, "CSV_TOO_LARGE", "CSV文件不能超过5MB")
+	case errors.Is(err, ErrValidation):
+		return apperror.New(http.StatusUnprocessableEntity, "CSV_VALIDATION_FAILED", "CSV包含未通过校验的行")
 	case errors.Is(err, ErrForbidden):
 		return apperror.New(http.StatusForbidden, "FORBIDDEN", "没有操作权限")
 	default:

@@ -28,6 +28,7 @@ type Options struct {
 	OCRClient       *ocr.Client
 	CORSOrigin      string
 	SecureCookie    bool
+	TrustProxy      bool
 	LoginLimiter    platformmiddleware.RateLimiter
 	RegisterLimiter platformmiddleware.RateLimiter
 }
@@ -79,8 +80,8 @@ func registerAuthRoutes(e *echo.Echo, configuration Options) {
 	api := e.Group("/api/v1")
 	api.GET("/init/status", handler.InitializationStatus)
 	api.POST("/init", handler.Initialize)
-	api.POST("/auth/register", handler.Register, platformmiddleware.RegisterRateLimit(configuration.RegisterLimiter))
-	api.POST("/auth/login", handler.Login, platformmiddleware.LoginRateLimit(configuration.LoginLimiter))
+	api.POST("/auth/register", handler.Register, platformmiddleware.RegisterRateLimit(configuration.RegisterLimiter, configuration.TrustProxy))
+	api.POST("/auth/login", handler.Login, platformmiddleware.LoginRateLimit(configuration.LoginLimiter, configuration.TrustProxy))
 	api.POST("/auth/logout", handler.Logout)
 	authenticated := api.Group("", platformmiddleware.Authenticate(
 		configuration.AuthService.Tokens(),

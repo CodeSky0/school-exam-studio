@@ -19,6 +19,11 @@ describe("受限富文本", () => {
     expect(result).toContain("文本");
   });
 
+  it("保留服务端允许的表格、上下标与代码标签", () => {
+    const input = '<table><tbody><tr><td colspan="2">答案<sub>1</sub></td></tr></tbody></table><h4>标题</h4><pre><code>x = 1</code></pre>';
+    expect(sanitizeRichText(input)).toBe(input);
+  });
+
   it("公式节点本身视为有效内容，空段落不算内容", () => {
     expect(richTextHasContent('<p><span data-type="inline-math" data-latex="\\frac{1}{2}"></span></p>')).toBe(true);
     expect(richTextHasContent("<p><br></p>")).toBe(false);

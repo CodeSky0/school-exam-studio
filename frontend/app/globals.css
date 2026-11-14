@@ -317,6 +317,8 @@
     font-size: 14px;
     letter-spacing: 0.01em;
     background: var(--surface-paper);
+    scrollbar-width: thin;
+    scrollbar-color: var(--n4) transparent;
   }
 
   body {
@@ -347,24 +349,24 @@
     color: var(--n10);
   }
 
-  ::scrollbar {
+  ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
 
-  ::scrollbar-thumb {
+  ::-webkit-scrollbar-thumb {
     border: 3px solid transparent;
     border-radius: 999px;
     background: var(--n4);
     background-clip: padding-box;
   }
 
-  ::scrollbar-thumb:hover {
+  ::-webkit-scrollbar-thumb:hover {
     background: var(--n5);
     background-clip: padding-box;
   }
 
-  ::scrollbar-track {
+  ::-webkit-scrollbar-track {
     background: transparent;
   }
 
