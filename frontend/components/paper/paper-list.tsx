@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeftIcon, ChevronRightIcon, EyeOpenIcon, MagnifyingGlassIcon, Pencil1Icon, FileTextIcon, ResetIcon, TrashIcon } from "@radix-ui/react-icons";
 import { deletePaper, listPapers, paperQueryKeys, type PaperFilters } from "@/lib/papers";
@@ -12,6 +13,18 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { StatusMessage } from "@/components/ui/status-message";
+
+const listVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+};
 
 function formatUpdatedAt(value: string): string {
   const date = new Date(value);
@@ -25,6 +38,16 @@ function formatUpdatedAt(value: string): string {
     hour12: false,
     timeZone: "Asia/Shanghai",
   }).format(date);
+}
+
+function PaperActions({ paper, isDeleting, onDelete }: { paper: PaperSummary; isDeleting: boolean; onDelete: () => void }) {
+  return (
+    <div className="flex flex-wrap justify-end gap-1">
+      <Link href={`/teacher/papers/${paper.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}><Pencil1Icon />编辑</Link>
+      <Link href={`/teacher/papers/${paper.id}/print`} className={buttonVariants({ variant: "ghost", size: "sm" })} aria-label={`预览并打印${paper.title}`}><EyeOpenIcon /><FileTextIcon /><span className="sr-only">打印</span></Link>
+      <Button type="button" variant="ghost" size="sm" className="text-error hover:bg-error-soft hover:text-error" disabled={isDeleting} onClick={onDelete}><TrashIcon />删除</Button>
+    </div>
+  );
 }
 
 export function PaperList() {
@@ -84,7 +107,7 @@ export function PaperList() {
           <Button type="submit" size="sm"><MagnifyingGlassIcon />筛选</Button>
         </div>
       </form>
-      {message ? <p role="status" className="border-b border-success/25 bg-success-soft px-5 py-3 text-copy-13 text-success">{message}</p> : null}
+      <StatusMessage message={message} tone="success" className="mx-5 my-4" />
       {listQuery.isPending ? (
         <div className="grid animate-pulse gap-px bg-border" aria-label="正在读取试卷列表">
           {[0, 1, 2, 3].map((item) => <div key={item} className="h-20 bg-neutral-1" />)}
@@ -98,7 +121,7 @@ export function PaperList() {
         </div>
       ) : (
         <div aria-busy={listQuery.isFetching}>
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="试卷列表，可横向滚动">
+          <div className="hidden overflow-x-auto md:block" tabIndex={0} role="region" aria-label="试卷列表，可横向滚动">
             <table className="w-full min-w-[920px] border-collapse text-left text-copy-13">
               <thead className="bg-neutral-2 text-label-12 text-neutral-7">
                 <tr className="border-b border-border">
@@ -111,28 +134,43 @@ export function PaperList() {
                   <th scope="col" className="px-5 py-3 text-right font-medium">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <motion.tbody className="divide-y divide-border" variants={listVariants} initial="hidden" animate="visible">
                 {data.items.map((paper) => (
-                  <tr key={paper.id} className="align-middle hover:bg-neutral-2/70">
+                  <motion.tr layout="position" variants={itemVariants} key={paper.id} className="align-middle hover:bg-neutral-2/70">
                     <td className="max-w-sm px-5 py-4"><p className="font-medium text-neutral-10">{paper.title}</p><p className="mt-1 break-all font-mono text-label-12 text-neutral-6">{paper.id}</p></td>
                     <td className="px-3 py-4 text-copy-13 leading-5 text-neutral-8">{paper.subject}<br /><span className="text-neutral-7">{paper.grade}</span></td>
                     <td className="px-3 py-4 font-mono text-copy-13">{paper.question_count}</td>
                     <td className="px-3 py-4 font-mono text-copy-13">{paper.total_score} 分</td>
                     <td className="px-3 py-4 font-mono text-copy-13">{paper.duration_minutes} 分钟</td>
                     <td className="whitespace-nowrap px-3 py-4 text-copy-13 text-neutral-7"><time dateTime={paper.updated_at}>{formatUpdatedAt(paper.updated_at)}</time></td>
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-1">
-                        <Link href={`/teacher/papers/${paper.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}><Pencil1Icon />编辑</Link>
-                        <Link href={`/teacher/papers/${paper.id}/print`} className={buttonVariants({ variant: "ghost", size: "sm" })} aria-label={`预览并打印${paper.title}`}><EyeOpenIcon /><FileTextIcon /><span className="sr-only">打印</span></Link>
-                        <Button type="button" variant="ghost" size="sm" className="text-error hover:bg-error-soft hover:text-error" disabled={deleteMutation.isPending && deleteMutation.variables === paper.id} onClick={() => { setMessage(""); deleteMutation.reset(); setDeleteTarget(paper); }}><TrashIcon />删除</Button>
-                      </div>
-                    </td>
-                  </tr>
+                    <td className="px-5 py-4"><PaperActions paper={paper} isDeleting={deleteMutation.isPending && deleteMutation.variables === paper.id} onDelete={() => { setMessage(""); deleteMutation.reset(); setDeleteTarget(paper); }} /></td>
+                  </motion.tr>
                 ))}
-              </tbody>
+              </motion.tbody>
             </table>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-4">
+          <motion.div className="border-y border-border md:hidden" variants={listVariants} initial="hidden" animate="visible" aria-label="试卷摘要列表">
+            <AnimatePresence initial={false} mode="popLayout">
+              {data.items.map((paper) => (
+                <motion.article layout="position" variants={itemVariants} exit="exit" key={paper.id} className="border-b border-border p-4 last:border-b-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-copy-14 font-medium leading-6 text-neutral-10">{paper.title}</h3>
+                      <p className="mt-1 break-all font-mono text-label-12 text-neutral-6">{paper.id}</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-neutral-3 px-2 py-1 font-mono text-label-12 text-neutral-8">{paper.total_score} 分</span>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-label-12">
+                    <div><dt className="text-neutral-6">学科 / 年级</dt><dd className="mt-1 text-copy-13 text-neutral-9">{paper.subject} · {paper.grade}</dd></div>
+                    <div><dt className="text-neutral-6">题数 / 时长</dt><dd className="mt-1 font-mono text-copy-13 text-neutral-9">{paper.question_count} 题 · {paper.duration_minutes} 分钟</dd></div>
+                    <div className="col-span-2"><dt className="text-neutral-6">更新时间</dt><dd className="mt-1 text-copy-13 text-neutral-9"><time dateTime={paper.updated_at}>{formatUpdatedAt(paper.updated_at)}</time></dd></div>
+                  </dl>
+                  <div className="mt-4 border-t border-border pt-3"><PaperActions paper={paper} isDeleting={deleteMutation.isPending && deleteMutation.variables === paper.id} onDelete={() => { setMessage(""); deleteMutation.reset(); setDeleteTarget(paper); }} /></div>
+                </motion.article>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-4 md:border-t-0">
             <div className="flex items-center gap-2">
               <Label htmlFor="paper-list-page-size" className="text-label-12">每页</Label>
               <Select id="paper-list-page-size" className="h-8 w-20" value={data.page_size} onChange={(event) => {

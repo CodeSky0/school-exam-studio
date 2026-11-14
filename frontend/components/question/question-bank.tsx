@@ -6,8 +6,10 @@ import { PlusIcon } from "@radix-ui/react-icons";
 import type { CurrentUser } from "@/lib/schemas";
 import { deleteQuestion, listQuestions, questionQueryKeys, type QuestionFilters } from "@/lib/questions";
 import type { Question } from "@/lib/question-schemas";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { StatusMessage } from "@/components/ui/status-message";
 import { CsvImport } from "./csv-import";
 import { QuestionEditor } from "./editor";
 import { QuestionFilterBar } from "./filter-bar";
@@ -40,17 +42,15 @@ export function QuestionBank({ user }: { user: CurrentUser }) {
 
   return (
     <div className="mx-auto max-w-[1500px]">
-      <header className="flex flex-wrap items-end justify-between gap-4 pb-6">
-        <div>
-          <p className="text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">教师工作区 / 内容管理</p>
-          <h1 className="mt-2 text-title-28 font-medium tracking-[0.01em] text-neutral-10">题库</h1>
-          <p className="mt-2 text-copy-14 leading-7 text-neutral-7">管理自己的草稿，查阅校内已发布题目。所有数据均来自当前学校题库。</p>
-        </div>
-        {!editor ? <div className="flex flex-wrap gap-2"><CsvImport onImported={(count) => setMessage(`已导入 ${count} 道题目草稿，题库与个人统计已刷新`)} /><Button onClick={() => { setMessage(null); setEditor({ mode: "create" }); }}><PlusIcon />新建题目</Button></div> : null}
-      </header>
+      <PageHeader
+        eyebrow="教师工作区 / 内容管理"
+        title="题库"
+        description="管理自己的草稿，查阅校内已发布题目。所有数据均来自当前学校题库。"
+        actions={!editor ? <><CsvImport onImported={(count) => setMessage(`已导入 ${count} 道题目草稿，题库与个人统计已刷新`)} /><Button onClick={() => { setMessage(null); setEditor({ mode: "create" }); }}><PlusIcon />新建题目</Button></> : undefined}
+      />
 
-      {message ? <p role="status" className="mb-5 rounded-lg border border-success/25 bg-success-soft px-4 py-3 text-copy-13 text-success">{message}</p> : null}
-      {deleteMutation.isError ? <div className="mb-5 rounded-lg border border-error-soft-strong bg-error-soft px-4 py-3 text-copy-13 text-error" role="alert">{deleteMutation.error.message}</div> : null}
+      <StatusMessage message={message} tone="success" className="mb-5" />
+      <StatusMessage message={deleteMutation.isError ? deleteMutation.error.message : null} tone="error" className="mb-5" />
 
       {editor ? (
         <div className="rounded-lg border border-border bg-neutral-1 p-4 shadow-sm sm:p-6">
@@ -64,7 +64,7 @@ export function QuestionBank({ user }: { user: CurrentUser }) {
         </div>
       ) : (
         <section aria-label="题目检索与列表" className="overflow-hidden rounded-lg border border-border bg-neutral-1 shadow-sm">
-          <QuestionFilterBar key={JSON.stringify(filters)} user={user} filters={filters} onApply={(nextFilters) => { setFilters(nextFilters); setMessage(null); }} />
+          <QuestionFilterBar user={user} filters={filters} onApply={(nextFilters) => { setFilters(nextFilters); setMessage(null); }} />
           <QuestionTable
             user={user}
             data={listQuery.data}

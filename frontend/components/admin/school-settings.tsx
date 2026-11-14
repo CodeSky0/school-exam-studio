@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminQueryKeys, getSchool, updateSchoolName, type School } from "@/lib/admin";
+import { ApiError } from "@/lib/api";
 import { schoolNameSchema } from "@/lib/schemas";
 import { AppShell } from "@/components/app-shell";
-import { FormError, FormSkeleton } from "@/components/auth-form";
+import { FormSkeleton } from "@/components/auth-form";
+import { PageHeader } from "@/components/page-header";
 import { RoleAccess } from "@/components/role-access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StatusMessage } from "@/components/ui/status-message";
 
 function SchoolForm({ school }: { school: School }) {
   const queryClient = useQueryClient();
@@ -38,15 +41,34 @@ function SchoolForm({ school }: { school: School }) {
     mutation.mutate(result.data);
   }
 
+  const mutationMessage = mutation.error instanceof ApiError ? mutation.error.message : "学校名称保存失败，请稍后重试";
+
   return (
-    <form onSubmit={submit} noValidate className="mt-7 max-w-3xl rounded-lg border border-border bg-neutral-1 p-5 shadow-sm sm:p-6">
-      <div className="grid gap-6">
-        <div className="grid gap-2"><Label htmlFor="school-name">学校名称</Label><Input id="school-name" value={name} aria-invalid={Boolean(localError)} aria-describedby="school-name-message" onChange={(event) => { setName(event.target.value); setMessage(null); }} />{localError ? <p id="school-name-message" role="alert" className="text-copy-13 text-error">{localError}</p> : <p id="school-name-message" className="text-label-12 text-neutral-7">2 至 200 个字符，保存时仅提交学校名称。</p>}</div>
-        <div className="grid gap-2"><Label htmlFor="school-code">学校代码（只读）</Label><Input id="school-code" value={school.school_code} readOnly aria-readonly className="bg-neutral-2 font-mono" /><p className="text-label-12 leading-5 text-neutral-7">学校代码用于教师注册，不能在此修改。</p></div>
-        <dl className="grid gap-3 border-y border-border py-4 text-label-12 sm:grid-cols-2"><div><dt className="text-neutral-7">学校 ID</dt><dd className="mt-1 break-all font-mono text-neutral-8">{school.id}</dd></div><div><dt className="text-neutral-7">最近更新</dt><dd className="mt-1 text-neutral-8"><time dateTime={school.updated_at}>{school.updated_at}</time></dd></div></dl>
-        {mutation.isError ? <FormError error={mutation.error} /> : null}
-        {message ? <p role="status" className="rounded-lg border border-success/25 bg-success-soft px-3.5 py-3 text-copy-13 text-success">{message}</p> : null}
-        <div><Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "正在保存…" : "保存学校名称"}</Button></div>
+    <form onSubmit={submit} noValidate className="max-w-4xl border-t border-border pt-7">
+      <div className="grid gap-7">
+        <div className="grid gap-2 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
+          <Label htmlFor="school-name" className="pt-2.5">学校名称</Label>
+          <div className="grid gap-2">
+            <Input id="school-name" value={name} aria-invalid={Boolean(localError)} aria-describedby="school-name-message" className="h-11 bg-[#fffdf8]" onChange={(event) => { setName(event.target.value); setMessage(null); }} />
+            {localError ? <p id="school-name-message" role="alert" className="text-copy-13 text-error">{localError}</p> : <p id="school-name-message" className="text-label-12 text-neutral-7">2 至 200 个字符，保存时仅提交学校名称。</p>}
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
+          <Label htmlFor="school-code" className="pt-2.5">学校代码（只读）</Label>
+          <div className="grid gap-2">
+            <Input id="school-code" value={school.school_code} readOnly aria-readonly className="h-11 border-accent/20 bg-accent-soft font-mono tracking-[0.16em]" />
+            <p className="text-label-12 leading-5 text-neutral-7">学校代码用于教师注册，不能在此修改。</p>
+          </div>
+        </div>
+        <dl className="grid gap-4 border-y border-border py-5 text-label-12 sm:ml-40 sm:grid-cols-2 sm:pl-6">
+          <div><dt className="text-neutral-7">学校 ID</dt><dd className="mt-1.5 break-all font-mono text-neutral-8">{school.id}</dd></div>
+          <div><dt className="text-neutral-7">最近更新</dt><dd className="mt-1.5 break-all text-neutral-8"><time dateTime={school.updated_at}>{school.updated_at}</time></dd></div>
+        </dl>
+        <div className="grid gap-3 sm:ml-40 sm:pl-6">
+          {mutation.isError ? <StatusMessage message={mutationMessage} tone="error" /> : null}
+          <StatusMessage message={message} tone="success" />
+          <div><Button type="submit" size="lg" disabled={mutation.isPending}>{mutation.isPending ? "正在保存…" : "保存学校名称"}</Button></div>
+        </div>
       </div>
     </form>
   );
@@ -54,11 +76,12 @@ function SchoolForm({ school }: { school: School }) {
 
 function SchoolSettingsContent() {
   const query = useQuery({ queryKey: adminQueryKeys.school, queryFn: getSchool, staleTime: 0 });
+  const queryMessage = query.error instanceof ApiError ? query.error.message : "学校资料读取失败，请稍后重试";
   return (
     <div className="mx-auto max-w-6xl">
-      <p className="text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">管理员工作区 / 学校资料</p><h1 className="mt-2 text-title-28 font-medium tracking-[0.01em] text-neutral-10">学校设置</h1><p className="mt-2 text-copy-14 leading-7 text-neutral-7">查看学校标识并维护学校名称，所有内容来自学校设置接口。</p>
-      {query.isPending ? <div className="mt-7 max-w-3xl rounded-lg border border-border bg-neutral-1 p-6"><FormSkeleton /></div> : null}
-      {query.error ? <div className="mt-7 max-w-3xl rounded-lg border border-border bg-neutral-1 p-5"><FormError error={query.error} /><Button variant="outline" size="sm" className="mt-3" onClick={() => { void query.refetch(); }}>重新读取</Button></div> : null}
+      <PageHeader eyebrow="管理员工作区 / 学校资料" title="学校设置" description="查看学校标识并维护学校名称，所有内容来自学校设置接口。" className="pb-7" />
+      {query.isPending ? <div className="max-w-3xl border-t border-border py-8"><FormSkeleton /></div> : null}
+      {query.error ? <div className="max-w-3xl border-t border-border py-6"><StatusMessage message={queryMessage} tone="error" /><Button variant="outline" size="sm" className="mt-3" onClick={() => { void query.refetch(); }}>重新读取</Button></div> : null}
       {query.data ? <SchoolForm school={query.data} /> : null}
     </div>
   );

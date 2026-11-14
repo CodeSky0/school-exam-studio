@@ -8,9 +8,11 @@ import { listQuestions, questionQueryKeys, updateQuestionStatus, type QuestionFi
 import type { Question, QuestionStatus } from "@/lib/question-schemas";
 import { statsQueryKeys } from "@/lib/stats";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/page-header";
 import { RoleAccess } from "@/components/role-access";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { StatusMessage } from "@/components/ui/status-message";
 import { QuestionFilterBar } from "@/components/question/filter-bar";
 import { QuestionTable } from "@/components/question/question-table";
 
@@ -41,7 +43,7 @@ function AdminQuestions({ user }: { user: CurrentUser }) {
   function actions(question: Question) {
     const pending = mutation.isPending && mutation.variables.id === question.id;
     return (
-      <div className="flex justify-end gap-1">
+      <div className="flex flex-wrap justify-end gap-1">
         {question.status === "draft" ? <Button variant="ghost" size="sm" disabled={mutation.isPending} onClick={() => { setMessage(null); setTarget({ question, status: "published" }); }}><CheckIcon />发布</Button> : null}
         {question.status !== "archived" ? <Button variant="ghost" size="sm" className="text-neutral-8" disabled={mutation.isPending} onClick={() => { setMessage(null); setTarget({ question, status: "archived" }); }}><ArchiveIcon />{pending && mutation.variables.status === "archived" ? "处理中" : "归档"}</Button> : <span className="text-label-12 text-neutral-6">已归档</span>}
       </div>
@@ -50,14 +52,10 @@ function AdminQuestions({ user }: { user: CurrentUser }) {
 
   return (
     <div className="mx-auto max-w-[1500px]">
-      <header className="pb-6">
-        <p className="text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">管理员工作区 / 内容审核</p>
-        <h1 className="mt-2 text-title-28 font-medium tracking-[0.01em] text-neutral-10">全校题库</h1>
-        <p className="mt-2 text-copy-14 leading-7 text-neutral-7">查看本校教师的题目与完整预览，并执行发布、归档状态流转。</p>
-      </header>
-      {message ? <p role="status" className="mb-5 rounded-lg border border-success/25 bg-success-soft px-4 py-3 text-copy-13 text-success">{message}</p> : null}
+      <PageHeader eyebrow="管理员工作区 / 内容审核" title="全校题库" description="查看本校教师的题目与完整预览，并执行发布、归档状态流转。" />
+      <StatusMessage message={message} tone="success" className="mb-5" />
       <section aria-label="全校题目检索与列表" className="overflow-hidden rounded-lg border border-border bg-neutral-1 shadow-sm">
-        <QuestionFilterBar key={JSON.stringify(filters)} user={user} filters={filters} scope="admin" onApply={(next) => { setFilters(next); setMessage(null); }} />
+        <QuestionFilterBar user={user} filters={filters} scope="admin" onApply={(next) => { setFilters(next); setMessage(null); }} />
         <QuestionTable
           user={user}
           data={listQuery.data}

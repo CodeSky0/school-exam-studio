@@ -31,7 +31,7 @@ function PrintContent({ paperId }: { paperId: string }) {
       <div className="print-toolbar no-print">
         <Button onClick={() => window.print()}><FileTextIcon />打印试卷</Button>
       </div>
-      <PaperPreview paper={paperQuery.data} />
+      <div className="paper-preview-stage"><PaperPreview paper={paperQuery.data} /></div>
     </main>
   );
 }

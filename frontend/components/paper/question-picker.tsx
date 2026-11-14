@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, PlusIcon, ResetIcon } from "@radix-ui/react-icons";
+import { motion } from "framer-motion";
 import { listQuestions, questionQueryKeys, type QuestionFilters } from "@/lib/questions";
 import { questionTypeLabels, type QuestionType } from "@/lib/question-schemas";
 import { FormError } from "@/components/auth-form";
+import { listContainerVariants, listItemVariants } from "@/components/motion-presets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { StatusMessage } from "@/components/ui/status-message";
 import { RichTextView } from "@/components/question/rich-text-view";
 import { usePaperStore } from "./paper-store-provider";
 
@@ -88,10 +91,26 @@ export function QuestionPicker({ defaultSubject }: { defaultSubject: string }) {
         </div>
       </form>
 
-      <p className="sr-only" role="status" aria-live="polite">{message}</p>
+      <StatusMessage message={message} tone={message.startsWith("已添加") ? "success" : "info"} className="mx-5 mt-4" />
       {listQuery.isPending ? (
-        <div className="grid animate-pulse gap-px bg-border" aria-label="正在读取已发布题目">
-          {[0, 1, 2].map((item) => <div key={item} className="h-36 bg-neutral-1" />)}
+        <div className="animate-pulse" role="status" aria-label="正在读取已发布题目">
+          <div className="divide-y divide-border border-y border-border" aria-hidden="true">
+            {Array.from({ length: filters.page_size ?? 6 }, (_, item) => (
+              <div key={item} className="px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-16 rounded-full bg-neutral-3" />
+                  <div className="h-4 w-28 rounded bg-neutral-3" />
+                  <div className="h-4 w-16 rounded bg-neutral-3" />
+                </div>
+                <div className="mt-4 h-4 w-full rounded bg-neutral-3" />
+                <div className="mt-2 h-4 w-4/5 rounded bg-neutral-3" />
+                <div className="mt-4 flex items-center justify-between gap-4">
+                  <div className="h-5 w-24 rounded bg-neutral-3" />
+                  <div className="h-8 w-24 rounded-md bg-neutral-3" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : listQuery.error ? (
         <div className="p-5"><FormError error={listQuery.error} /><Button variant="outline" size="sm" className="mt-3" onClick={() => { void listQuery.refetch(); }}>重新读取</Button></div>
@@ -106,11 +125,17 @@ export function QuestionPicker({ defaultSubject }: { defaultSubject: string }) {
             <span>共 {data.total} 道已发布题目</span>
             {listQuery.isFetching ? <span>正在更新…</span> : null}
           </div>
-          <ul className="divide-y divide-border border-y border-border">
+          <motion.ul
+            key={data.items.map((question) => question.id).join(",")}
+            className="divide-y divide-border border-y border-border"
+            variants={listContainerVariants}
+            initial="hidden"
+            animate="visible"
+          >
             {data.items.map((question) => {
               const isAdded = items.some((item) => item.question.id === question.id);
               return (
-                <li key={question.id} className="px-5 py-4">
+                <motion.li key={question.id} variants={listItemVariants} className="px-5 py-4">
                   <div className="flex flex-wrap items-center gap-2 text-label-12 text-neutral-7">
                     <span className="rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent-strong">{questionTypeLabels[question.question_type]}</span>
                     <span>{question.subject} · {question.grade}</span>
@@ -144,10 +169,10 @@ export function QuestionPicker({ defaultSubject }: { defaultSubject: string }) {
                       {isAdded ? <CheckIcon /> : <PlusIcon />}{isAdded ? "已添加" : "加入试卷"}
                     </Button>
                   </div>
-                </li>
+                </motion.li>
               );
             })}
-          </ul>
+          </motion.ul>
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
             <div className="flex items-center gap-2">
               <Label htmlFor="picker-page-size" className="text-label-12">每页</Label>

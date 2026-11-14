@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { login } from "@/lib/auth";
 import { loginSchema, type LoginFormValues } from "@/lib/schemas";
 import { currentUserQueryKey } from "@/lib/use-current-user";
@@ -34,9 +35,9 @@ export function LoginForm() {
         <FormError error={mutation.error} />
         <FormField label="邮箱" type="email" autoComplete="email" placeholder="name@school.edu.cn" error={form.formState.errors.email?.message} {...form.register("email")} />
         <FormField label="密码" type="password" autoComplete="current-password" placeholder="请输入登录密码" hint="密码长度为 10 至 72 个字符" error={form.formState.errors.password?.message} {...form.register("password")} />
-        <Button type="submit" size="lg" className="mt-2 w-full" disabled={mutation.isPending}>{mutation.isPending ? "正在登录…" : "登录"}</Button>
+        <Button type="submit" size="lg" className="mt-2 w-full justify-between" disabled={mutation.isPending}>{mutation.isPending ? "正在登录…" : "登录"}<ArrowRightIcon /></Button>
       </form>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-copy-13">
+      <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6 text-copy-13">
         <Link href="/register" className="font-medium text-accent-strong hover:text-accent hover:underline">注册教师账号</Link>
         <Link href="/init" className="text-neutral-7 hover:text-neutral-9">首次使用，初始化学校</Link>
       </div>

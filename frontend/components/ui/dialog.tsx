@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
+import { AnimatedDialog } from "./animated-dialog";
 import { Button } from "./button";
 
 export function Dialog({ open, title, description, children, footer, onClose, isPending = false, className }: {
@@ -15,28 +16,16 @@ export function Dialog({ open, title, description, children, footer, onClose, is
   isPending?: boolean;
   className?: string;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
-
-  if (!open) return null;
-
   return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby={titleId}
-      aria-describedby={description ? descriptionId : undefined}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!isPending) onClose();
-      }}
+    <AnimatedDialog
+      open={open}
+      labelledBy={titleId}
+      describedBy={description ? descriptionId : undefined}
+      onClose={onClose}
+      isPending={isPending}
       className={cn("m-auto flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-paper p-0 text-neutral-9 shadow-xl backdrop:bg-neutral-10/25 backdrop:backdrop-blur-sm", className)}
     >
       <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
@@ -48,6 +37,6 @@ export function Dialog({ open, title, description, children, footer, onClose, is
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       {footer ? <footer className="flex flex-wrap justify-end gap-3 border-t border-border bg-neutral-2/60 px-5 py-4">{footer}</footer> : null}
-    </dialog>
+    </AnimatedDialog>
   );
 }

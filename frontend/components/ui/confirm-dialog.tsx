@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useId } from "react";
+import { AnimatedDialog } from "@/components/ui/animated-dialog";
 import { Button } from "@/components/ui/button";
 
 interface ConfirmDialogProps {
@@ -16,29 +17,21 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ open, title, description, confirmLabel, isPending = false, error, confirmVariant = "destructive", onConfirm, onCancel }: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+  const titleId = useId();
+  const descriptionId = useId();
 
   return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby="confirm-dialog-title"
-      aria-describedby="confirm-dialog-description"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!isPending) onCancel();
-      }}
+    <AnimatedDialog
+      open={open}
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      onClose={onCancel}
+      isPending={isPending}
       className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-paper p-0 text-neutral-9 shadow-xl backdrop:bg-neutral-10/25 backdrop:backdrop-blur-sm"
     >
       <div className="p-6">
-        <h2 id="confirm-dialog-title" className="text-title-20 font-medium tracking-[0.01em] text-neutral-10">{title}</h2>
-        <p id="confirm-dialog-description" className="mt-3 text-copy-14 leading-7 text-neutral-7">{description}</p>
+        <h2 id={titleId} className="text-title-20 font-medium tracking-[0.01em] text-neutral-10">{title}</h2>
+        <p id={descriptionId} className="mt-3 text-copy-14 leading-7 text-neutral-7">{description}</p>
         {error ? <p role="alert" className="mt-4 rounded-md border border-error-soft-strong bg-error-soft px-3 py-2 text-copy-13 leading-5 text-error">{error}</p> : null}
         <div className="mt-6 flex justify-end gap-3">
           <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>取消</Button>
@@ -47,6 +40,6 @@ export function ConfirmDialog({ open, title, description, confirmLabel, isPendin
           </Button>
         </div>
       </div>
-    </dialog>
+    </AnimatedDialog>
   );
 }

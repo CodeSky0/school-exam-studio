@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { AdminCreatorSelect } from "./admin-creator-select";
 
 export function QuestionFilterBar({ user, filters, onApply, scope = "teacher" }: {
   user: CurrentUser;
@@ -16,7 +17,12 @@ export function QuestionFilterBar({ user, filters, onApply, scope = "teacher" }:
   onApply: (filters: QuestionFilters) => void;
   scope?: "teacher" | "admin";
 }) {
-  const [draft, setDraft] = useState(filters);
+  const [draftState, setDraftState] = useState({ source: filters, value: filters });
+  const draft = draftState.source === filters ? draftState.value : filters;
+
+  function setDraft(value: QuestionFilters) {
+    setDraftState({ source: filters, value });
+  }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -24,7 +30,9 @@ export function QuestionFilterBar({ user, filters, onApply, scope = "teacher" }:
   }
 
   function reset() {
-    onApply({ page: 1, page_size: filters.page_size });
+    const next = { page: 1, page_size: filters.page_size };
+    setDraft(next);
+    onApply(next);
   }
 
   return (
@@ -58,7 +66,7 @@ export function QuestionFilterBar({ user, filters, onApply, scope = "teacher" }:
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="filter-creator" className="text-label-12">创建范围</Label>
-          {scope === "admin" ? <Input id="filter-creator" className="h-9 font-mono text-label-12" value={draft.creator_id ?? ""} placeholder="创建人 UUID" onChange={(event) => setDraft({ ...draft, creator_id: event.target.value || undefined })} /> : <Select id="filter-creator" className="h-9" value={draft.creator_id ?? ""} onChange={(event) => setDraft({ ...draft, creator_id: event.target.value || undefined })}>
+          {scope === "admin" ? <AdminCreatorSelect id="filter-creator" user={user} value={draft.creator_id} onChange={(creatorId) => setDraft({ ...draft, creator_id: creatorId })} /> : <Select id="filter-creator" className="h-9" value={draft.creator_id ?? ""} onChange={(event) => setDraft({ ...draft, creator_id: event.target.value || undefined })}>
             <option value="">全部可见题目</option>
             <option value={user.id}>仅我创建</option>
           </Select>}
@@ -72,7 +80,7 @@ export function QuestionFilterBar({ user, filters, onApply, scope = "teacher" }:
         </div>
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-label-12 leading-5 text-neutral-7">{scope === "admin" ? "管理员可查看本校全部状态题目，创建人筛选需填写完整 UUID。" : "可查看自己的全部题目，以及其他教师已发布的题目。"}</p>
+        <p className="text-label-12 leading-5 text-neutral-7">{scope === "admin" ? "管理员可查看本校全部状态题目，并可按教师姓名筛选创建人。" : "可查看自己的全部题目，以及其他教师已发布的题目。"}</p>
         <div className="flex gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={reset}><ResetIcon />重置</Button>
           <Button type="submit" size="sm"><MagnifyingGlassIcon />应用筛选</Button>

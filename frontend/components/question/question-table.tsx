@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { CaretDownIcon, CaretRightIcon, ChevronLeftIcon, ChevronRightIcon, Pencil1Icon, TrashIcon } from "@radix-ui/react-icons";
 import type { CurrentUser } from "@/lib/schemas";
 import { normalizeChoiceAnswer, questionStatusLabels, questionTypeLabels, type Question, type QuestionList } from "@/lib/question-schemas";
@@ -15,6 +16,23 @@ const statusStyles = {
   draft: "border-warning/30 bg-warning-soft text-warning",
   published: "border-success/25 bg-success-soft text-success",
   archived: "border-neutral-4 bg-neutral-3 text-neutral-7",
+};
+
+const listVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.035 } },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+};
+
+const detailVariants: Variants = {
+  hidden: { opacity: 0, y: -6 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
 };
 
 function formatUpdatedAt(value: string) {
@@ -74,6 +92,26 @@ function TableSkeleton() {
   );
 }
 
+function QuestionStatus({ question }: { question: Question }) {
+  return <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-label-12 font-medium", statusStyles[question.status])}>{questionStatusLabels[question.status]}</span>;
+}
+
+function QuestionActions({ canEdit, isDeleting, onEdit, onDelete, renderActions, className }: {
+  canEdit: boolean;
+  isDeleting: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  renderActions?: () => React.ReactNode;
+  className?: string;
+}) {
+  if (renderActions) return renderActions();
+  return (
+    <div className={cn("flex flex-wrap justify-end gap-1", className)}>
+      {canEdit ? <><Button type="button" variant="ghost" size="sm" onClick={onEdit}><Pencil1Icon />编辑</Button><Button type="button" variant="ghost" size="sm" className="text-error hover:bg-error-soft hover:text-error" disabled={isDeleting} onClick={onDelete}><TrashIcon />{isDeleting ? "删除中" : "删除"}</Button></> : <span className="text-copy-13 text-neutral-6">仅查看</span>}
+    </div>
+  );
+}
+
 export function QuestionTable({ user, data, isPending, isFetching, error, deletingId, onRetry, onEdit, onDelete, onPageChange, onPageSizeChange, renderActions, emptyDescription }: {
   user: CurrentUser;
   data?: QuestionList;
@@ -101,22 +139,21 @@ export function QuestionTable({ user, data, isPending, isFetching, error, deleti
         <span>共 {data.total} 道题{isFetching ? " · 正在更新列表…" : ""}</span>
         <span>每页最多 100 条</span>
       </div>
-      <div className="overflow-x-auto border-y border-border" tabIndex={0} role="region" aria-label="题目列表，可横向滚动">
+      <div className="hidden overflow-x-auto border-y border-border md:block" tabIndex={0} role="region" aria-label="题目列表，可横向滚动">
         <table className="w-full min-w-[1120px] border-collapse bg-neutral-1 text-left text-copy-13">
           <thead className="bg-neutral-2 text-label-12 font-medium text-neutral-7">
             <tr className="border-b border-border">
               <th scope="col" className="w-[31%] px-4 py-3">题目</th><th scope="col" className="px-3 py-3">学科 / 年级</th><th scope="col" className="px-3 py-3">题型</th><th scope="col" className="px-3 py-3">难度</th><th scope="col" className="px-3 py-3">标签</th><th scope="col" className="px-3 py-3">创建人</th><th scope="col" className="px-3 py-3">状态</th><th scope="col" className="px-3 py-3">更新时间</th><th scope="col" className="px-4 py-3 text-right">操作</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <motion.tbody className="divide-y divide-border" variants={listVariants} initial="hidden" animate="visible">
             {data.items.map((question) => {
-              const canEdit = question.creator_id === user.id && question.status === "draft";
               const expanded = expandedId === question.id;
               return (
                 <QuestionRow
                   key={question.id}
                   question={question}
-                  canEdit={canEdit}
+                  canEdit={question.creator_id === user.id && question.status === "draft"}
                   expanded={expanded}
                   isDeleting={deletingId === question.id}
                   onToggle={() => setExpandedId(expanded ? null : question.id)}
@@ -126,9 +163,29 @@ export function QuestionTable({ user, data, isPending, isFetching, error, deleti
                 />
               );
             })}
-          </tbody>
+          </motion.tbody>
         </table>
       </div>
+      <motion.div className="border-y border-border md:hidden" variants={listVariants} initial="hidden" animate="visible" aria-label="题目摘要列表">
+        <AnimatePresence initial={false} mode="popLayout">
+          {data.items.map((question) => {
+            const expanded = expandedId === question.id;
+            return (
+              <QuestionMobileCard
+                key={question.id}
+                question={question}
+                canEdit={question.creator_id === user.id && question.status === "draft"}
+                expanded={expanded}
+                isDeleting={deletingId === question.id}
+                onToggle={() => setExpandedId(expanded ? null : question.id)}
+                onEdit={() => onEdit?.(question)}
+                onDelete={() => onDelete?.(question)}
+                renderActions={renderActions ? () => renderActions(question) : undefined}
+              />
+            );
+          })}
+        </AnimatePresence>
+      </motion.div>
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
         <div className="flex items-center gap-2">
           <Label htmlFor="question-page-size" className="text-label-12">每页</Label>
@@ -144,7 +201,7 @@ export function QuestionTable({ user, data, isPending, isFetching, error, deleti
   );
 }
 
-function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit, onDelete, renderActions }: {
+interface QuestionItemProps {
   question: Question;
   canEdit: boolean;
   expanded: boolean;
@@ -153,12 +210,15 @@ function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit
   onEdit: () => void;
   onDelete: () => void;
   renderActions?: () => React.ReactNode;
-}) {
+}
+
+function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit, onDelete, renderActions }: QuestionItemProps) {
+  const detailsId = `desktop-question-details-${question.id}`;
   return (
     <>
-      <tr className={cn("align-top transition-colors", expanded ? "bg-accent-soft/40" : "hover:bg-neutral-2/70")}>
+      <motion.tr layout="position" variants={itemVariants} className={cn("align-top transition-colors", expanded ? "bg-accent-soft/40" : "hover:bg-neutral-2/70")}>
         <td className="px-4 py-4">
-          <Button type="button" variant="ghost" size="sm" className="mb-2 -ml-2 h-7 px-2 text-label-12" aria-expanded={expanded} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起" : "查看"}</Button>
+          <Button type="button" variant="ghost" size="sm" className="mb-2 -ml-2 h-7 px-2 text-label-12" aria-expanded={expanded} aria-controls={detailsId} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起" : "查看"}</Button>
           <RichTextView content={question.content} className="max-h-20 overflow-hidden text-copy-13 leading-5" />
         </td>
         <td className="px-3 py-4 text-copy-13 leading-5 text-neutral-8">{question.subject}<br /><span className="text-neutral-7">{question.grade}</span></td>
@@ -166,11 +226,37 @@ function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit
         <td className="px-3 py-4 font-mono text-copy-13">{question.difficulty} / 5</td>
         <td className="max-w-36 px-3 py-4"><div className="flex flex-wrap gap-1">{question.tags.length ? question.tags.map((tag) => <span key={tag} className="rounded bg-neutral-3 px-1.5 py-0.5 text-label-12 text-neutral-7">{tag}</span>) : <span className="text-copy-13 text-neutral-6">无</span>}</div></td>
         <td className="px-3 py-4 text-copy-13 text-neutral-8">{question.creator_name}</td>
-        <td className="px-3 py-4"><span className={cn("inline-flex rounded-full border px-2 py-0.5 text-label-12 font-medium", statusStyles[question.status])}>{questionStatusLabels[question.status]}</span></td>
+        <td className="px-3 py-4"><QuestionStatus question={question} /></td>
         <td className="whitespace-nowrap px-3 py-4 text-copy-13 text-neutral-7"><time dateTime={question.updated_at}>{formatUpdatedAt(question.updated_at)}</time></td>
-        <td className="px-4 py-4">{renderActions ? renderActions() : <div className="flex justify-end gap-1">{canEdit ? <><Button type="button" variant="ghost" size="sm" onClick={onEdit}><Pencil1Icon />编辑</Button><Button type="button" variant="ghost" size="sm" className="text-error hover:bg-error-soft hover:text-error" disabled={isDeleting} onClick={onDelete}><TrashIcon />{isDeleting ? "删除中" : "删除"}</Button></> : <span className="text-copy-13 text-neutral-6">仅查看</span>}</div>}</td>
-      </tr>
-      {expanded ? <tr><td colSpan={9} className="p-0"><QuestionDetails question={question} /></td></tr> : null}
+        <td className="px-4 py-4"><QuestionActions canEdit={canEdit} isDeleting={isDeleting} onEdit={onEdit} onDelete={onDelete} renderActions={renderActions} /></td>
+      </motion.tr>
+      <AnimatePresence initial={false}>
+        {expanded ? <motion.tr key={detailsId} variants={detailVariants} initial="hidden" animate="visible" exit="exit"><td colSpan={9} className="p-0" id={detailsId}><QuestionDetails question={question} /></td></motion.tr> : null}
+      </AnimatePresence>
     </>
+  );
+}
+
+function QuestionMobileCard({ question, canEdit, expanded, isDeleting, onToggle, onEdit, onDelete, renderActions }: QuestionItemProps) {
+  const detailsId = `mobile-question-details-${question.id}`;
+  return (
+    <motion.article layout="position" variants={itemVariants} exit="exit" className="border-b border-border p-4 last:border-b-0">
+      <div className="flex items-start justify-between gap-3">
+        <Button type="button" variant="ghost" size="sm" className="-ml-2 h-8 px-2 text-label-12" aria-expanded={expanded} aria-controls={detailsId} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起详情" : "查看详情"}</Button>
+        <QuestionStatus question={question} />
+      </div>
+      <RichTextView content={question.content} className="mt-2 max-h-24 overflow-hidden text-copy-14 leading-6" />
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-label-12">
+        <div><dt className="text-neutral-6">学科 / 年级</dt><dd className="mt-1 text-copy-13 text-neutral-9">{question.subject} · {question.grade}</dd></div>
+        <div><dt className="text-neutral-6">题型 / 难度</dt><dd className="mt-1 text-copy-13 text-neutral-9">{questionTypeLabels[question.question_type]} · {question.difficulty} / 5</dd></div>
+        <div><dt className="text-neutral-6">创建人</dt><dd className="mt-1 text-copy-13 text-neutral-9">{question.creator_name}</dd></div>
+        <div><dt className="text-neutral-6">更新时间</dt><dd className="mt-1 text-copy-13 text-neutral-9"><time dateTime={question.updated_at}>{formatUpdatedAt(question.updated_at)}</time></dd></div>
+      </dl>
+      <div className="mt-3 flex flex-wrap gap-1">{question.tags.map((tag) => <span key={tag} className="rounded bg-neutral-3 px-1.5 py-0.5 text-label-12 text-neutral-7">{tag}</span>)}</div>
+      <div className="mt-4 border-t border-border pt-3"><QuestionActions canEdit={canEdit} isDeleting={isDeleting} onEdit={onEdit} onDelete={onDelete} renderActions={renderActions} className="justify-start" /></div>
+      <AnimatePresence initial={false}>
+        {expanded ? <motion.div key={detailsId} id={detailsId} variants={detailVariants} initial="hidden" animate="visible" exit="exit" className="mt-4 overflow-hidden rounded-lg"><QuestionDetails question={question} /></motion.div> : null}
+      </AnimatePresence>
+    </motion.article>
   );
 }

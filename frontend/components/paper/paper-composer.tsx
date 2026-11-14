@@ -8,8 +8,10 @@ import type { CurrentUser } from "@/lib/schemas";
 import { getPaper, paperQueryKeys } from "@/lib/papers";
 import type { Paper } from "@/lib/paper-schemas";
 import { FormError } from "@/components/auth-form";
+import { PageHeader } from "@/components/page-header";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { usePaperStore } from "./paper-store-provider";
+import { StatusMessage } from "@/components/ui/status-message";
+import { PaperComposerSkeleton, usePaperStore } from "./paper-store-provider";
 import { QuestionPicker } from "./question-picker";
 import { PaperCart } from "./paper-cart";
 import { PaperForm } from "./paper-form";
@@ -39,12 +41,7 @@ export function PaperComposer({ user, paperId, onSaved }: {
   }, [currentPaperId, ensureNewPaper, loadPaper, paperId, paperQuery.data, user.subject]);
 
   if (paperId && paperQuery.isPending) {
-    return (
-      <div className="mx-auto max-w-[1500px] animate-pulse" aria-label="正在读取试卷">
-        <div className="h-4 w-32 rounded bg-neutral-4" /><div className="mt-4 h-9 w-72 max-w-full rounded bg-neutral-4" />
-        <div className="mt-8 grid gap-6 xl:grid-cols-2"><div className="h-96 rounded-lg bg-neutral-3" /><div className="h-96 rounded-lg bg-neutral-3" /></div>
-      </div>
-    );
+    return <PaperComposerSkeleton label="正在读取试卷" />;
   }
 
   if (paperId && paperQuery.error) {
@@ -59,13 +56,13 @@ export function PaperComposer({ user, paperId, onSaved }: {
 
   return (
     <div className="mx-auto max-w-[1500px]">
-      <header className="pb-6">
-        {paperId ? <Link href="/teacher/papers" className={buttonVariants({ variant: "ghost", size: "sm", className: "mb-3 -ml-3" })}><ArrowLeftIcon />返回组卷中心</Link> : null}
-        <p className="text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">教师工作区 / 组卷中心</p>
-        <h1 className="mt-2 text-title-28 font-medium tracking-[0.01em] text-neutral-10">{paperId ? "编辑与预览试卷" : "组卷中心"}</h1>
-        <p className="mt-2 max-w-2xl text-copy-14 leading-7 text-neutral-7">从本校已发布题库选题，安排卷面顺序和分值。未保存内容仅保留在当前教师的浏览器中。</p>
-      </header>
-      {savedMessage ? <p role="status" className="mb-5 rounded-lg border border-success/25 bg-success-soft px-4 py-3 text-copy-13 text-success">{savedMessage}</p> : null}
+      <PageHeader
+        eyebrow="教师工作区 / 组卷中心"
+        title={paperId ? "编辑与预览试卷" : "组卷中心"}
+        description="从本校已发布题库选题，安排卷面顺序和分值。未保存内容仅保留在当前教师的浏览器中。"
+        back={paperId ? <Link href="/teacher/papers" className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-3" })}><ArrowLeftIcon />返回组卷中心</Link> : undefined}
+      />
+      <StatusMessage message={savedMessage} tone="success" className="mb-5" />
       <div className="grid items-start gap-6 2xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,0.8fr)]">
         <QuestionPicker defaultSubject={user.subject} />
         <aside className="grid min-w-0 gap-5" aria-label="试卷编辑面板">

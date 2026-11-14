@@ -4,6 +4,7 @@ import * as React from "react";
 import { ApiError } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StatusMessage } from "@/components/ui/status-message";
 
 export type FormFieldProps = React.ComponentProps<"input"> & {
   label: string;
@@ -24,6 +25,7 @@ export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
           ref={ref}
           aria-invalid={Boolean(error)}
           aria-describedby={error || hint ? messageId : undefined}
+          className="h-11 bg-[#fffdf8] px-3.5"
           {...props}
         />
         {error ? <p id={messageId} className="text-copy-13 text-error">{error}</p> : null}
@@ -36,26 +38,22 @@ export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
 export function FormError({ error }: { error: unknown }) {
   if (!error) return null;
   const message = error instanceof ApiError ? error.message : "操作未完成，请稍后重试";
-  return (
-    <div role="alert" className="rounded-lg border border-error-soft-strong bg-error-soft px-3.5 py-3 text-copy-13 leading-6 text-error">
-      {message}
-    </div>
-  );
+  return <StatusMessage message={message} tone="error" />;
 }
 
 export function AuthHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return (
-    <div className="mb-8">
+    <header className="mb-8 border-l-2 border-accent pl-5">
       <p className="mb-3 text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">{eyebrow}</p>
-      <h2 className="text-title-28 font-medium tracking-[0.01em] text-neutral-10">{title}</h2>
+      <h1 className="text-display-36 font-medium leading-tight tracking-[0.01em] text-neutral-10">{title}</h1>
       <p className="mt-3 text-copy-14 leading-7 text-neutral-7">{description}</p>
-    </div>
+    </header>
   );
 }
 
 export function FormSkeleton() {
   return (
-    <div aria-label="正在读取页面" className="animate-pulse">
+    <div aria-label="正在读取页面" role="status" className="animate-pulse">
       <div className="h-3 w-20 rounded bg-neutral-4" />
       <div className="mt-5 h-9 w-56 rounded bg-neutral-4" />
       <div className="mt-4 h-4 w-full max-w-sm rounded bg-neutral-3" />
