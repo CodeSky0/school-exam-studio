@@ -180,6 +180,21 @@ type Status struct {
 	Safety       []string `json:"safety"`
 }
 
+// ConnectionTestResult 记录一次模型连通性测试的结果。
+type ConnectionTestResult struct {
+	OK        bool   `json:"ok"`
+	Provider  string `json:"provider"`
+	Model     string `json:"model"`
+	Source    string `json:"source"`
+	LatencyMS int64  `json:"latency_ms"`
+	Message   string `json:"message"`
+}
+
+// ConnectionTestInput 允许管理员测试指定模型，留空时使用默认模型。
+type ConnectionTestInput struct {
+	Model string `json:"model"`
+}
+
 type QuestionSnapshot struct {
 	ID               string
 	CreatorID        string

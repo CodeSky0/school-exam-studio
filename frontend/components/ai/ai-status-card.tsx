@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 
 const providerCopy: Record<string, { label: string; description: string; tone: string }> = {
   llm: {
-    label: "大模型已启用",
-    description: "分析、出题与补解析优先调用外部大模型，失败时自动降级为本地引擎。",
+    label: "大模型已配置",
+    description: "分析、出题与补解析优先调用外部大模型，失败时自动降级为本地引擎。可在学校设置中点击“测试已保存配置”验证连通性。",
     tone: "border-accent/30 bg-accent-soft text-accent-strong",
   },
   local: {

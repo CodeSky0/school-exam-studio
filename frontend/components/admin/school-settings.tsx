@@ -6,6 +6,7 @@ import {
   adminQueryKeys,
   getSchool,
   getSchoolAISettings,
+  testSchoolAIConnection,
   updateSchoolAISettings,
   updateSchoolName,
   type School,
@@ -160,6 +161,9 @@ function AISettingsForm({ settings }: { settings: SchoolAISettings }) {
       setMessage("全校 AI 模型配置已保存，教师端将在下次调用时生效。");
       setLocalError(null);
     },
+  });
+  const testMutation = useMutation({
+    mutationFn: () => testSchoolAIConnection(settings.default_model || undefined),
   });
 
   function chooseVendor(provider: string) {
@@ -373,8 +377,29 @@ function AISettingsForm({ settings }: { settings: SchoolAISettings }) {
           {mutation.isError ? <StatusMessage message={mutationMessage} tone="error" /> : null}
           <StatusMessage message={message} tone="success" />
           {settings.warning ? <StatusMessage message={settings.warning} tone="warning" /> : null}
+          {testMutation.data ? (
+            <StatusMessage
+              tone={testMutation.data.ok ? "success" : "warning"}
+              message={`${testMutation.data.ok ? "模型连接正常" : "模型连接失败"}：${testMutation.data.message}${testMutation.data.model ? `（${testMutation.data.model} · ${testMutation.data.latency_ms}ms）` : ""}`}
+            />
+          ) : null}
+          {testMutation.isError ? (
+            <StatusMessage
+              tone="error"
+              message={testMutation.error instanceof ApiError ? testMutation.error.message : "连接测试失败，请稍后重试"}
+            />
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" size="lg" disabled={mutation.isPending}>{mutation.isPending ? "正在保存…" : "保存 AI 模型配置"}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              disabled={testMutation.isPending || !settings.configured || !settings.enabled}
+              onClick={() => testMutation.mutate()}
+            >
+              {testMutation.isPending ? "正在测试…" : "测试已保存配置"}
+            </Button>
             {settings.updated_at ? <span className="text-label-12 text-neutral-7">最近更新：<time dateTime={settings.updated_at}>{settings.updated_at}</time></span> : null}
           </div>
         </div>

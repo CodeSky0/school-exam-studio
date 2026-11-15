@@ -30,6 +30,7 @@ func (h *Handler) Register(group *echo.Group) {
 	group.GET("/ai/status", h.Status)
 	group.GET("/admin/ai/settings", h.GetSchoolAISettings)
 	group.PATCH("/admin/ai/settings", h.UpdateSchoolAISettings)
+	group.POST("/admin/ai/test", h.TestConnection)
 	group.POST("/ai/analyze", h.Analyze)
 	group.POST("/ai/questions/:id/analyze", h.AnalyzeQuestion)
 	group.POST("/ai/questions/:id/variants", h.Variants)
@@ -77,6 +78,25 @@ func (h *Handler) UpdateSchoolAISettings(c echo.Context) error {
 		return err
 	}
 	result, err := h.service.UpdateSchoolAISettings(c.Request().Context(), principal, input)
+	if err != nil {
+		return aiError(err)
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) TestConnection(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	if principal.Role != auth.RoleAdmin {
+		return aiError(ErrForbidden)
+	}
+	var input ConnectionTestInput
+	if err := decodeOptionalAIJSON(c, &input); err != nil {
+		return err
+	}
+	result, err := h.service.TestConnection(c.Request().Context(), principal, input.Model)
 	if err != nil {
 		return aiError(err)
 	}

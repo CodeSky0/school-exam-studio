@@ -40,6 +40,15 @@ export const schoolAISettingsSchema = z.object({
   updated_at: z.string().nullable().optional(),
 });
 
+export const aiConnectionTestSchema = z.object({
+  ok: z.boolean(),
+  provider: z.string(),
+  model: z.string(),
+  source: z.string(),
+  latency_ms: z.number(),
+  message: z.string(),
+});
+
 export interface SchoolAISettingsInput {
   provider: string;
   base_url: string;
@@ -117,6 +126,14 @@ export function updateSchoolAISettings(input: SchoolAISettingsInput) {
   });
 }
 
+export function testSchoolAIConnection(model?: string) {
+  return apiRequest("/api/v1/admin/ai/test", aiConnectionTestSchema, {
+    method: "POST",
+    body: JSON.stringify({ model: model ?? "" }),
+  });
+}
+
+export type AIConnectionTest = z.infer<typeof aiConnectionTestSchema>;
 export type TeacherList = z.infer<typeof teacherListSchema>;
 export type School = z.infer<typeof schoolSchema>;
 export type SchoolAISettings = z.infer<typeof schoolAISettingsSchema>;

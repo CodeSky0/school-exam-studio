@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -100,6 +101,45 @@ func (s *Service) Status(ctx context.Context, principal auth.Principal) Status {
 	}
 }
 
+const connectionTestPrompt = `只输出 JSON：{"ok":true}`
+
+// TestConnection 用一次最小请求验证学校当前保存的模型是否可用，便于管理员定位配置问题。
+func (s *Service) TestConnection(ctx context.Context, principal auth.Principal, model string) (ConnectionTestResult, error) {
+	if principal.Role != auth.RoleAdmin {
+		return ConnectionTestResult{}, ErrForbidden
+	}
+	client, config, warning, err := s.resolveLLM(ctx, principal, model)
+	if err != nil {
+		var validation *ValidationError
+		if errors.As(err, &validation) {
+			return ConnectionTestResult{OK: false, Provider: ProviderLocal, Message: validation.Violation.Message}, nil
+		}
+		return ConnectionTestResult{}, err
+	}
+	if client == nil {
+		message := warning
+		if message == "" {
+			message = "当前使用本地确定性引擎，尚未配置可用模型"
+		}
+		return ConnectionTestResult{OK: false, Provider: ProviderLocal, Source: "local", Message: message}, nil
+	}
+	start := time.Now()
+	_, callErr := client.CompleteJSON(ctx, "你是连接测试助手。", connectionTestPrompt)
+	latency := time.Since(start).Milliseconds()
+	result := ConnectionTestResult{
+		OK:        callErr == nil,
+		Provider:  config.Provider,
+		Model:     config.Model,
+		Source:    config.Source,
+		LatencyMS: latency,
+		Message:   "模型连接正常",
+	}
+	if callErr != nil {
+		result.Message = callErr.Error()
+	}
+	return result, nil
+}
+
 func (s *Service) Analyze(ctx context.Context, principal auth.Principal, input AnalyzeInput) (Analysis, error) {
 	if err := validatePrincipal(principal); err != nil {
 		return Analysis{}, err
@@ -121,7 +161,7 @@ func (s *Service) Analyze(ctx context.Context, principal auth.Principal, input A
 	raw, err := client.CompleteJSON(ctx, analyzeSystemPrompt, analyzeUserPrompt(input))
 	if err != nil {
 		local.Provider = ProviderFallback
-		local.Warnings = append(local.Warnings, "大模型调用失败，已自动降级为本地引擎")
+		local.Warnings = append(local.Warnings, "大模型调用失败，已自动降级为本地引擎", "降级原因："+err.Error())
 		return local, nil
 	}
 	var response llmAnalysisResponse
@@ -198,8 +238,8 @@ func (s *Service) generate(ctx context.Context, principal auth.Principal, input 
 		result.Warnings = append(result.Warnings, warning)
 	}
 	if client != nil {
-		raw, err := client.CompleteJSON(ctx, generateSystemPrompt, generateUserPrompt(input))
-		if err == nil {
+		raw, llmErr := client.CompleteJSON(ctx, generateSystemPrompt, generateUserPrompt(input))
+		if llmErr == nil {
 			var response llmItemsResponse
 			if err := json.Unmarshal([]byte(raw), &response); err == nil && len(response.Items) > 0 {
 				result.Items = s.normalizeGenerated(response.Items, input)
@@ -208,7 +248,11 @@ func (s *Service) generate(ctx context.Context, principal auth.Principal, input 
 			}
 		}
 		if result.Provider == "" {
-			result.Warnings = append(result.Warnings, "大模型出题失败，已自动降级为本地引擎")
+			warning := "大模型出题失败，已自动降级为本地引擎"
+			if llmErr != nil {
+				warning += "；降级原因：" + llmErr.Error()
+			}
+			result.Warnings = append(result.Warnings, warning)
 		}
 	}
 	if len(result.Items) == 0 {
@@ -262,8 +306,8 @@ func (s *Service) generateVariants(ctx context.Context, principal auth.Principal
 		result.Warnings = append(result.Warnings, warning)
 	}
 	if client != nil {
-		raw, err := client.CompleteJSON(ctx, variantSystemPrompt, variantUserPrompt(snapshot, input))
-		if err == nil {
+		raw, llmErr := client.CompleteJSON(ctx, variantSystemPrompt, variantUserPrompt(snapshot, input))
+		if llmErr == nil {
 			var response llmItemsResponse
 			if err := json.Unmarshal([]byte(raw), &response); err == nil && len(response.Items) > 0 {
 				generateInput := GenerateInput{
@@ -286,7 +330,11 @@ func (s *Service) generateVariants(ctx context.Context, principal auth.Principal
 			}
 		}
 		if result.Provider == "" {
-			result.Warnings = append(result.Warnings, "大模型变式生成失败，已自动降级为本地引擎")
+			warning := "大模型变式生成失败，已自动降级为本地引擎"
+			if llmErr != nil {
+				warning += "；降级原因：" + llmErr.Error()
+			}
+			result.Warnings = append(result.Warnings, warning)
 		}
 	}
 	if len(result.Items) == 0 {

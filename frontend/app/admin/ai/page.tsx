@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { AdminAIPageContent } from "@/components/ai/admin-ai-page";
+import { AIHub } from "@/components/ai/ai-hub";
 
 export const metadata: Metadata = { title: "AI 工作台" };
 
 export default function AdminAIPage() {
-  return <AdminAIPageContent />;
+  return <AIHub />;
 }

@@ -44,23 +44,76 @@ func (c *LLMClient) Model() string {
 }
 
 type chatMessage struct {
+	Role             string          `json:"role"`
+	Content          json.RawMessage `json:"content"`
+	Reasoning        string          `json:"reasoning"`
+	ReasoningContent string          `json:"reasoning_content"`
+}
+
+// text 兼容字符串与分片数组两种 content 形式，并在仅有推理内容时回退。
+func (m chatMessage) text() string {
+	if value := contentText(m.Content); value != "" {
+		return value
+	}
+	return strings.TrimSpace(firstNonEmpty(m.ReasoningContent, m.Reasoning))
+}
+
+func contentText(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return strings.TrimSpace(text)
+	}
+	var parts []struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(raw, &parts); err != nil {
+		return ""
+	}
+	builder := strings.Builder{}
+	for _, part := range parts {
+		if value := strings.TrimSpace(part.Text); value != "" {
+			builder.WriteString(value)
+		}
+	}
+	return strings.TrimSpace(builder.String())
+}
+
+// ProviderError 描述模型服务返回的业务错误，保留状态码与厂商消息便于管理员定位。
+type ProviderError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *ProviderError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("模型接口返回 HTTP %d：%s", e.StatusCode, e.Message)
+	}
+	return fmt.Sprintf("模型接口返回 HTTP %d", e.StatusCode)
+}
+
+type outgoingMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
+	Model       string            `json:"model"`
+	Messages    []outgoingMessage `json:"messages"`
+	Temperature float64           `json:"temperature"`
+	MaxTokens   int               `json:"max_tokens,omitempty"`
 }
 
 type chatResponse struct {
 	Choices []struct {
-		Message chatMessage `json:"message"`
+		Message      chatMessage `json:"message"`
+		FinishReason string      `json:"finish_reason"`
 	} `json:"choices"`
 	Error *struct {
 		Message string `json:"message"`
+		Code    int    `json:"code"`
 	} `json:"error"`
 }
 
@@ -70,7 +123,7 @@ func (c *LLMClient) CompleteJSON(ctx context.Context, system, user string) (stri
 	}
 	payload, err := json.Marshal(chatRequest{
 		Model: c.model,
-		Messages: []chatMessage{
+		Messages: []outgoingMessage{
 			{Role: "system", Content: system},
 			{Role: "user", Content: user},
 		},
@@ -88,31 +141,70 @@ func (c *LLMClient) CompleteJSON(ctx context.Context, system, user string) (stri
 	request.Header.Set("Authorization", "Bearer "+c.apiKey)
 	response, err := c.http.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("ai provider request failed")
+		return "", fmt.Errorf("模型接口请求失败：%w", err)
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxLLMResponseBytes))
 	if err != nil {
-		return "", fmt.Errorf("ai provider response unreadable")
-	}
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return "", fmt.Errorf("ai provider returned status %d", response.StatusCode)
+		return "", fmt.Errorf("模型接口响应无法读取")
 	}
 	var decoded chatResponse
-	if err := json.Unmarshal(body, &decoded); err != nil {
-		return "", fmt.Errorf("ai provider returned invalid payload")
+	decodeErr := json.Unmarshal(body, &decoded)
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		message := ""
+		if decodeErr == nil && decoded.Error != nil {
+			message = decoded.Error.Message
+		}
+		if message == "" {
+			message = providerMessage(body)
+		}
+		return "", &ProviderError{StatusCode: response.StatusCode, Message: sanitizeProviderMessage(message)}
+	}
+	if decodeErr != nil {
+		return "", fmt.Errorf("模型接口返回了无法解析的响应")
 	}
 	if decoded.Error != nil && decoded.Error.Message != "" {
-		return "", fmt.Errorf("ai provider rejected the request")
+		return "", &ProviderError{StatusCode: response.StatusCode, Message: sanitizeProviderMessage(decoded.Error.Message)}
 	}
 	if len(decoded.Choices) == 0 {
-		return "", fmt.Errorf("ai provider returned no choices")
+		return "", fmt.Errorf("模型接口未返回任何结果")
 	}
-	content := strings.TrimSpace(decoded.Choices[0].Message.Content)
+	content := decoded.Choices[0].Message.text()
 	if content == "" {
-		return "", fmt.Errorf("ai provider returned empty content")
+		if reason := strings.TrimSpace(decoded.Choices[0].FinishReason); reason != "" {
+			return "", fmt.Errorf("模型接口返回空内容（finish_reason=%s）", reason)
+		}
+		return "", fmt.Errorf("模型接口返回空内容")
 	}
 	return extractJSON(content), nil
+}
+
+func providerMessage(body []byte) string {
+	var payload struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &payload); err == nil {
+		if payload.Error.Message != "" {
+			return payload.Error.Message
+		}
+		return payload.Message
+	}
+	return strings.TrimSpace(string(body))
+}
+
+func sanitizeProviderMessage(message string) string {
+	message = strings.Join(strings.Fields(strings.TrimSpace(message)), " ")
+	if message == "" {
+		return ""
+	}
+	runes := []rune(message)
+	if len(runes) > 300 {
+		message = string(runes[:300]) + "…"
+	}
+	return message
 }
 
 func extractJSON(raw string) string {
