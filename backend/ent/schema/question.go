@@ -30,6 +30,12 @@ func (Question) Fields() []ent.Field {
 		field.Text("answer").Optional().Default(""),
 		field.Text("explanation").Optional().Default(""),
 		field.String("status").NotEmpty().Default("draft").MaxLen(20).SchemaType(map[string]string{dialect.Postgres: "varchar(20)"}),
+		field.String("category").MaxLen(60).Default(""),
+		field.JSON("knowledge_points", []string{}).Default([]string{}),
+		field.Bool("ai_generated").Default(false),
+		field.JSON("ai_meta", map[string]any{}).Default(map[string]any{}),
+		field.String("content_hash").MaxLen(64).Default(""),
+		field.UUID("source_question_id", uuid.UUID{}).Optional().Nillable(),
 	}
 }
 
@@ -45,5 +51,7 @@ func (Question) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("school_id", "subject", "grade", "question_type"),
 		index.Fields("school_id", "creator_id", "status"),
+		index.Fields("school_id", "category"),
+		index.Fields("school_id", "content_hash"),
 	}
 }

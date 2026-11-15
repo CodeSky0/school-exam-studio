@@ -118,7 +118,7 @@ func QuestionCount(t *testing.T, client *ent.Client, schoolID uuid.UUID) int {
 }
 
 func TeacherPrincipal(_ *ent.Client) auth.Principal {
-	return auth.Principal{UserID: TeacherA, SchoolID: SchoolA, Role: auth.RoleTeacher, SessionVersion: 1}
+	return auth.Principal{UserID: TeacherA, SchoolID: SchoolA, Role: auth.RoleTeacher, Subject: "数学", SessionVersion: 1}
 }
 
 func AdminPrincipal(_ *ent.Client) auth.Principal {
@@ -126,5 +126,5 @@ func AdminPrincipal(_ *ent.Client) auth.Principal {
 }
 
 func TeacherBPrincipal() auth.Principal {
-	return auth.Principal{UserID: TeacherB, SchoolID: SchoolB, Role: auth.RoleTeacher, SessionVersion: 1}
+	return auth.Principal{UserID: TeacherB, SchoolID: SchoolB, Role: auth.RoleTeacher, Subject: "数学", SessionVersion: 1}
 }

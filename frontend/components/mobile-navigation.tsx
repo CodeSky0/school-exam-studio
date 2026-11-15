@@ -3,7 +3,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ClipboardIcon, Cross2Icon, DashboardIcon, FileTextIcon, GearIcon, PersonIcon } from "@radix-ui/react-icons";
+import { ClipboardIcon, Cross2Icon, DashboardIcon, FileTextIcon, GearIcon, MagicWandIcon, PersonIcon } from "@radix-ui/react-icons";
 import type { CurrentUser } from "@/lib/schemas";
 import { cn, roleLabel } from "@/lib/utils";
 import { Brand } from "@/components/brand";
@@ -12,11 +12,13 @@ import { acquireBodyScrollLock } from "@/components/ui/animated-dialog";
 
 const navigation = [
   { href: "/admin/dashboard", label: "学校总览", icon: DashboardIcon, roles: ["admin"] },
+  { href: "/admin/ai", label: "AI 工作台", icon: MagicWandIcon, roles: ["admin"] },
   { href: "/admin/teachers", label: "教师管理", icon: PersonIcon, roles: ["admin"] },
   { href: "/admin/questions", label: "全校题库", icon: FileTextIcon, roles: ["admin"] },
   { href: "/admin/settings", label: "学校设置", icon: GearIcon, roles: ["admin"] },
   { href: "/account", label: "个人中心", icon: PersonIcon, roles: ["admin"] },
   { href: "/teacher/dashboard", label: "个人总览", icon: DashboardIcon, roles: ["teacher"] },
+  { href: "/teacher/ai", label: "AI 工作台", icon: MagicWandIcon, roles: ["teacher"] },
   { href: "/teacher/questions", label: "教师题库", icon: FileTextIcon, roles: ["teacher"] },
   { href: "/teacher/papers", label: "组卷中心", icon: ClipboardIcon, roles: ["teacher"] },
   { href: "/teacher/profile", label: "个人中心", icon: PersonIcon, roles: ["teacher"] },

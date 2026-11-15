@@ -1,8 +1,12 @@
 package question
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -12,10 +16,12 @@ import (
 )
 
 const (
-	maxPlainTextRunes = 30
-	maxTags           = 10
-	maxTagRunes       = 30
-	maxOptions        = 4
+	maxPlainTextRunes  = 30
+	maxTags            = 10
+	maxTagRunes        = 30
+	maxOptions         = 4
+	maxKnowledgePoints = 8
+	maxCategoryRunes   = 60
 )
 
 var mathDataType = regexp.MustCompile(`^(inlineMath|blockMath|inline-math|block-math)$`)
@@ -60,6 +66,12 @@ func (s *Sanitizer) Normalize(input Input) (Input, error) {
 		return Input{}, validationError("difficulty", "难度必须为1-5")
 	}
 	if input.Tags, err = normalizeTags(input.Tags); err != nil {
+		return Input{}, err
+	}
+	if input.Category, err = normalizeCategory(input.Category); err != nil {
+		return Input{}, err
+	}
+	if input.KnowledgePoints, err = normalizeKnowledgePoints(input.KnowledgePoints); err != nil {
 		return Input{}, err
 	}
 	if input.Content, err = s.normalizeRichText(input.Content, "content", true); err != nil {
@@ -173,6 +185,159 @@ func normalizeTags(tags []string) ([]string, error) {
 		normalized = append(normalized, tag)
 	}
 	return normalized, nil
+}
+
+func normalizeCategory(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if !utf8.ValidString(value) || utf8.RuneCountInString(value) > maxCategoryRunes {
+		return "", validationError("category", "分类不能超过60个字符")
+	}
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return "", validationError("category", "分类不能包含控制字符")
+		}
+	}
+	return value, nil
+}
+
+func normalizeKnowledgePoints(values []string) ([]string, error) {
+	if len(values) > maxKnowledgePoints {
+		return nil, validationError("knowledge_points", "知识点最多8个")
+	}
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		length := utf8.RuneCountInString(value)
+		if !utf8.ValidString(value) || length < 1 || length > maxTagRunes {
+			return nil, validationError("knowledge_points", "每个知识点长度必须为1-30个字符")
+		}
+		for _, r := range value {
+			if unicode.IsControl(r) {
+				return nil, validationError("knowledge_points", "知识点不能包含控制字符")
+			}
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	return normalized, nil
+}
+
+// NormalizeTags / NormalizeCategory / NormalizeKnowledgePoints 供 AI 写操作复用同一套约束。
+func NormalizeTags(values []string) ([]string, error) {
+	return normalizeTags(values)
+}
+
+func NormalizeCategory(value string) (string, error) {
+	return normalizeCategory(value)
+}
+
+func NormalizeKnowledgePoints(values []string) ([]string, error) {
+	return normalizeKnowledgePoints(values)
+}
+
+// NormalizeExplanation 对 AI 生成的解析执行与题目解析相同的富文本消毒。
+func (s *Sanitizer) NormalizeExplanation(value string) (string, error) {
+	return s.normalizeRichText(value, "explanation", false)
+}
+
+// ValidateAnswer 校验 AI 建议答案是否符合题型约束，并返回规范化答案。
+func ValidateAnswer(questionType string, options []Option, answer string) (string, error) {
+	input := Input{QuestionType: questionType, Options: options, Answer: answer}
+	if err := normalizeAnswer(&input); err != nil {
+		return "", err
+	}
+	return input.Answer, nil
+}
+
+// ContentHash 基于可见题干与选项生成稳定哈希，用于重复题检测。
+func ContentHash(input Input) string {
+	parts := []string{visibleText(input.Content)}
+	for _, option := range input.Options {
+		parts = append(parts, option.Key+":"+visibleText(option.Content))
+	}
+	normalized := strings.Join(strings.Fields(strings.ToLower(strings.Join(parts, "|"))), " ")
+	sum := sha256.Sum256([]byte(normalized))
+	return hex.EncodeToString(sum[:])
+}
+
+var numberPattern = regexp.MustCompile(`\d+(?:\.\d+)?`)
+
+// ShiftRichTextNumbers 仅改写文本节点中的数字，保留富文本结构与公式节点。
+func ShiftRichTextNumbers(value string, delta int) (string, bool) {
+	document, err := html.Parse(strings.NewReader(value))
+	if err != nil {
+		return value, false
+	}
+	changed := false
+	var walk func(*html.Node)
+	walk = func(node *html.Node) {
+		if node.Type == html.TextNode {
+			replaced := numberPattern.ReplaceAllStringFunc(node.Data, func(match string) string {
+				if strings.Contains(match, ".") {
+					parsed, err := strconv.ParseFloat(match, 64)
+					if err != nil {
+						return match
+					}
+					changed = true
+					return strconv.FormatFloat(math.Max(1, parsed+float64(delta)), 'f', -1, 64)
+				}
+				parsed, err := strconv.Atoi(match)
+				if err != nil {
+					return match
+				}
+				changed = true
+				return strconv.Itoa(int(math.Max(1, float64(parsed+delta))))
+			})
+			node.Data = replaced
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(document)
+	if !changed {
+		return value, false
+	}
+	var builder strings.Builder
+	if err := html.Render(&builder, document); err != nil {
+		return value, false
+	}
+	return builder.String(), true
+}
+
+func visibleText(value string) string {
+	document, err := html.Parse(strings.NewReader(value))
+	if err != nil {
+		return strings.TrimSpace(value)
+	}
+	var builder strings.Builder
+	var walk func(*html.Node)
+	walk = func(node *html.Node) {
+		if node.Type == html.TextNode {
+			builder.WriteString(node.Data)
+			builder.WriteString(" ")
+		}
+		if node.Type == html.ElementNode {
+			for _, attribute := range node.Attr {
+				if attribute.Key == "data-latex" && strings.TrimSpace(attribute.Val) != "" {
+					builder.WriteString(attribute.Val)
+					builder.WriteString(" ")
+				}
+			}
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(document)
+	return strings.TrimSpace(builder.String())
 }
 
 func isMathDataType(value string) bool {

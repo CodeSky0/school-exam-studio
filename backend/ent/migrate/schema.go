@@ -8,6 +8,74 @@ import (
 )
 
 var (
+	// AiAuditLogsColumns holds the columns for the "ai_audit_logs" table.
+	AiAuditLogsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "school_id", Type: field.TypeUUID},
+		{Name: "actor_id", Type: field.TypeUUID},
+		{Name: "run_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "action", Type: field.TypeString, Size: 60},
+		{Name: "target_type", Type: field.TypeString, Size: 30},
+		{Name: "target_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "detail", Type: field.TypeJSON},
+	}
+	// AiAuditLogsTable holds the schema information for the "ai_audit_logs" table.
+	AiAuditLogsTable = &schema.Table{
+		Name:       "ai_audit_logs",
+		Columns:    AiAuditLogsColumns,
+		PrimaryKey: []*schema.Column{AiAuditLogsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "aiauditlog_school_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AiAuditLogsColumns[4], AiAuditLogsColumns[1]},
+			},
+			{
+				Name:    "aiauditlog_school_id_actor_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AiAuditLogsColumns[4], AiAuditLogsColumns[5], AiAuditLogsColumns[1]},
+			},
+		},
+	}
+	// AiRunsColumns holds the columns for the "ai_runs" table.
+	AiRunsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "school_id", Type: field.TypeUUID},
+		{Name: "creator_id", Type: field.TypeUUID},
+		{Name: "goal", Type: field.TypeString, Size: 2147483647},
+		{Name: "intent", Type: field.TypeString, Size: 40, Default: "unknown"},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "succeeded"},
+		{Name: "provider", Type: field.TypeString, Size: 20, Default: "local"},
+		{Name: "model", Type: field.TypeString, Size: 80, Default: ""},
+		{Name: "plan", Type: field.TypeJSON},
+		{Name: "steps", Type: field.TypeJSON},
+		{Name: "result", Type: field.TypeJSON},
+		{Name: "error", Type: field.TypeString, Nullable: true, Size: 2147483647, Default: ""},
+	}
+	// AiRunsTable holds the schema information for the "ai_runs" table.
+	AiRunsTable = &schema.Table{
+		Name:       "ai_runs",
+		Columns:    AiRunsColumns,
+		PrimaryKey: []*schema.Column{AiRunsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "airun_school_id_creator_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AiRunsColumns[4], AiRunsColumns[5], AiRunsColumns[1]},
+			},
+			{
+				Name:    "airun_school_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{AiRunsColumns[4], AiRunsColumns[8]},
+			},
+		},
+	}
 	// PapersColumns holds the columns for the "papers" table.
 	PapersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -120,6 +188,12 @@ var (
 		{Name: "answer", Type: field.TypeString, Nullable: true, Size: 2147483647, Default: ""},
 		{Name: "explanation", Type: field.TypeString, Nullable: true, Size: 2147483647, Default: ""},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "draft", SchemaType: map[string]string{"postgres": "varchar(20)"}},
+		{Name: "category", Type: field.TypeString, Size: 60, Default: ""},
+		{Name: "knowledge_points", Type: field.TypeJSON},
+		{Name: "ai_generated", Type: field.TypeBool, Default: false},
+		{Name: "ai_meta", Type: field.TypeJSON},
+		{Name: "content_hash", Type: field.TypeString, Size: 64, Default: ""},
+		{Name: "source_question_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "school_id", Type: field.TypeUUID},
 		{Name: "creator_id", Type: field.TypeUUID},
 	}
@@ -131,13 +205,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "questions_schools_questions",
-				Columns:    []*schema.Column{QuestionsColumns[14]},
+				Columns:    []*schema.Column{QuestionsColumns[20]},
 				RefColumns: []*schema.Column{SchoolsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "questions_users_questions",
-				Columns:    []*schema.Column{QuestionsColumns[15]},
+				Columns:    []*schema.Column{QuestionsColumns[21]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -146,12 +220,22 @@ var (
 			{
 				Name:    "question_school_id_subject_grade_question_type",
 				Unique:  false,
-				Columns: []*schema.Column{QuestionsColumns[14], QuestionsColumns[4], QuestionsColumns[5], QuestionsColumns[6]},
+				Columns: []*schema.Column{QuestionsColumns[20], QuestionsColumns[4], QuestionsColumns[5], QuestionsColumns[6]},
 			},
 			{
 				Name:    "question_school_id_creator_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{QuestionsColumns[14], QuestionsColumns[15], QuestionsColumns[13]},
+				Columns: []*schema.Column{QuestionsColumns[20], QuestionsColumns[21], QuestionsColumns[13]},
+			},
+			{
+				Name:    "question_school_id_category",
+				Unique:  false,
+				Columns: []*schema.Column{QuestionsColumns[20], QuestionsColumns[14]},
+			},
+			{
+				Name:    "question_school_id_content_hash",
+				Unique:  false,
+				Columns: []*schema.Column{QuestionsColumns[20], QuestionsColumns[18]},
 			},
 		},
 	}
@@ -208,6 +292,8 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AiAuditLogsTable,
+		AiRunsTable,
 		PapersTable,
 		PaperQuestionsTable,
 		QuestionsTable,

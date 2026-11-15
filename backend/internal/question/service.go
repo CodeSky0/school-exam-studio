@@ -47,6 +47,8 @@ func (s *Service) List(ctx context.Context, principal auth.Principal, filter Que
 	filter.Grade = strings.TrimSpace(filter.Grade)
 	filter.Type = strings.TrimSpace(filter.Type)
 	filter.Tag = strings.TrimSpace(filter.Tag)
+	filter.Category = strings.TrimSpace(filter.Category)
+	filter.KnowledgePoint = strings.TrimSpace(filter.KnowledgePoint)
 	filter.Status = strings.TrimSpace(filter.Status)
 	if filter.Type != "" && !ValidType(filter.Type) {
 		return ListResult{}, validationError("question_type", "题型筛选值不受支持")
@@ -79,6 +81,57 @@ func (s *Service) List(ctx context.Context, principal auth.Principal, filter Que
 
 func (s *Service) Delete(ctx context.Context, principal auth.Principal, id uuid.UUID) error {
 	return s.repository.Delete(ctx, principal, id)
+}
+
+func (s *Service) Snapshot(ctx context.Context, principal auth.Principal, limit int) ([]Question, error) {
+	return s.repository.Snapshot(ctx, principal, limit)
+}
+
+// ApplyAI 校验并写入 AI 建议。答案依据题目现有题型与选项校验，解析走富文本消毒。
+func (s *Service) ApplyAI(ctx context.Context, principal auth.Principal, id uuid.UUID, patch AIApplyPatch) (Question, error) {
+	existing, err := s.repository.Get(ctx, principal, id)
+	if err != nil {
+		return Question{}, err
+	}
+	if patch.Category != nil {
+		value, err := NormalizeCategory(*patch.Category)
+		if err != nil {
+			return Question{}, err
+		}
+		patch.Category = &value
+	}
+	if patch.KnowledgePoints != nil {
+		values, err := NormalizeKnowledgePoints(*patch.KnowledgePoints)
+		if err != nil {
+			return Question{}, err
+		}
+		patch.KnowledgePoints = &values
+	}
+	if patch.Tags != nil {
+		values, err := NormalizeTags(*patch.Tags)
+		if err != nil {
+			return Question{}, err
+		}
+		patch.Tags = &values
+	}
+	if patch.Difficulty != nil && (*patch.Difficulty < 1 || *patch.Difficulty > 5) {
+		return Question{}, validationError("difficulty", "难度必须为1-5")
+	}
+	if patch.Answer != nil && strings.TrimSpace(*patch.Answer) != "" {
+		value, err := ValidateAnswer(existing.QuestionType, existing.Options, *patch.Answer)
+		if err != nil {
+			return Question{}, err
+		}
+		patch.Answer = &value
+	}
+	if patch.Explanation != nil {
+		value, err := s.sanitizer.NormalizeExplanation(*patch.Explanation)
+		if err != nil {
+			return Question{}, err
+		}
+		patch.Explanation = &value
+	}
+	return s.repository.ApplyAI(ctx, principal, id, patch)
 }
 
 func (s *Service) ResolvePublished(ctx context.Context, principal auth.Principal, ids []uuid.UUID) ([]Question, error) {

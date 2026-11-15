@@ -14,6 +14,8 @@ export interface QuestionFilters {
   grade?: string;
   question_type?: QuestionType;
   difficulty?: number;
+  category?: string;
+  knowledge_point?: string;
   tag?: string;
   creator_id?: string;
   status?: QuestionStatus;
@@ -38,6 +40,8 @@ export function serializeQuestionFilters(filters: QuestionFilters): URLSearchPar
   appendText("grade", filters.grade);
   if (filters.question_type) query.set("question_type", filters.question_type);
   if (filters.difficulty) query.set("difficulty", String(filters.difficulty));
+  appendText("category", filters.category);
+  appendText("knowledge_point", filters.knowledge_point);
   appendText("tag", filters.tag);
   appendText("creator_id", filters.creator_id);
   if (filters.status) query.set("status", filters.status);

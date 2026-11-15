@@ -52,6 +52,18 @@ type Question struct {
 	Explanation string `json:"explanation,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// Category holds the value of the "category" field.
+	Category string `json:"category,omitempty"`
+	// KnowledgePoints holds the value of the "knowledge_points" field.
+	KnowledgePoints []string `json:"knowledge_points,omitempty"`
+	// AiGenerated holds the value of the "ai_generated" field.
+	AiGenerated bool `json:"ai_generated,omitempty"`
+	// AiMeta holds the value of the "ai_meta" field.
+	AiMeta map[string]interface{} `json:"ai_meta,omitempty"`
+	// ContentHash holds the value of the "content_hash" field.
+	ContentHash string `json:"content_hash,omitempty"`
+	// SourceQuestionID holds the value of the "source_question_id" field.
+	SourceQuestionID *uuid.UUID `json:"source_question_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the QuestionQuery when eager-loading is set.
 	Edges        QuestionEdges `json:"edges"`
@@ -107,11 +119,15 @@ func (*Question) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case question.FieldTags, question.FieldOptions:
+		case question.FieldSourceQuestionID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case question.FieldTags, question.FieldOptions, question.FieldKnowledgePoints, question.FieldAiMeta:
 			values[i] = new([]byte)
+		case question.FieldAiGenerated:
+			values[i] = new(sql.NullBool)
 		case question.FieldDifficulty:
 			values[i] = new(sql.NullInt64)
-		case question.FieldSubject, question.FieldGrade, question.FieldQuestionType, question.FieldContent, question.FieldAnswer, question.FieldExplanation, question.FieldStatus:
+		case question.FieldSubject, question.FieldGrade, question.FieldQuestionType, question.FieldContent, question.FieldAnswer, question.FieldExplanation, question.FieldStatus, question.FieldCategory, question.FieldContentHash:
 			values[i] = new(sql.NullString)
 		case question.FieldCreatedAt, question.FieldUpdatedAt, question.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -233,6 +249,47 @@ func (_m *Question) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Status = value.String
 			}
+		case question.FieldCategory:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field category", values[i])
+			} else if value.Valid {
+				_m.Category = value.String
+			}
+		case question.FieldKnowledgePoints:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field knowledge_points", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.KnowledgePoints); err != nil {
+					return fmt.Errorf("unmarshal field knowledge_points: %w", err)
+				}
+			}
+		case question.FieldAiGenerated:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_generated", values[i])
+			} else if value.Valid {
+				_m.AiGenerated = value.Bool
+			}
+		case question.FieldAiMeta:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_meta", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.AiMeta); err != nil {
+					return fmt.Errorf("unmarshal field ai_meta: %w", err)
+				}
+			}
+		case question.FieldContentHash:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field content_hash", values[i])
+			} else if value.Valid {
+				_m.ContentHash = value.String
+			}
+		case question.FieldSourceQuestionID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field source_question_id", values[i])
+			} else if value.Valid {
+				_m.SourceQuestionID = new(uuid.UUID)
+				*_m.SourceQuestionID = *value.S.(*uuid.UUID)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -330,6 +387,26 @@ func (_m *Question) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("category=")
+	builder.WriteString(_m.Category)
+	builder.WriteString(", ")
+	builder.WriteString("knowledge_points=")
+	builder.WriteString(fmt.Sprintf("%v", _m.KnowledgePoints))
+	builder.WriteString(", ")
+	builder.WriteString("ai_generated=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AiGenerated))
+	builder.WriteString(", ")
+	builder.WriteString("ai_meta=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AiMeta))
+	builder.WriteString(", ")
+	builder.WriteString("content_hash=")
+	builder.WriteString(_m.ContentHash)
+	builder.WriteString(", ")
+	if v := _m.SourceQuestionID; v != nil {
+		builder.WriteString("source_question_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

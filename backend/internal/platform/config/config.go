@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +16,10 @@ type Config struct {
 	HTTPAddr     string
 	SecureCookie bool
 	TrustProxy   bool
+	AIBaseURL    string
+	AIAPIKey     string
+	AIModel      string
+	AITimeout    int
 }
 
 func Load() (Config, error) {
@@ -27,6 +32,13 @@ func Load() (Config, error) {
 		HTTPAddr:     envOr("HTTP_ADDR", ":8080"),
 		SecureCookie: os.Getenv("APP_ENV") == "production",
 		TrustProxy:   envBool("TRUST_PROXY"),
+		AIBaseURL:    strings.TrimSpace(os.Getenv("AI_BASE_URL")),
+		AIAPIKey:     strings.TrimSpace(os.Getenv("AI_API_KEY")),
+		AIModel:      envOr("AI_MODEL", "gpt-4o-mini"),
+		AITimeout:    envInt("AI_TIMEOUT_SECONDS", 45),
+	}
+	if cfg.AITimeout < 5 || cfg.AITimeout > 180 {
+		cfg.AITimeout = 45
 	}
 	if cfg.DatabaseURL == "" || cfg.RedisURL == "" || cfg.OCRURL == "" {
 		return Config{}, errors.New("DATABASE_URL, REDIS_URL and OCR_URL are required")
@@ -51,4 +63,12 @@ func envBool(key string) bool {
 	default:
 		return false
 	}
+}
+
+func envInt(key string, fallback int) int {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv(key)))
+	if err != nil {
+		return fallback
+	}
+	return value
 }

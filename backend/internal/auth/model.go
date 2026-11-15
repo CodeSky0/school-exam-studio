@@ -37,6 +37,7 @@ type Principal struct {
 	UserID         uuid.UUID
 	SchoolID       uuid.UUID
 	Role           string
+	Subject        string
 	SessionVersion int
 }
 

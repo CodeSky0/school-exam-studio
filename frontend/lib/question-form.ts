@@ -10,6 +10,8 @@ export interface QuestionFormState {
   question_type: QuestionType;
   difficulty: number;
   tagsText: string;
+  category?: string;
+  knowledgePointsText?: string;
   content: string;
   options: QuestionOption[];
   answer: string;
@@ -40,6 +42,8 @@ export function createQuestionFormState(user: CurrentUser, question?: Question):
       question_type: question.question_type,
       difficulty: question.difficulty,
       tagsText: formatTags(question.tags),
+      category: question.category,
+      knowledgePointsText: formatTags(question.knowledge_points),
       content: question.content,
       options: question.options.map((option) => ({ ...option })),
       answer: question.answer,
@@ -52,6 +56,8 @@ export function createQuestionFormState(user: CurrentUser, question?: Question):
     question_type: "single_choice",
     difficulty: 3,
     tagsText: "",
+    category: "",
+    knowledgePointsText: "",
     content: "",
     options: createChoiceOptions(),
     answer: "",
@@ -66,6 +72,8 @@ export function toQuestionInput(state: QuestionFormState): QuestionInput {
     question_type: state.question_type,
     difficulty: state.difficulty,
     tags: parseTags(state.tagsText),
+    category: (state.category ?? "").trim(),
+    knowledge_points: parseTags(state.knowledgePointsText ?? ""),
     content: sanitizeRichText(state.content),
     options: isChoiceType(state.question_type)
       ? state.options.map((option) => ({ key: option.key, content: sanitizeRichText(option.content) }))

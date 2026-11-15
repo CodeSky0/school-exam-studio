@@ -11,6 +11,8 @@ import (
 
 	"school-exam-studio/backend/ent/migrate"
 
+	"school-exam-studio/backend/ent/aiauditlog"
+	"school-exam-studio/backend/ent/airun"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
 	"school-exam-studio/backend/ent/question"
@@ -29,6 +31,10 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// AIAuditLog is the client for interacting with the AIAuditLog builders.
+	AIAuditLog *AIAuditLogClient
+	// AIRun is the client for interacting with the AIRun builders.
+	AIRun *AIRunClient
 	// Paper is the client for interacting with the Paper builders.
 	Paper *PaperClient
 	// PaperQuestion is the client for interacting with the PaperQuestion builders.
@@ -50,6 +56,8 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.AIAuditLog = NewAIAuditLogClient(c.config)
+	c.AIRun = NewAIRunClient(c.config)
 	c.Paper = NewPaperClient(c.config)
 	c.PaperQuestion = NewPaperQuestionClient(c.config)
 	c.Question = NewQuestionClient(c.config)
@@ -147,6 +155,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:           ctx,
 		config:        cfg,
+		AIAuditLog:    NewAIAuditLogClient(cfg),
+		AIRun:         NewAIRunClient(cfg),
 		Paper:         NewPaperClient(cfg),
 		PaperQuestion: NewPaperQuestionClient(cfg),
 		Question:      NewQuestionClient(cfg),
@@ -171,6 +181,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:           ctx,
 		config:        cfg,
+		AIAuditLog:    NewAIAuditLogClient(cfg),
+		AIRun:         NewAIRunClient(cfg),
 		Paper:         NewPaperClient(cfg),
 		PaperQuestion: NewPaperQuestionClient(cfg),
 		Question:      NewQuestionClient(cfg),
@@ -182,7 +194,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Paper.
+//		AIAuditLog.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -204,26 +216,30 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.Paper.Use(hooks...)
-	c.PaperQuestion.Use(hooks...)
-	c.Question.Use(hooks...)
-	c.School.Use(hooks...)
-	c.User.Use(hooks...)
+	for _, n := range []interface{ Use(...Hook) }{
+		c.AIAuditLog, c.AIRun, c.Paper, c.PaperQuestion, c.Question, c.School, c.User,
+	} {
+		n.Use(hooks...)
+	}
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.Paper.Intercept(interceptors...)
-	c.PaperQuestion.Intercept(interceptors...)
-	c.Question.Intercept(interceptors...)
-	c.School.Intercept(interceptors...)
-	c.User.Intercept(interceptors...)
+	for _, n := range []interface{ Intercept(...Interceptor) }{
+		c.AIAuditLog, c.AIRun, c.Paper, c.PaperQuestion, c.Question, c.School, c.User,
+	} {
+		n.Intercept(interceptors...)
+	}
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *AIAuditLogMutation:
+		return c.AIAuditLog.mutate(ctx, m)
+	case *AIRunMutation:
+		return c.AIRun.mutate(ctx, m)
 	case *PaperMutation:
 		return c.Paper.mutate(ctx, m)
 	case *PaperQuestionMutation:
@@ -236,6 +252,272 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.User.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// AIAuditLogClient is a client for the AIAuditLog schema.
+type AIAuditLogClient struct {
+	config
+}
+
+// NewAIAuditLogClient returns a client for the AIAuditLog from the given config.
+func NewAIAuditLogClient(c config) *AIAuditLogClient {
+	return &AIAuditLogClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `aiauditlog.Hooks(f(g(h())))`.
+func (c *AIAuditLogClient) Use(hooks ...Hook) {
+	c.hooks.AIAuditLog = append(c.hooks.AIAuditLog, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `aiauditlog.Intercept(f(g(h())))`.
+func (c *AIAuditLogClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AIAuditLog = append(c.inters.AIAuditLog, interceptors...)
+}
+
+// Create returns a builder for creating a AIAuditLog entity.
+func (c *AIAuditLogClient) Create() *AIAuditLogCreate {
+	mutation := newAIAuditLogMutation(c.config, OpCreate)
+	return &AIAuditLogCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AIAuditLog entities.
+func (c *AIAuditLogClient) CreateBulk(builders ...*AIAuditLogCreate) *AIAuditLogCreateBulk {
+	return &AIAuditLogCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AIAuditLogClient) MapCreateBulk(slice any, setFunc func(*AIAuditLogCreate, int)) *AIAuditLogCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AIAuditLogCreateBulk{err: fmt.Errorf("calling to AIAuditLogClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AIAuditLogCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AIAuditLogCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AIAuditLog.
+func (c *AIAuditLogClient) Update() *AIAuditLogUpdate {
+	mutation := newAIAuditLogMutation(c.config, OpUpdate)
+	return &AIAuditLogUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AIAuditLogClient) UpdateOne(_m *AIAuditLog) *AIAuditLogUpdateOne {
+	mutation := newAIAuditLogMutation(c.config, OpUpdateOne, withAIAuditLog(_m))
+	return &AIAuditLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AIAuditLogClient) UpdateOneID(id uuid.UUID) *AIAuditLogUpdateOne {
+	mutation := newAIAuditLogMutation(c.config, OpUpdateOne, withAIAuditLogID(id))
+	return &AIAuditLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AIAuditLog.
+func (c *AIAuditLogClient) Delete() *AIAuditLogDelete {
+	mutation := newAIAuditLogMutation(c.config, OpDelete)
+	return &AIAuditLogDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AIAuditLogClient) DeleteOne(_m *AIAuditLog) *AIAuditLogDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AIAuditLogClient) DeleteOneID(id uuid.UUID) *AIAuditLogDeleteOne {
+	builder := c.Delete().Where(aiauditlog.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AIAuditLogDeleteOne{builder}
+}
+
+// Query returns a query builder for AIAuditLog.
+func (c *AIAuditLogClient) Query() *AIAuditLogQuery {
+	return &AIAuditLogQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAIAuditLog},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AIAuditLog entity by its id.
+func (c *AIAuditLogClient) Get(ctx context.Context, id uuid.UUID) (*AIAuditLog, error) {
+	return c.Query().Where(aiauditlog.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AIAuditLogClient) GetX(ctx context.Context, id uuid.UUID) *AIAuditLog {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *AIAuditLogClient) Hooks() []Hook {
+	return c.hooks.AIAuditLog
+}
+
+// Interceptors returns the client interceptors.
+func (c *AIAuditLogClient) Interceptors() []Interceptor {
+	return c.inters.AIAuditLog
+}
+
+func (c *AIAuditLogClient) mutate(ctx context.Context, m *AIAuditLogMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AIAuditLogCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AIAuditLogUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AIAuditLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AIAuditLogDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AIAuditLog mutation op: %q", m.Op())
+	}
+}
+
+// AIRunClient is a client for the AIRun schema.
+type AIRunClient struct {
+	config
+}
+
+// NewAIRunClient returns a client for the AIRun from the given config.
+func NewAIRunClient(c config) *AIRunClient {
+	return &AIRunClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `airun.Hooks(f(g(h())))`.
+func (c *AIRunClient) Use(hooks ...Hook) {
+	c.hooks.AIRun = append(c.hooks.AIRun, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `airun.Intercept(f(g(h())))`.
+func (c *AIRunClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AIRun = append(c.inters.AIRun, interceptors...)
+}
+
+// Create returns a builder for creating a AIRun entity.
+func (c *AIRunClient) Create() *AIRunCreate {
+	mutation := newAIRunMutation(c.config, OpCreate)
+	return &AIRunCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AIRun entities.
+func (c *AIRunClient) CreateBulk(builders ...*AIRunCreate) *AIRunCreateBulk {
+	return &AIRunCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AIRunClient) MapCreateBulk(slice any, setFunc func(*AIRunCreate, int)) *AIRunCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AIRunCreateBulk{err: fmt.Errorf("calling to AIRunClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AIRunCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AIRunCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AIRun.
+func (c *AIRunClient) Update() *AIRunUpdate {
+	mutation := newAIRunMutation(c.config, OpUpdate)
+	return &AIRunUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AIRunClient) UpdateOne(_m *AIRun) *AIRunUpdateOne {
+	mutation := newAIRunMutation(c.config, OpUpdateOne, withAIRun(_m))
+	return &AIRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AIRunClient) UpdateOneID(id uuid.UUID) *AIRunUpdateOne {
+	mutation := newAIRunMutation(c.config, OpUpdateOne, withAIRunID(id))
+	return &AIRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AIRun.
+func (c *AIRunClient) Delete() *AIRunDelete {
+	mutation := newAIRunMutation(c.config, OpDelete)
+	return &AIRunDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AIRunClient) DeleteOne(_m *AIRun) *AIRunDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AIRunClient) DeleteOneID(id uuid.UUID) *AIRunDeleteOne {
+	builder := c.Delete().Where(airun.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AIRunDeleteOne{builder}
+}
+
+// Query returns a query builder for AIRun.
+func (c *AIRunClient) Query() *AIRunQuery {
+	return &AIRunQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAIRun},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AIRun entity by its id.
+func (c *AIRunClient) Get(ctx context.Context, id uuid.UUID) (*AIRun, error) {
+	return c.Query().Where(airun.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AIRunClient) GetX(ctx context.Context, id uuid.UUID) *AIRun {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *AIRunClient) Hooks() []Hook {
+	return c.hooks.AIRun
+}
+
+// Interceptors returns the client interceptors.
+func (c *AIRunClient) Interceptors() []Interceptor {
+	return c.inters.AIRun
+}
+
+func (c *AIRunClient) mutate(ctx context.Context, m *AIRunMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AIRunCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AIRunUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AIRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AIRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AIRun mutation op: %q", m.Op())
 	}
 }
 
@@ -1163,9 +1445,10 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Paper, PaperQuestion, Question, School, User []ent.Hook
+		AIAuditLog, AIRun, Paper, PaperQuestion, Question, School, User []ent.Hook
 	}
 	inters struct {
-		Paper, PaperQuestion, Question, School, User []ent.Interceptor
+		AIAuditLog, AIRun, Paper, PaperQuestion, Question, School,
+		User []ent.Interceptor
 	}
 )

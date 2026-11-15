@@ -37,7 +37,7 @@
 
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
-| GET | `/questions` | 教师/管理员 | 组合筛选：`subject`、`grade`、`question_type`、`tag`、`creator_id`、`status`、`difficulty`、`page`、`page_size`（≤100）。教师见自己全部状态及他人 published，管理员见本校全部 |
+| GET | `/questions` | 教师/管理员 | 组合筛选：`subject`、`grade`、`question_type`、`category`、`knowledge_point`、`tag`、`creator_id`、`status`、`difficulty`、`page`、`page_size`（≤100）。教师见自己全部状态及他人 published，管理员见本校全部 |
 | POST | `/questions` | 教师 | 创建草稿，`creator_id` 强制为当前用户，学科须与教师一致；富文本白名单消毒 |
 | POST | `/questions/resolve` | 教师/管理员 | 按 ID 数组批量返回本校已发布题目，供购物车恢复校验 |
 | GET | `/questions/:id` | 教师/管理员 | 按 ID + 学校过滤 |
@@ -46,6 +46,8 @@
 | PATCH | `/admin/questions/:id/status` | 管理员 | 仅允许 draft→published、draft/published→archived |
 
 题型：`single_choice`、`multiple_choice`、`true_false`、`fill_blank`、`essay`。状态：`draft`、`published`、`archived`。
+
+题目新增字段：`category`（分类）、`knowledge_points`（知识点数组）、`ai_generated`、`ai_meta`、`content_hash`、`source_question_id`。`category`、`knowledge_points` 可由教师编辑，也可由 AI 建议写回草稿。
 
 ## OCR
 
@@ -87,6 +89,27 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 | PATCH | `/admin/school` | 管理员 | 修改学校名称 |
 | GET | `/admin/stats` | 管理员 | 本校教师、题目、试卷统计 |
 | GET | `/teacher/stats` | 教师 | 当前教师题目、试卷统计 |
+
+## AI
+
+所有 AI 接口要求登录。未配置 `AI_API_KEY` 时使用内置确定性本地引擎；配置后调用 OpenAI 兼容服务，失败自动降级为本地引擎并在 `warnings` 中提示。
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET | `/ai/status` | 登录 | 返回当前 provider、模型、单次限制、能力与安全边界 |
+| POST | `/ai/analyze` | 登录 | 分析题干，返回分类、知识点、标签、难度、答案与解析建议；不写库 |
+| POST | `/ai/questions/:id/analyze` | 教师/管理员 | 分析指定题目；`{"apply":true}` 时按权限写回草稿元数据 |
+| POST | `/ai/questions/:id/variants` | 教师/管理员 | 生成题目变式，`strategy` 支持 `numbers`、`context`、`reverse`、`difficulty`；`persist` 为 true 时保存为草稿 |
+| POST | `/ai/generate` | 登录 | 按学科、年级、分类、知识点、标签生成新题；`persist` 为 true 时保存为草稿 |
+| GET | `/ai/bank/audit?limit=500` | 登录 | 题库体检：缺答案/解析/知识点/分类、重复题与分布统计 |
+| POST | `/ai/agent/runs` | 登录 | 提交自然语言目标，Agent 完成意图识别、计划与执行，返回运行报告 |
+| GET | `/ai/agent/runs?limit=20` | 登录 | 最近运行记录；教师仅见自己的运行 |
+| GET | `/ai/agent/runs/:id` | 教师/管理员 | 运行详情；教师仅可读自己的运行 |
+| GET | `/ai/audit-logs?limit=50` | 管理员 | 本校 AI 写入审计日志 |
+
+Agent 支持的目标：题库体检、分类与知识点整理、补答案与解析、按知识点出题、生成变式、智能组卷、分析指定题目。Agent 工具单次最多处理 10 道题；AI 只自动修改草稿，已发布题目只读；教师只能操作自己的草稿；所有写入记录审计日志并标记待人工复核。
+
+单次限制：分析题干 20,000 字符、一次生成 10 道题、批量处理 10 道题。
 
 ## 健康检查
 

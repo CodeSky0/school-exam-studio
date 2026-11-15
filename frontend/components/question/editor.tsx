@@ -16,6 +16,7 @@ import { questionEditorExtensions } from "./math-extension";
 import { AnswerField, ChoiceOptionsField, QuestionMetadataFields } from "./question-fields";
 import { RichTextEditor } from "./rich-text-editor";
 import { OcrUpload } from "./ocr-upload";
+import { QuestionAIAssistant } from "@/components/ai/question-ai-assistant";
 
 export function QuestionEditor({ user, question, onSaved, onCancel }: {
   user: CurrentUser;
@@ -118,7 +119,8 @@ export function QuestionEditor({ user, question, onSaved, onCancel }: {
           <AnswerField type={form.question_type} options={form.options} answer={form.answer} error={errors.answer} onChange={(answer) => updateForm({ answer })} onActivate={() => setActiveField("answer")} />
           <RichTextEditor label="解析（可选）" value={form.explanation} error={errors.explanation} onChange={(explanation) => updateForm({ explanation })} onActivate={() => setActiveField("explanation")} />
         </div>
-        <aside className="min-w-0 xl:sticky xl:top-24">
+        <aside className="grid min-w-0 content-start gap-4 xl:sticky xl:top-24">
+          <QuestionAIAssistant state={form} onApply={updateForm} />
           <OcrUpload activeField={activeField} onActiveFieldChange={setActiveField} onApply={applyOcrText} />
         </aside>
       </div>

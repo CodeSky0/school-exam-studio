@@ -19,7 +19,7 @@ export function QuestionMetadataFields({ state, errors, onChange }: {
   onChange: (patch: Partial<QuestionFormState>) => void;
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
       <div className="grid gap-2">
         <Label htmlFor="question-subject">学科</Label>
         <Input id="question-subject" value={state.subject} readOnly aria-readonly="true" className="bg-neutral-2 text-neutral-7" aria-invalid={Boolean(errors.subject)} aria-describedby="question-subject-message" />
@@ -50,6 +50,16 @@ export function QuestionMetadataFields({ state, errors, onChange }: {
         <Select id="question-difficulty" value={state.difficulty} onChange={(event) => onChange({ difficulty: Number(event.target.value) })}>
           {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value} 级</option>)}
         </Select>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="question-category">分类</Label>
+        <Input id="question-category" value={state.category ?? ""} placeholder="例如：方程与不等式" aria-invalid={Boolean(errors.category)} aria-describedby="question-category-hint" onChange={(event) => onChange({ category: event.target.value })} />
+        <p id="question-category-hint" className={errors.category ? "text-label-12 text-error" : "text-label-12 text-neutral-7"}>{errors.category ?? "可选，最多 60 字"}</p>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="question-knowledge-points">知识点</Label>
+        <Input id="question-knowledge-points" value={state.knowledgePointsText ?? ""} placeholder="一元一次方程；移项" aria-invalid={Boolean(errors.knowledge_points)} aria-describedby="question-knowledge-points-hint" onChange={(event) => onChange({ knowledgePointsText: event.target.value })} />
+        <p id="question-knowledge-points-hint" className={errors.knowledge_points ? "text-label-12 text-error" : "text-label-12 text-neutral-7"}>{errors.knowledge_points ?? "逗号或分号分隔，最多 8 个"}</p>
       </div>
       <div className="grid gap-2 sm:col-span-2 xl:col-span-1">
         <Label htmlFor="question-tags">知识点标签</Label>

@@ -27,7 +27,7 @@ func (r *Repository) Create(ctx context.Context, principal auth.Principal, input
 	if err := r.checkCreator(ctx, principal, input.Subject); err != nil {
 		return Question{}, err
 	}
-	created, err := r.client.Question.Create().
+	create := r.client.Question.Create().
 		SetSchoolID(principal.SchoolID).
 		SetCreatorID(principal.UserID).
 		SetSubject(input.Subject).
@@ -35,12 +35,22 @@ func (r *Repository) Create(ctx context.Context, principal auth.Principal, input
 		SetQuestionType(input.QuestionType).
 		SetDifficulty(input.Difficulty).
 		SetTags(input.Tags).
+		SetCategory(input.Category).
+		SetKnowledgePoints(input.KnowledgePoints).
 		SetContent(input.Content).
 		SetOptions(toSchemaOptions(input.Options)).
 		SetAnswer(input.Answer).
 		SetExplanation(input.Explanation).
 		SetStatus(StatusDraft).
-		Save(ctx)
+		SetAiGenerated(input.AIGenerated).
+		SetContentHash(ContentHash(input))
+	if input.AIMeta != nil {
+		create = create.SetAiMeta(input.AIMeta)
+	}
+	if input.SourceQuestionID != uuid.Nil {
+		create = create.SetSourceQuestionID(input.SourceQuestionID)
+	}
+	created, err := create.Save(ctx)
 	if err != nil {
 		return Question{}, err
 	}
@@ -100,16 +110,14 @@ func (r *Repository) List(ctx context.Context, principal auth.Principal, filter 
 		}
 		predicates = append(predicates, entquestion.CreatorIDEQ(creatorID))
 	}
+	if filter.Category != "" {
+		predicates = append(predicates, entquestion.CategoryEQ(filter.Category))
+	}
 	if filter.Tag != "" {
-		encoded, err := json.Marshal([]string{filter.Tag})
-		if err != nil {
-			return ListResult{}, err
-		}
-		predicates = append(predicates, predicate.Question(func(selector *entsql.Selector) {
-			selector.Where(entsql.P(func(builder *entsql.Builder) {
-				builder.WriteString(selector.C(entquestion.FieldTags)).WriteString(" @> ").Arg(string(encoded))
-			}))
-		}))
+		predicates = append(predicates, jsonArrayContains(entquestion.FieldTags, filter.Tag))
+	}
+	if filter.KnowledgePoint != "" {
+		predicates = append(predicates, jsonArrayContains(entquestion.FieldKnowledgePoints, filter.KnowledgePoint))
 	}
 	query := r.client.Question.Query().Where(predicates...)
 	total, err := query.Clone().Count(ctx)
@@ -168,10 +176,13 @@ func (r *Repository) Update(ctx context.Context, principal auth.Principal, id uu
 		SetQuestionType(input.QuestionType).
 		SetDifficulty(input.Difficulty).
 		SetTags(input.Tags).
+		SetCategory(input.Category).
+		SetKnowledgePoints(input.KnowledgePoints).
 		SetContent(input.Content).
 		SetOptions(toSchemaOptions(input.Options)).
 		SetAnswer(input.Answer).
 		SetExplanation(input.Explanation).
+		SetContentHash(ContentHash(input)).
 		Save(ctx)
 	if err != nil {
 		return Question{}, err
@@ -283,6 +294,119 @@ func (r *Repository) UpdateStatus(ctx context.Context, principal auth.Principal,
 	return r.Get(ctx, principal, id)
 }
 
+func (r *Repository) Snapshot(ctx context.Context, principal auth.Principal, limit int) ([]Question, error) {
+	if !validPrincipal(principal) {
+		return nil, ErrForbidden
+	}
+	if limit < 1 {
+		limit = 200
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+	predicates := []predicate.Question{entquestion.SchoolIDEQ(principal.SchoolID)}
+	if principal.Role == auth.RoleTeacher {
+		predicates = append(predicates, teacherVisible(principal.UserID))
+	}
+	entities, err := r.client.Question.Query().Where(predicates...).
+		WithCreator(func(query *ent.UserQuery) {
+			query.Where(user.SchoolIDEQ(principal.SchoolID))
+		}).
+		Order(
+			entquestion.ByCreatedAt(entsql.OrderDesc()),
+			entquestion.ByID(entsql.OrderDesc()),
+		).
+		Limit(limit).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]Question, 0, len(entities))
+	for _, entity := range entities {
+		items = append(items, fromEnt(entity))
+	}
+	return items, nil
+}
+
+// ApplyAI 只允许修改草稿；教师仅能修改自己的草稿，管理员可修改本校草稿。
+func (r *Repository) ApplyAI(ctx context.Context, principal auth.Principal, id uuid.UUID, patch AIApplyPatch) (Question, error) {
+	if !validPrincipal(principal) {
+		return Question{}, ErrForbidden
+	}
+	entity, err := r.schoolQuestion(ctx, principal.SchoolID, id)
+	if err != nil {
+		return Question{}, err
+	}
+	if entity.Status != StatusDraft {
+		return Question{}, ErrForbidden
+	}
+	if principal.Role == auth.RoleTeacher && entity.CreatorID != principal.UserID {
+		return Question{}, ErrForbidden
+	}
+	meta := make(map[string]any, len(entity.AiMeta)+6)
+	for key, value := range entity.AiMeta {
+		meta[key] = value
+	}
+	meta["provider"] = patch.Provider
+	meta["model"] = patch.Model
+	meta["confidence"] = patch.Confidence
+	meta["analyzed_at"] = time.Now().UTC().Format(time.RFC3339)
+	meta["review_required"] = patch.ReviewRequired
+	if patch.Rationale != "" {
+		meta["rationale"] = patch.Rationale
+	}
+	update := r.client.Question.Update().Where(
+		entquestion.SchoolIDEQ(principal.SchoolID),
+		entquestion.IDEQ(id),
+		entquestion.StatusEQ(StatusDraft),
+	)
+	if principal.Role == auth.RoleTeacher {
+		update = update.Where(entquestion.CreatorIDEQ(principal.UserID))
+	}
+	if patch.Category != nil {
+		update = update.SetCategory(*patch.Category)
+	}
+	if patch.KnowledgePoints != nil {
+		update = update.SetKnowledgePoints(*patch.KnowledgePoints)
+	}
+	if patch.Tags != nil {
+		update = update.SetTags(*patch.Tags)
+	}
+	if patch.Difficulty != nil {
+		update = update.SetDifficulty(*patch.Difficulty)
+	}
+	if patch.Answer != nil {
+		update = update.SetAnswer(*patch.Answer)
+	}
+	if patch.Explanation != nil {
+		update = update.SetExplanation(*patch.Explanation)
+	}
+	updated, err := update.SetAiMeta(meta).Save(ctx)
+	if err != nil {
+		return Question{}, err
+	}
+	if updated != 1 {
+		return Question{}, ErrForbidden
+	}
+	return r.Get(ctx, principal, id)
+}
+
+func jsonArrayContains(field string, value string) predicate.Question {
+	return predicate.Question(func(selector *entsql.Selector) {
+		selector.Where(entsql.P(func(builder *entsql.Builder) {
+			builder.WriteString(selector.C(field)).WriteString(" @> ").Arg(mustJSONArray(value))
+		}))
+	})
+}
+
+func mustJSONArray(value string) string {
+	encoded, err := json.Marshal([]string{value})
+	if err != nil {
+		return "[]"
+	}
+	return string(encoded)
+}
+
 func (r *Repository) schoolQuestion(ctx context.Context, schoolID, id uuid.UUID) (*ent.Question, error) {
 	entity, err := r.client.Question.Query().Where(
 		entquestion.SchoolIDEQ(schoolID),
@@ -349,25 +473,36 @@ func fromEnt(entity *ent.Question) Question {
 		options = append(options, Option{Key: option.Key, Content: option.Content})
 	}
 	tags := append([]string{}, entity.Tags...)
+	knowledgePoints := append([]string{}, entity.KnowledgePoints...)
+	aiMeta := make(map[string]any, len(entity.AiMeta))
+	for key, value := range entity.AiMeta {
+		aiMeta[key] = value
+	}
 	creatorName := ""
 	if entity.Edges.Creator != nil {
 		creatorName = entity.Edges.Creator.Name
 	}
 	return Question{
-		ID:           entity.ID,
-		CreatorID:    entity.CreatorID,
-		CreatorName:  creatorName,
-		Subject:      entity.Subject,
-		Grade:        entity.Grade,
-		QuestionType: entity.QuestionType,
-		Difficulty:   entity.Difficulty,
-		Tags:         tags,
-		Content:      entity.Content,
-		Options:      options,
-		Answer:       entity.Answer,
-		Explanation:  entity.Explanation,
-		Status:       entity.Status,
-		CreatedAt:    entity.CreatedAt,
-		UpdatedAt:    entity.UpdatedAt,
+		ID:               entity.ID,
+		CreatorID:        entity.CreatorID,
+		CreatorName:      creatorName,
+		Subject:          entity.Subject,
+		Grade:            entity.Grade,
+		QuestionType:     entity.QuestionType,
+		Difficulty:       entity.Difficulty,
+		Tags:             tags,
+		Category:         entity.Category,
+		KnowledgePoints:  knowledgePoints,
+		Content:          entity.Content,
+		Options:          options,
+		Answer:           entity.Answer,
+		Explanation:      entity.Explanation,
+		Status:           entity.Status,
+		AIGenerated:      entity.AiGenerated,
+		AIMeta:           aiMeta,
+		ContentHash:      entity.ContentHash,
+		SourceQuestionID: entity.SourceQuestionID,
+		CreatedAt:        entity.CreatedAt,
+		UpdatedAt:        entity.UpdatedAt,
 	}
 }

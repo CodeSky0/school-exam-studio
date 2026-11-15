@@ -243,6 +243,86 @@ func (_u *QuestionUpdate) SetNillableStatus(v *string) *QuestionUpdate {
 	return _u
 }
 
+// SetCategory sets the "category" field.
+func (_u *QuestionUpdate) SetCategory(v string) *QuestionUpdate {
+	_u.mutation.SetCategory(v)
+	return _u
+}
+
+// SetNillableCategory sets the "category" field if the given value is not nil.
+func (_u *QuestionUpdate) SetNillableCategory(v *string) *QuestionUpdate {
+	if v != nil {
+		_u.SetCategory(*v)
+	}
+	return _u
+}
+
+// SetKnowledgePoints sets the "knowledge_points" field.
+func (_u *QuestionUpdate) SetKnowledgePoints(v []string) *QuestionUpdate {
+	_u.mutation.SetKnowledgePoints(v)
+	return _u
+}
+
+// AppendKnowledgePoints appends value to the "knowledge_points" field.
+func (_u *QuestionUpdate) AppendKnowledgePoints(v []string) *QuestionUpdate {
+	_u.mutation.AppendKnowledgePoints(v)
+	return _u
+}
+
+// SetAiGenerated sets the "ai_generated" field.
+func (_u *QuestionUpdate) SetAiGenerated(v bool) *QuestionUpdate {
+	_u.mutation.SetAiGenerated(v)
+	return _u
+}
+
+// SetNillableAiGenerated sets the "ai_generated" field if the given value is not nil.
+func (_u *QuestionUpdate) SetNillableAiGenerated(v *bool) *QuestionUpdate {
+	if v != nil {
+		_u.SetAiGenerated(*v)
+	}
+	return _u
+}
+
+// SetAiMeta sets the "ai_meta" field.
+func (_u *QuestionUpdate) SetAiMeta(v map[string]interface{}) *QuestionUpdate {
+	_u.mutation.SetAiMeta(v)
+	return _u
+}
+
+// SetContentHash sets the "content_hash" field.
+func (_u *QuestionUpdate) SetContentHash(v string) *QuestionUpdate {
+	_u.mutation.SetContentHash(v)
+	return _u
+}
+
+// SetNillableContentHash sets the "content_hash" field if the given value is not nil.
+func (_u *QuestionUpdate) SetNillableContentHash(v *string) *QuestionUpdate {
+	if v != nil {
+		_u.SetContentHash(*v)
+	}
+	return _u
+}
+
+// SetSourceQuestionID sets the "source_question_id" field.
+func (_u *QuestionUpdate) SetSourceQuestionID(v uuid.UUID) *QuestionUpdate {
+	_u.mutation.SetSourceQuestionID(v)
+	return _u
+}
+
+// SetNillableSourceQuestionID sets the "source_question_id" field if the given value is not nil.
+func (_u *QuestionUpdate) SetNillableSourceQuestionID(v *uuid.UUID) *QuestionUpdate {
+	if v != nil {
+		_u.SetSourceQuestionID(*v)
+	}
+	return _u
+}
+
+// ClearSourceQuestionID clears the value of the "source_question_id" field.
+func (_u *QuestionUpdate) ClearSourceQuestionID() *QuestionUpdate {
+	_u.mutation.ClearSourceQuestionID()
+	return _u
+}
+
 // SetSchool sets the "school" edge to the School entity.
 func (_u *QuestionUpdate) SetSchool(v *School) *QuestionUpdate {
 	return _u.SetSchoolID(v.ID)
@@ -374,6 +454,16 @@ func (_u *QuestionUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Question.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Category(); ok {
+		if err := question.CategoryValidator(v); err != nil {
+			return &ValidationError{Name: "category", err: fmt.Errorf(`ent: validator failed for field "Question.category": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ContentHash(); ok {
+		if err := question.ContentHashValidator(v); err != nil {
+			return &ValidationError{Name: "content_hash", err: fmt.Errorf(`ent: validator failed for field "Question.content_hash": %w`, err)}
+		}
+	}
 	if _u.mutation.SchoolCleared() && len(_u.mutation.SchoolIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Question.school"`)
 	}
@@ -452,6 +542,32 @@ func (_u *QuestionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(question.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Category(); ok {
+		_spec.SetField(question.FieldCategory, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.KnowledgePoints(); ok {
+		_spec.SetField(question.FieldKnowledgePoints, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedKnowledgePoints(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, question.FieldKnowledgePoints, value)
+		})
+	}
+	if value, ok := _u.mutation.AiGenerated(); ok {
+		_spec.SetField(question.FieldAiGenerated, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.AiMeta(); ok {
+		_spec.SetField(question.FieldAiMeta, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.ContentHash(); ok {
+		_spec.SetField(question.FieldContentHash, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SourceQuestionID(); ok {
+		_spec.SetField(question.FieldSourceQuestionID, field.TypeUUID, value)
+	}
+	if _u.mutation.SourceQuestionIDCleared() {
+		_spec.ClearField(question.FieldSourceQuestionID, field.TypeUUID)
 	}
 	if _u.mutation.SchoolCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -785,6 +901,86 @@ func (_u *QuestionUpdateOne) SetNillableStatus(v *string) *QuestionUpdateOne {
 	return _u
 }
 
+// SetCategory sets the "category" field.
+func (_u *QuestionUpdateOne) SetCategory(v string) *QuestionUpdateOne {
+	_u.mutation.SetCategory(v)
+	return _u
+}
+
+// SetNillableCategory sets the "category" field if the given value is not nil.
+func (_u *QuestionUpdateOne) SetNillableCategory(v *string) *QuestionUpdateOne {
+	if v != nil {
+		_u.SetCategory(*v)
+	}
+	return _u
+}
+
+// SetKnowledgePoints sets the "knowledge_points" field.
+func (_u *QuestionUpdateOne) SetKnowledgePoints(v []string) *QuestionUpdateOne {
+	_u.mutation.SetKnowledgePoints(v)
+	return _u
+}
+
+// AppendKnowledgePoints appends value to the "knowledge_points" field.
+func (_u *QuestionUpdateOne) AppendKnowledgePoints(v []string) *QuestionUpdateOne {
+	_u.mutation.AppendKnowledgePoints(v)
+	return _u
+}
+
+// SetAiGenerated sets the "ai_generated" field.
+func (_u *QuestionUpdateOne) SetAiGenerated(v bool) *QuestionUpdateOne {
+	_u.mutation.SetAiGenerated(v)
+	return _u
+}
+
+// SetNillableAiGenerated sets the "ai_generated" field if the given value is not nil.
+func (_u *QuestionUpdateOne) SetNillableAiGenerated(v *bool) *QuestionUpdateOne {
+	if v != nil {
+		_u.SetAiGenerated(*v)
+	}
+	return _u
+}
+
+// SetAiMeta sets the "ai_meta" field.
+func (_u *QuestionUpdateOne) SetAiMeta(v map[string]interface{}) *QuestionUpdateOne {
+	_u.mutation.SetAiMeta(v)
+	return _u
+}
+
+// SetContentHash sets the "content_hash" field.
+func (_u *QuestionUpdateOne) SetContentHash(v string) *QuestionUpdateOne {
+	_u.mutation.SetContentHash(v)
+	return _u
+}
+
+// SetNillableContentHash sets the "content_hash" field if the given value is not nil.
+func (_u *QuestionUpdateOne) SetNillableContentHash(v *string) *QuestionUpdateOne {
+	if v != nil {
+		_u.SetContentHash(*v)
+	}
+	return _u
+}
+
+// SetSourceQuestionID sets the "source_question_id" field.
+func (_u *QuestionUpdateOne) SetSourceQuestionID(v uuid.UUID) *QuestionUpdateOne {
+	_u.mutation.SetSourceQuestionID(v)
+	return _u
+}
+
+// SetNillableSourceQuestionID sets the "source_question_id" field if the given value is not nil.
+func (_u *QuestionUpdateOne) SetNillableSourceQuestionID(v *uuid.UUID) *QuestionUpdateOne {
+	if v != nil {
+		_u.SetSourceQuestionID(*v)
+	}
+	return _u
+}
+
+// ClearSourceQuestionID clears the value of the "source_question_id" field.
+func (_u *QuestionUpdateOne) ClearSourceQuestionID() *QuestionUpdateOne {
+	_u.mutation.ClearSourceQuestionID()
+	return _u
+}
+
 // SetSchool sets the "school" edge to the School entity.
 func (_u *QuestionUpdateOne) SetSchool(v *School) *QuestionUpdateOne {
 	return _u.SetSchoolID(v.ID)
@@ -929,6 +1125,16 @@ func (_u *QuestionUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Question.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Category(); ok {
+		if err := question.CategoryValidator(v); err != nil {
+			return &ValidationError{Name: "category", err: fmt.Errorf(`ent: validator failed for field "Question.category": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ContentHash(); ok {
+		if err := question.ContentHashValidator(v); err != nil {
+			return &ValidationError{Name: "content_hash", err: fmt.Errorf(`ent: validator failed for field "Question.content_hash": %w`, err)}
+		}
+	}
 	if _u.mutation.SchoolCleared() && len(_u.mutation.SchoolIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Question.school"`)
 	}
@@ -1024,6 +1230,32 @@ func (_u *QuestionUpdateOne) sqlSave(ctx context.Context) (_node *Question, err 
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(question.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Category(); ok {
+		_spec.SetField(question.FieldCategory, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.KnowledgePoints(); ok {
+		_spec.SetField(question.FieldKnowledgePoints, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedKnowledgePoints(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, question.FieldKnowledgePoints, value)
+		})
+	}
+	if value, ok := _u.mutation.AiGenerated(); ok {
+		_spec.SetField(question.FieldAiGenerated, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.AiMeta(); ok {
+		_spec.SetField(question.FieldAiMeta, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.ContentHash(); ok {
+		_spec.SetField(question.FieldContentHash, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SourceQuestionID(); ok {
+		_spec.SetField(question.FieldSourceQuestionID, field.TypeUUID, value)
+	}
+	if _u.mutation.SourceQuestionIDCleared() {
+		_spec.ClearField(question.FieldSourceQuestionID, field.TypeUUID)
 	}
 	if _u.mutation.SchoolCleared() {
 		edge := &sqlgraph.EdgeSpec{

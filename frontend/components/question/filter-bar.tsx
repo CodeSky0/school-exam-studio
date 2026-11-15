@@ -37,7 +37,7 @@ export function QuestionFilterBar({ user, filters, onApply, scope = "teacher" }:
 
   return (
     <form onSubmit={submit} className="border-y border-border bg-neutral-1 px-4 py-4" aria-label="题目组合筛选">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-9">
         <div className="grid gap-1.5">
           <Label htmlFor="filter-subject" className="text-label-12">学科</Label>
           <Input id="filter-subject" className="h-9" value={draft.subject ?? ""} placeholder="全部学科" onChange={(event) => setDraft({ ...draft, subject: event.target.value })} />
@@ -61,7 +61,15 @@ export function QuestionFilterBar({ user, filters, onApply, scope = "teacher" }:
           </Select>
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="filter-tag" className="text-label-12">知识点标签</Label>
+          <Label htmlFor="filter-category" className="text-label-12">分类</Label>
+          <Input id="filter-category" className="h-9" value={draft.category ?? ""} placeholder="精确分类" onChange={(event) => setDraft({ ...draft, category: event.target.value })} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="filter-knowledge-point" className="text-label-12">知识点</Label>
+          <Input id="filter-knowledge-point" className="h-9" value={draft.knowledge_point ?? ""} placeholder="精确知识点" onChange={(event) => setDraft({ ...draft, knowledge_point: event.target.value })} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="filter-tag" className="text-label-12">标签</Label>
           <Input id="filter-tag" className="h-9" value={draft.tag ?? ""} placeholder="精确标签" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />
         </div>
         <div className="grid gap-1.5">

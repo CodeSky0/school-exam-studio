@@ -8,6 +8,30 @@ import (
 	"school-exam-studio/backend/ent"
 )
 
+// The AIAuditLogFunc type is an adapter to allow the use of ordinary
+// function as AIAuditLog mutator.
+type AIAuditLogFunc func(context.Context, *ent.AIAuditLogMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AIAuditLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AIAuditLogMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AIAuditLogMutation", m)
+}
+
+// The AIRunFunc type is an adapter to allow the use of ordinary
+// function as AIRun mutator.
+type AIRunFunc func(context.Context, *ent.AIRunMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AIRunFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AIRunMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AIRunMutation", m)
+}
+
 // The PaperFunc type is an adapter to allow the use of ordinary
 // function as Paper mutator.
 type PaperFunc func(context.Context, *ent.PaperMutation) (ent.Value, error)

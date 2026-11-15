@@ -3,6 +3,8 @@
 package ent
 
 import (
+	"school-exam-studio/backend/ent/aiauditlog"
+	"school-exam-studio/backend/ent/airun"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
 	"school-exam-studio/backend/ent/question"
@@ -18,6 +20,96 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	aiauditlogMixin := schema.AIAuditLog{}.Mixin()
+	aiauditlogMixinFields0 := aiauditlogMixin[0].Fields()
+	_ = aiauditlogMixinFields0
+	aiauditlogFields := schema.AIAuditLog{}.Fields()
+	_ = aiauditlogFields
+	// aiauditlogDescCreatedAt is the schema descriptor for created_at field.
+	aiauditlogDescCreatedAt := aiauditlogMixinFields0[1].Descriptor()
+	// aiauditlog.DefaultCreatedAt holds the default value on creation for the created_at field.
+	aiauditlog.DefaultCreatedAt = aiauditlogDescCreatedAt.Default.(func() time.Time)
+	// aiauditlogDescUpdatedAt is the schema descriptor for updated_at field.
+	aiauditlogDescUpdatedAt := aiauditlogMixinFields0[2].Descriptor()
+	// aiauditlog.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	aiauditlog.DefaultUpdatedAt = aiauditlogDescUpdatedAt.Default.(func() time.Time)
+	// aiauditlog.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	aiauditlog.UpdateDefaultUpdatedAt = aiauditlogDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// aiauditlogDescAction is the schema descriptor for action field.
+	aiauditlogDescAction := aiauditlogFields[2].Descriptor()
+	// aiauditlog.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	aiauditlog.ActionValidator = aiauditlogDescAction.Validators[0].(func(string) error)
+	// aiauditlogDescTargetType is the schema descriptor for target_type field.
+	aiauditlogDescTargetType := aiauditlogFields[3].Descriptor()
+	// aiauditlog.TargetTypeValidator is a validator for the "target_type" field. It is called by the builders before save.
+	aiauditlog.TargetTypeValidator = aiauditlogDescTargetType.Validators[0].(func(string) error)
+	// aiauditlogDescDetail is the schema descriptor for detail field.
+	aiauditlogDescDetail := aiauditlogFields[5].Descriptor()
+	// aiauditlog.DefaultDetail holds the default value on creation for the detail field.
+	aiauditlog.DefaultDetail = aiauditlogDescDetail.Default.(map[string]interface{})
+	// aiauditlogDescID is the schema descriptor for id field.
+	aiauditlogDescID := aiauditlogMixinFields0[0].Descriptor()
+	// aiauditlog.DefaultID holds the default value on creation for the id field.
+	aiauditlog.DefaultID = aiauditlogDescID.Default.(func() uuid.UUID)
+	airunMixin := schema.AIRun{}.Mixin()
+	airunMixinFields0 := airunMixin[0].Fields()
+	_ = airunMixinFields0
+	airunFields := schema.AIRun{}.Fields()
+	_ = airunFields
+	// airunDescCreatedAt is the schema descriptor for created_at field.
+	airunDescCreatedAt := airunMixinFields0[1].Descriptor()
+	// airun.DefaultCreatedAt holds the default value on creation for the created_at field.
+	airun.DefaultCreatedAt = airunDescCreatedAt.Default.(func() time.Time)
+	// airunDescUpdatedAt is the schema descriptor for updated_at field.
+	airunDescUpdatedAt := airunMixinFields0[2].Descriptor()
+	// airun.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	airun.DefaultUpdatedAt = airunDescUpdatedAt.Default.(func() time.Time)
+	// airun.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	airun.UpdateDefaultUpdatedAt = airunDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// airunDescIntent is the schema descriptor for intent field.
+	airunDescIntent := airunFields[2].Descriptor()
+	// airun.DefaultIntent holds the default value on creation for the intent field.
+	airun.DefaultIntent = airunDescIntent.Default.(string)
+	// airun.IntentValidator is a validator for the "intent" field. It is called by the builders before save.
+	airun.IntentValidator = airunDescIntent.Validators[0].(func(string) error)
+	// airunDescStatus is the schema descriptor for status field.
+	airunDescStatus := airunFields[3].Descriptor()
+	// airun.DefaultStatus holds the default value on creation for the status field.
+	airun.DefaultStatus = airunDescStatus.Default.(string)
+	// airun.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	airun.StatusValidator = airunDescStatus.Validators[0].(func(string) error)
+	// airunDescProvider is the schema descriptor for provider field.
+	airunDescProvider := airunFields[4].Descriptor()
+	// airun.DefaultProvider holds the default value on creation for the provider field.
+	airun.DefaultProvider = airunDescProvider.Default.(string)
+	// airun.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	airun.ProviderValidator = airunDescProvider.Validators[0].(func(string) error)
+	// airunDescModel is the schema descriptor for model field.
+	airunDescModel := airunFields[5].Descriptor()
+	// airun.DefaultModel holds the default value on creation for the model field.
+	airun.DefaultModel = airunDescModel.Default.(string)
+	// airun.ModelValidator is a validator for the "model" field. It is called by the builders before save.
+	airun.ModelValidator = airunDescModel.Validators[0].(func(string) error)
+	// airunDescPlan is the schema descriptor for plan field.
+	airunDescPlan := airunFields[6].Descriptor()
+	// airun.DefaultPlan holds the default value on creation for the plan field.
+	airun.DefaultPlan = airunDescPlan.Default.([]map[string]interface{})
+	// airunDescSteps is the schema descriptor for steps field.
+	airunDescSteps := airunFields[7].Descriptor()
+	// airun.DefaultSteps holds the default value on creation for the steps field.
+	airun.DefaultSteps = airunDescSteps.Default.([]map[string]interface{})
+	// airunDescResult is the schema descriptor for result field.
+	airunDescResult := airunFields[8].Descriptor()
+	// airun.DefaultResult holds the default value on creation for the result field.
+	airun.DefaultResult = airunDescResult.Default.(map[string]interface{})
+	// airunDescError is the schema descriptor for error field.
+	airunDescError := airunFields[9].Descriptor()
+	// airun.DefaultError holds the default value on creation for the error field.
+	airun.DefaultError = airunDescError.Default.(string)
+	// airunDescID is the schema descriptor for id field.
+	airunDescID := airunMixinFields0[0].Descriptor()
+	// airun.DefaultID holds the default value on creation for the id field.
+	airun.DefaultID = airunDescID.Default.(func() uuid.UUID)
 	paperMixin := schema.Paper{}.Mixin()
 	paperMixinFields0 := paperMixin[0].Fields()
 	_ = paperMixinFields0
@@ -263,6 +355,30 @@ func init() {
 			return nil
 		}
 	}()
+	// questionDescCategory is the schema descriptor for category field.
+	questionDescCategory := questionFields[11].Descriptor()
+	// question.DefaultCategory holds the default value on creation for the category field.
+	question.DefaultCategory = questionDescCategory.Default.(string)
+	// question.CategoryValidator is a validator for the "category" field. It is called by the builders before save.
+	question.CategoryValidator = questionDescCategory.Validators[0].(func(string) error)
+	// questionDescKnowledgePoints is the schema descriptor for knowledge_points field.
+	questionDescKnowledgePoints := questionFields[12].Descriptor()
+	// question.DefaultKnowledgePoints holds the default value on creation for the knowledge_points field.
+	question.DefaultKnowledgePoints = questionDescKnowledgePoints.Default.([]string)
+	// questionDescAiGenerated is the schema descriptor for ai_generated field.
+	questionDescAiGenerated := questionFields[13].Descriptor()
+	// question.DefaultAiGenerated holds the default value on creation for the ai_generated field.
+	question.DefaultAiGenerated = questionDescAiGenerated.Default.(bool)
+	// questionDescAiMeta is the schema descriptor for ai_meta field.
+	questionDescAiMeta := questionFields[14].Descriptor()
+	// question.DefaultAiMeta holds the default value on creation for the ai_meta field.
+	question.DefaultAiMeta = questionDescAiMeta.Default.(map[string]interface{})
+	// questionDescContentHash is the schema descriptor for content_hash field.
+	questionDescContentHash := questionFields[15].Descriptor()
+	// question.DefaultContentHash holds the default value on creation for the content_hash field.
+	question.DefaultContentHash = questionDescContentHash.Default.(string)
+	// question.ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
+	question.ContentHashValidator = questionDescContentHash.Validators[0].(func(string) error)
 	// questionDescID is the schema descriptor for id field.
 	questionDescID := questionMixinFields0[0].Descriptor()
 	// question.DefaultID holds the default value on creation for the id field.

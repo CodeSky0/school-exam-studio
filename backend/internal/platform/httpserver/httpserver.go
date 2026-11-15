@@ -10,6 +10,7 @@ import (
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"school-exam-studio/backend/ent"
 	"school-exam-studio/backend/internal/admin"
+	"school-exam-studio/backend/internal/ai"
 	"school-exam-studio/backend/internal/auth"
 	"school-exam-studio/backend/internal/importer"
 	"school-exam-studio/backend/internal/ocr"
@@ -25,6 +26,7 @@ type Options struct {
 	PaperService    *paper.Service
 	AdminService    *admin.Service
 	ImportService   *importer.Service
+	AIService       *ai.Service
 	OCRClient       *ocr.Client
 	CORSOrigin      string
 	SecureCookie    bool
@@ -100,6 +102,9 @@ func registerAuthRoutes(e *echo.Echo, configuration Options) {
 	}
 	if configuration.PaperService != nil {
 		paper.NewHandler(configuration.PaperService).Register(authenticated)
+	}
+	if configuration.AIService != nil {
+		ai.NewHandler(configuration.AIService).Register(authenticated)
 	}
 	if configuration.OCRClient != nil {
 		ocr.NewHandler(configuration.OCRClient).Register(authenticated)

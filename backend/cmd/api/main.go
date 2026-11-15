@@ -12,6 +12,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"school-exam-studio/backend/internal/admin"
+	"school-exam-studio/backend/internal/ai"
 	"school-exam-studio/backend/internal/auth"
 	"school-exam-studio/backend/internal/importer"
 	"school-exam-studio/backend/internal/ocr"
@@ -55,6 +56,15 @@ func main() {
 	paperService := paper.NewService(paper.NewRepository(client))
 	adminService := admin.NewService(admin.NewRepository(client), passwordHasher)
 	importService := importer.NewService(importer.NewRepository(client), sanitizer)
+	aiService := ai.NewService(ai.Options{
+		QuestionService: questionService,
+		PaperService:    paperService,
+		Repository:      ai.NewRepository(client),
+		LLMBaseURL:      cfg.AIBaseURL,
+		LLMAPIKey:       cfg.AIAPIKey,
+		LLMModel:        cfg.AIModel,
+		LLMTimeout:      time.Duration(cfg.AITimeout) * time.Second,
+	})
 	ocrClient, err := ocr.NewClient(cfg.OCRURL, ocr.DefaultTimeout, ocr.DefaultMaxConcurrent)
 	if err != nil {
 		log.Fatal(err)
@@ -65,6 +75,7 @@ func main() {
 		PaperService:    paperService,
 		AdminService:    adminService,
 		ImportService:   importService,
+		AIService:       aiService,
 		OCRClient:       ocrClient,
 		CORSOrigin:      cfg.CORSOrigin,
 		SecureCookie:    cfg.SecureCookie,

@@ -110,6 +110,7 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (LoginResult, err
 		UserID:         entity.ID,
 		SchoolID:       entity.SchoolID,
 		Role:           entity.Role,
+		Subject:        entity.Subject,
 		SessionVersion: entity.SessionVersion,
 	}
 	token, err := s.tokens.Issue(principal)
@@ -153,6 +154,7 @@ func (s *Service) Authenticate(ctx context.Context, claimed Principal) (Principa
 		UserID:         entity.ID,
 		SchoolID:       entity.SchoolID,
 		Role:           entity.Role,
+		Subject:        entity.Subject,
 		SessionVersion: entity.SessionVersion,
 	}, nil
 }

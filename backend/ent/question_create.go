@@ -13,8 +13,6 @@ import (
 	"school-exam-studio/backend/ent/user"
 	"time"
 
-	"entgo.io/ent/dialect"
-	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
@@ -25,7 +23,6 @@ type QuestionCreate struct {
 	config
 	mutation *QuestionMutation
 	hooks    []Hook
-	conflict []sql.ConflictOption
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -166,6 +163,74 @@ func (_c *QuestionCreate) SetNillableStatus(v *string) *QuestionCreate {
 	return _c
 }
 
+// SetCategory sets the "category" field.
+func (_c *QuestionCreate) SetCategory(v string) *QuestionCreate {
+	_c.mutation.SetCategory(v)
+	return _c
+}
+
+// SetNillableCategory sets the "category" field if the given value is not nil.
+func (_c *QuestionCreate) SetNillableCategory(v *string) *QuestionCreate {
+	if v != nil {
+		_c.SetCategory(*v)
+	}
+	return _c
+}
+
+// SetKnowledgePoints sets the "knowledge_points" field.
+func (_c *QuestionCreate) SetKnowledgePoints(v []string) *QuestionCreate {
+	_c.mutation.SetKnowledgePoints(v)
+	return _c
+}
+
+// SetAiGenerated sets the "ai_generated" field.
+func (_c *QuestionCreate) SetAiGenerated(v bool) *QuestionCreate {
+	_c.mutation.SetAiGenerated(v)
+	return _c
+}
+
+// SetNillableAiGenerated sets the "ai_generated" field if the given value is not nil.
+func (_c *QuestionCreate) SetNillableAiGenerated(v *bool) *QuestionCreate {
+	if v != nil {
+		_c.SetAiGenerated(*v)
+	}
+	return _c
+}
+
+// SetAiMeta sets the "ai_meta" field.
+func (_c *QuestionCreate) SetAiMeta(v map[string]interface{}) *QuestionCreate {
+	_c.mutation.SetAiMeta(v)
+	return _c
+}
+
+// SetContentHash sets the "content_hash" field.
+func (_c *QuestionCreate) SetContentHash(v string) *QuestionCreate {
+	_c.mutation.SetContentHash(v)
+	return _c
+}
+
+// SetNillableContentHash sets the "content_hash" field if the given value is not nil.
+func (_c *QuestionCreate) SetNillableContentHash(v *string) *QuestionCreate {
+	if v != nil {
+		_c.SetContentHash(*v)
+	}
+	return _c
+}
+
+// SetSourceQuestionID sets the "source_question_id" field.
+func (_c *QuestionCreate) SetSourceQuestionID(v uuid.UUID) *QuestionCreate {
+	_c.mutation.SetSourceQuestionID(v)
+	return _c
+}
+
+// SetNillableSourceQuestionID sets the "source_question_id" field if the given value is not nil.
+func (_c *QuestionCreate) SetNillableSourceQuestionID(v *uuid.UUID) *QuestionCreate {
+	if v != nil {
+		_c.SetSourceQuestionID(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *QuestionCreate) SetID(v uuid.UUID) *QuestionCreate {
 	_c.mutation.SetID(v)
@@ -268,6 +333,26 @@ func (_c *QuestionCreate) defaults() {
 		v := question.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.Category(); !ok {
+		v := question.DefaultCategory
+		_c.mutation.SetCategory(v)
+	}
+	if _, ok := _c.mutation.KnowledgePoints(); !ok {
+		v := question.DefaultKnowledgePoints
+		_c.mutation.SetKnowledgePoints(v)
+	}
+	if _, ok := _c.mutation.AiGenerated(); !ok {
+		v := question.DefaultAiGenerated
+		_c.mutation.SetAiGenerated(v)
+	}
+	if _, ok := _c.mutation.AiMeta(); !ok {
+		v := question.DefaultAiMeta
+		_c.mutation.SetAiMeta(v)
+	}
+	if _, ok := _c.mutation.ContentHash(); !ok {
+		v := question.DefaultContentHash
+		_c.mutation.SetContentHash(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := question.DefaultID()
 		_c.mutation.SetID(v)
@@ -342,6 +427,31 @@ func (_c *QuestionCreate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Question.status": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.Category(); !ok {
+		return &ValidationError{Name: "category", err: errors.New(`ent: missing required field "Question.category"`)}
+	}
+	if v, ok := _c.mutation.Category(); ok {
+		if err := question.CategoryValidator(v); err != nil {
+			return &ValidationError{Name: "category", err: fmt.Errorf(`ent: validator failed for field "Question.category": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.KnowledgePoints(); !ok {
+		return &ValidationError{Name: "knowledge_points", err: errors.New(`ent: missing required field "Question.knowledge_points"`)}
+	}
+	if _, ok := _c.mutation.AiGenerated(); !ok {
+		return &ValidationError{Name: "ai_generated", err: errors.New(`ent: missing required field "Question.ai_generated"`)}
+	}
+	if _, ok := _c.mutation.AiMeta(); !ok {
+		return &ValidationError{Name: "ai_meta", err: errors.New(`ent: missing required field "Question.ai_meta"`)}
+	}
+	if _, ok := _c.mutation.ContentHash(); !ok {
+		return &ValidationError{Name: "content_hash", err: errors.New(`ent: missing required field "Question.content_hash"`)}
+	}
+	if v, ok := _c.mutation.ContentHash(); ok {
+		if err := question.ContentHashValidator(v); err != nil {
+			return &ValidationError{Name: "content_hash", err: fmt.Errorf(`ent: validator failed for field "Question.content_hash": %w`, err)}
+		}
+	}
 	if len(_c.mutation.SchoolIDs()) == 0 {
 		return &ValidationError{Name: "school", err: errors.New(`ent: missing required edge "Question.school"`)}
 	}
@@ -379,7 +489,6 @@ func (_c *QuestionCreate) createSpec() (*Question, *sqlgraph.CreateSpec) {
 		_node = &Question{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(question.Table, sqlgraph.NewFieldSpec(question.FieldID, field.TypeUUID))
 	)
-	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -436,6 +545,30 @@ func (_c *QuestionCreate) createSpec() (*Question, *sqlgraph.CreateSpec) {
 		_spec.SetField(question.FieldStatus, field.TypeString, value)
 		_node.Status = value
 	}
+	if value, ok := _c.mutation.Category(); ok {
+		_spec.SetField(question.FieldCategory, field.TypeString, value)
+		_node.Category = value
+	}
+	if value, ok := _c.mutation.KnowledgePoints(); ok {
+		_spec.SetField(question.FieldKnowledgePoints, field.TypeJSON, value)
+		_node.KnowledgePoints = value
+	}
+	if value, ok := _c.mutation.AiGenerated(); ok {
+		_spec.SetField(question.FieldAiGenerated, field.TypeBool, value)
+		_node.AiGenerated = value
+	}
+	if value, ok := _c.mutation.AiMeta(); ok {
+		_spec.SetField(question.FieldAiMeta, field.TypeJSON, value)
+		_node.AiMeta = value
+	}
+	if value, ok := _c.mutation.ContentHash(); ok {
+		_spec.SetField(question.FieldContentHash, field.TypeString, value)
+		_node.ContentHash = value
+	}
+	if value, ok := _c.mutation.SourceQuestionID(); ok {
+		_spec.SetField(question.FieldSourceQuestionID, field.TypeUUID, value)
+		_node.SourceQuestionID = &value
+	}
 	if nodes := _c.mutation.SchoolIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -489,566 +622,11 @@ func (_c *QuestionCreate) createSpec() (*Question, *sqlgraph.CreateSpec) {
 	return _node, _spec
 }
 
-// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
-// of the `INSERT` statement. For example:
-//
-//	client.Question.Create().
-//		SetCreatedAt(v).
-//		OnConflict(
-//			// Update the row with the new values
-//			// the was proposed for insertion.
-//			sql.ResolveWithNewValues(),
-//		).
-//		// Override some of the fields with custom
-//		// update values.
-//		Update(func(u *ent.QuestionUpsert) {
-//			SetCreatedAt(v+v).
-//		}).
-//		Exec(ctx)
-func (_c *QuestionCreate) OnConflict(opts ...sql.ConflictOption) *QuestionUpsertOne {
-	_c.conflict = opts
-	return &QuestionUpsertOne{
-		create: _c,
-	}
-}
-
-// OnConflictColumns calls `OnConflict` and configures the columns
-// as conflict target. Using this option is equivalent to using:
-//
-//	client.Question.Create().
-//		OnConflict(sql.ConflictColumns(columns...)).
-//		Exec(ctx)
-func (_c *QuestionCreate) OnConflictColumns(columns ...string) *QuestionUpsertOne {
-	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
-	return &QuestionUpsertOne{
-		create: _c,
-	}
-}
-
-type (
-	// QuestionUpsertOne is the builder for "upsert"-ing
-	//  one Question node.
-	QuestionUpsertOne struct {
-		create *QuestionCreate
-	}
-
-	// QuestionUpsert is the "OnConflict" setter.
-	QuestionUpsert struct {
-		*sql.UpdateSet
-	}
-)
-
-// SetUpdatedAt sets the "updated_at" field.
-func (u *QuestionUpsert) SetUpdatedAt(v time.Time) *QuestionUpsert {
-	u.Set(question.FieldUpdatedAt, v)
-	return u
-}
-
-// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateUpdatedAt() *QuestionUpsert {
-	u.SetExcluded(question.FieldUpdatedAt)
-	return u
-}
-
-// SetDeletedAt sets the "deleted_at" field.
-func (u *QuestionUpsert) SetDeletedAt(v time.Time) *QuestionUpsert {
-	u.Set(question.FieldDeletedAt, v)
-	return u
-}
-
-// UpdateDeletedAt sets the "deleted_at" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateDeletedAt() *QuestionUpsert {
-	u.SetExcluded(question.FieldDeletedAt)
-	return u
-}
-
-// ClearDeletedAt clears the value of the "deleted_at" field.
-func (u *QuestionUpsert) ClearDeletedAt() *QuestionUpsert {
-	u.SetNull(question.FieldDeletedAt)
-	return u
-}
-
-// SetSchoolID sets the "school_id" field.
-func (u *QuestionUpsert) SetSchoolID(v uuid.UUID) *QuestionUpsert {
-	u.Set(question.FieldSchoolID, v)
-	return u
-}
-
-// UpdateSchoolID sets the "school_id" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateSchoolID() *QuestionUpsert {
-	u.SetExcluded(question.FieldSchoolID)
-	return u
-}
-
-// SetCreatorID sets the "creator_id" field.
-func (u *QuestionUpsert) SetCreatorID(v uuid.UUID) *QuestionUpsert {
-	u.Set(question.FieldCreatorID, v)
-	return u
-}
-
-// UpdateCreatorID sets the "creator_id" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateCreatorID() *QuestionUpsert {
-	u.SetExcluded(question.FieldCreatorID)
-	return u
-}
-
-// SetSubject sets the "subject" field.
-func (u *QuestionUpsert) SetSubject(v string) *QuestionUpsert {
-	u.Set(question.FieldSubject, v)
-	return u
-}
-
-// UpdateSubject sets the "subject" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateSubject() *QuestionUpsert {
-	u.SetExcluded(question.FieldSubject)
-	return u
-}
-
-// SetGrade sets the "grade" field.
-func (u *QuestionUpsert) SetGrade(v string) *QuestionUpsert {
-	u.Set(question.FieldGrade, v)
-	return u
-}
-
-// UpdateGrade sets the "grade" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateGrade() *QuestionUpsert {
-	u.SetExcluded(question.FieldGrade)
-	return u
-}
-
-// SetQuestionType sets the "question_type" field.
-func (u *QuestionUpsert) SetQuestionType(v string) *QuestionUpsert {
-	u.Set(question.FieldQuestionType, v)
-	return u
-}
-
-// UpdateQuestionType sets the "question_type" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateQuestionType() *QuestionUpsert {
-	u.SetExcluded(question.FieldQuestionType)
-	return u
-}
-
-// SetDifficulty sets the "difficulty" field.
-func (u *QuestionUpsert) SetDifficulty(v int) *QuestionUpsert {
-	u.Set(question.FieldDifficulty, v)
-	return u
-}
-
-// UpdateDifficulty sets the "difficulty" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateDifficulty() *QuestionUpsert {
-	u.SetExcluded(question.FieldDifficulty)
-	return u
-}
-
-// AddDifficulty adds v to the "difficulty" field.
-func (u *QuestionUpsert) AddDifficulty(v int) *QuestionUpsert {
-	u.Add(question.FieldDifficulty, v)
-	return u
-}
-
-// SetTags sets the "tags" field.
-func (u *QuestionUpsert) SetTags(v []string) *QuestionUpsert {
-	u.Set(question.FieldTags, v)
-	return u
-}
-
-// UpdateTags sets the "tags" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateTags() *QuestionUpsert {
-	u.SetExcluded(question.FieldTags)
-	return u
-}
-
-// SetContent sets the "content" field.
-func (u *QuestionUpsert) SetContent(v string) *QuestionUpsert {
-	u.Set(question.FieldContent, v)
-	return u
-}
-
-// UpdateContent sets the "content" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateContent() *QuestionUpsert {
-	u.SetExcluded(question.FieldContent)
-	return u
-}
-
-// SetOptions sets the "options" field.
-func (u *QuestionUpsert) SetOptions(v []schema.Option) *QuestionUpsert {
-	u.Set(question.FieldOptions, v)
-	return u
-}
-
-// UpdateOptions sets the "options" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateOptions() *QuestionUpsert {
-	u.SetExcluded(question.FieldOptions)
-	return u
-}
-
-// SetAnswer sets the "answer" field.
-func (u *QuestionUpsert) SetAnswer(v string) *QuestionUpsert {
-	u.Set(question.FieldAnswer, v)
-	return u
-}
-
-// UpdateAnswer sets the "answer" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateAnswer() *QuestionUpsert {
-	u.SetExcluded(question.FieldAnswer)
-	return u
-}
-
-// ClearAnswer clears the value of the "answer" field.
-func (u *QuestionUpsert) ClearAnswer() *QuestionUpsert {
-	u.SetNull(question.FieldAnswer)
-	return u
-}
-
-// SetExplanation sets the "explanation" field.
-func (u *QuestionUpsert) SetExplanation(v string) *QuestionUpsert {
-	u.Set(question.FieldExplanation, v)
-	return u
-}
-
-// UpdateExplanation sets the "explanation" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateExplanation() *QuestionUpsert {
-	u.SetExcluded(question.FieldExplanation)
-	return u
-}
-
-// ClearExplanation clears the value of the "explanation" field.
-func (u *QuestionUpsert) ClearExplanation() *QuestionUpsert {
-	u.SetNull(question.FieldExplanation)
-	return u
-}
-
-// SetStatus sets the "status" field.
-func (u *QuestionUpsert) SetStatus(v string) *QuestionUpsert {
-	u.Set(question.FieldStatus, v)
-	return u
-}
-
-// UpdateStatus sets the "status" field to the value that was provided on create.
-func (u *QuestionUpsert) UpdateStatus() *QuestionUpsert {
-	u.SetExcluded(question.FieldStatus)
-	return u
-}
-
-// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
-// Using this option is equivalent to using:
-//
-//	client.Question.Create().
-//		OnConflict(
-//			sql.ResolveWithNewValues(),
-//			sql.ResolveWith(func(u *sql.UpdateSet) {
-//				u.SetIgnore(question.FieldID)
-//			}),
-//		).
-//		Exec(ctx)
-func (u *QuestionUpsertOne) UpdateNewValues() *QuestionUpsertOne {
-	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
-	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
-		if _, exists := u.create.mutation.ID(); exists {
-			s.SetIgnore(question.FieldID)
-		}
-		if _, exists := u.create.mutation.CreatedAt(); exists {
-			s.SetIgnore(question.FieldCreatedAt)
-		}
-	}))
-	return u
-}
-
-// Ignore sets each column to itself in case of conflict.
-// Using this option is equivalent to using:
-//
-//	client.Question.Create().
-//	    OnConflict(sql.ResolveWithIgnore()).
-//	    Exec(ctx)
-func (u *QuestionUpsertOne) Ignore() *QuestionUpsertOne {
-	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
-	return u
-}
-
-// DoNothing configures the conflict_action to `DO NOTHING`.
-// Supported only by SQLite and PostgreSQL.
-func (u *QuestionUpsertOne) DoNothing() *QuestionUpsertOne {
-	u.create.conflict = append(u.create.conflict, sql.DoNothing())
-	return u
-}
-
-// Update allows overriding fields `UPDATE` values. See the QuestionCreate.OnConflict
-// documentation for more info.
-func (u *QuestionUpsertOne) Update(set func(*QuestionUpsert)) *QuestionUpsertOne {
-	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
-		set(&QuestionUpsert{UpdateSet: update})
-	}))
-	return u
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (u *QuestionUpsertOne) SetUpdatedAt(v time.Time) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetUpdatedAt(v)
-	})
-}
-
-// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateUpdatedAt() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateUpdatedAt()
-	})
-}
-
-// SetDeletedAt sets the "deleted_at" field.
-func (u *QuestionUpsertOne) SetDeletedAt(v time.Time) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetDeletedAt(v)
-	})
-}
-
-// UpdateDeletedAt sets the "deleted_at" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateDeletedAt() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateDeletedAt()
-	})
-}
-
-// ClearDeletedAt clears the value of the "deleted_at" field.
-func (u *QuestionUpsertOne) ClearDeletedAt() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.ClearDeletedAt()
-	})
-}
-
-// SetSchoolID sets the "school_id" field.
-func (u *QuestionUpsertOne) SetSchoolID(v uuid.UUID) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetSchoolID(v)
-	})
-}
-
-// UpdateSchoolID sets the "school_id" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateSchoolID() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateSchoolID()
-	})
-}
-
-// SetCreatorID sets the "creator_id" field.
-func (u *QuestionUpsertOne) SetCreatorID(v uuid.UUID) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetCreatorID(v)
-	})
-}
-
-// UpdateCreatorID sets the "creator_id" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateCreatorID() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateCreatorID()
-	})
-}
-
-// SetSubject sets the "subject" field.
-func (u *QuestionUpsertOne) SetSubject(v string) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetSubject(v)
-	})
-}
-
-// UpdateSubject sets the "subject" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateSubject() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateSubject()
-	})
-}
-
-// SetGrade sets the "grade" field.
-func (u *QuestionUpsertOne) SetGrade(v string) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetGrade(v)
-	})
-}
-
-// UpdateGrade sets the "grade" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateGrade() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateGrade()
-	})
-}
-
-// SetQuestionType sets the "question_type" field.
-func (u *QuestionUpsertOne) SetQuestionType(v string) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetQuestionType(v)
-	})
-}
-
-// UpdateQuestionType sets the "question_type" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateQuestionType() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateQuestionType()
-	})
-}
-
-// SetDifficulty sets the "difficulty" field.
-func (u *QuestionUpsertOne) SetDifficulty(v int) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetDifficulty(v)
-	})
-}
-
-// AddDifficulty adds v to the "difficulty" field.
-func (u *QuestionUpsertOne) AddDifficulty(v int) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.AddDifficulty(v)
-	})
-}
-
-// UpdateDifficulty sets the "difficulty" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateDifficulty() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateDifficulty()
-	})
-}
-
-// SetTags sets the "tags" field.
-func (u *QuestionUpsertOne) SetTags(v []string) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetTags(v)
-	})
-}
-
-// UpdateTags sets the "tags" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateTags() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateTags()
-	})
-}
-
-// SetContent sets the "content" field.
-func (u *QuestionUpsertOne) SetContent(v string) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetContent(v)
-	})
-}
-
-// UpdateContent sets the "content" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateContent() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateContent()
-	})
-}
-
-// SetOptions sets the "options" field.
-func (u *QuestionUpsertOne) SetOptions(v []schema.Option) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetOptions(v)
-	})
-}
-
-// UpdateOptions sets the "options" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateOptions() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateOptions()
-	})
-}
-
-// SetAnswer sets the "answer" field.
-func (u *QuestionUpsertOne) SetAnswer(v string) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetAnswer(v)
-	})
-}
-
-// UpdateAnswer sets the "answer" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateAnswer() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateAnswer()
-	})
-}
-
-// ClearAnswer clears the value of the "answer" field.
-func (u *QuestionUpsertOne) ClearAnswer() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.ClearAnswer()
-	})
-}
-
-// SetExplanation sets the "explanation" field.
-func (u *QuestionUpsertOne) SetExplanation(v string) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetExplanation(v)
-	})
-}
-
-// UpdateExplanation sets the "explanation" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateExplanation() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateExplanation()
-	})
-}
-
-// ClearExplanation clears the value of the "explanation" field.
-func (u *QuestionUpsertOne) ClearExplanation() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.ClearExplanation()
-	})
-}
-
-// SetStatus sets the "status" field.
-func (u *QuestionUpsertOne) SetStatus(v string) *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetStatus(v)
-	})
-}
-
-// UpdateStatus sets the "status" field to the value that was provided on create.
-func (u *QuestionUpsertOne) UpdateStatus() *QuestionUpsertOne {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateStatus()
-	})
-}
-
-// Exec executes the query.
-func (u *QuestionUpsertOne) Exec(ctx context.Context) error {
-	if len(u.create.conflict) == 0 {
-		return errors.New("ent: missing options for QuestionCreate.OnConflict")
-	}
-	return u.create.Exec(ctx)
-}
-
-// ExecX is like Exec, but panics if an error occurs.
-func (u *QuestionUpsertOne) ExecX(ctx context.Context) {
-	if err := u.create.Exec(ctx); err != nil {
-		panic(err)
-	}
-}
-
-// Exec executes the UPSERT query and returns the inserted/updated ID.
-func (u *QuestionUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
-	if u.create.driver.Dialect() == dialect.MySQL {
-		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
-		// fields from the database since MySQL does not support the RETURNING clause.
-		return id, errors.New("ent: QuestionUpsertOne.ID is not supported by MySQL driver. Use QuestionUpsertOne.Exec instead")
-	}
-	node, err := u.create.Save(ctx)
-	if err != nil {
-		return id, err
-	}
-	return node.ID, nil
-}
-
-// IDX is like ID, but panics if an error occurs.
-func (u *QuestionUpsertOne) IDX(ctx context.Context) uuid.UUID {
-	id, err := u.ID(ctx)
-	if err != nil {
-		panic(err)
-	}
-	return id
-}
-
 // QuestionCreateBulk is the builder for creating many Question entities in bulk.
 type QuestionCreateBulk struct {
 	config
 	err      error
 	builders []*QuestionCreate
-	conflict []sql.ConflictOption
 }
 
 // Save creates the Question entities in the database.
@@ -1078,7 +656,6 @@ func (_c *QuestionCreateBulk) Save(ctx context.Context) ([]*Question, error) {
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
-					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -1125,347 +702,6 @@ func (_c *QuestionCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *QuestionCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
-		panic(err)
-	}
-}
-
-// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
-// of the `INSERT` statement. For example:
-//
-//	client.Question.CreateBulk(builders...).
-//		OnConflict(
-//			// Update the row with the new values
-//			// the was proposed for insertion.
-//			sql.ResolveWithNewValues(),
-//		).
-//		// Override some of the fields with custom
-//		// update values.
-//		Update(func(u *ent.QuestionUpsert) {
-//			SetCreatedAt(v+v).
-//		}).
-//		Exec(ctx)
-func (_c *QuestionCreateBulk) OnConflict(opts ...sql.ConflictOption) *QuestionUpsertBulk {
-	_c.conflict = opts
-	return &QuestionUpsertBulk{
-		create: _c,
-	}
-}
-
-// OnConflictColumns calls `OnConflict` and configures the columns
-// as conflict target. Using this option is equivalent to using:
-//
-//	client.Question.Create().
-//		OnConflict(sql.ConflictColumns(columns...)).
-//		Exec(ctx)
-func (_c *QuestionCreateBulk) OnConflictColumns(columns ...string) *QuestionUpsertBulk {
-	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
-	return &QuestionUpsertBulk{
-		create: _c,
-	}
-}
-
-// QuestionUpsertBulk is the builder for "upsert"-ing
-// a bulk of Question nodes.
-type QuestionUpsertBulk struct {
-	create *QuestionCreateBulk
-}
-
-// UpdateNewValues updates the mutable fields using the new values that
-// were set on create. Using this option is equivalent to using:
-//
-//	client.Question.Create().
-//		OnConflict(
-//			sql.ResolveWithNewValues(),
-//			sql.ResolveWith(func(u *sql.UpdateSet) {
-//				u.SetIgnore(question.FieldID)
-//			}),
-//		).
-//		Exec(ctx)
-func (u *QuestionUpsertBulk) UpdateNewValues() *QuestionUpsertBulk {
-	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
-	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
-		for _, b := range u.create.builders {
-			if _, exists := b.mutation.ID(); exists {
-				s.SetIgnore(question.FieldID)
-			}
-			if _, exists := b.mutation.CreatedAt(); exists {
-				s.SetIgnore(question.FieldCreatedAt)
-			}
-		}
-	}))
-	return u
-}
-
-// Ignore sets each column to itself in case of conflict.
-// Using this option is equivalent to using:
-//
-//	client.Question.Create().
-//		OnConflict(sql.ResolveWithIgnore()).
-//		Exec(ctx)
-func (u *QuestionUpsertBulk) Ignore() *QuestionUpsertBulk {
-	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
-	return u
-}
-
-// DoNothing configures the conflict_action to `DO NOTHING`.
-// Supported only by SQLite and PostgreSQL.
-func (u *QuestionUpsertBulk) DoNothing() *QuestionUpsertBulk {
-	u.create.conflict = append(u.create.conflict, sql.DoNothing())
-	return u
-}
-
-// Update allows overriding fields `UPDATE` values. See the QuestionCreateBulk.OnConflict
-// documentation for more info.
-func (u *QuestionUpsertBulk) Update(set func(*QuestionUpsert)) *QuestionUpsertBulk {
-	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
-		set(&QuestionUpsert{UpdateSet: update})
-	}))
-	return u
-}
-
-// SetUpdatedAt sets the "updated_at" field.
-func (u *QuestionUpsertBulk) SetUpdatedAt(v time.Time) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetUpdatedAt(v)
-	})
-}
-
-// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateUpdatedAt() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateUpdatedAt()
-	})
-}
-
-// SetDeletedAt sets the "deleted_at" field.
-func (u *QuestionUpsertBulk) SetDeletedAt(v time.Time) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetDeletedAt(v)
-	})
-}
-
-// UpdateDeletedAt sets the "deleted_at" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateDeletedAt() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateDeletedAt()
-	})
-}
-
-// ClearDeletedAt clears the value of the "deleted_at" field.
-func (u *QuestionUpsertBulk) ClearDeletedAt() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.ClearDeletedAt()
-	})
-}
-
-// SetSchoolID sets the "school_id" field.
-func (u *QuestionUpsertBulk) SetSchoolID(v uuid.UUID) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetSchoolID(v)
-	})
-}
-
-// UpdateSchoolID sets the "school_id" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateSchoolID() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateSchoolID()
-	})
-}
-
-// SetCreatorID sets the "creator_id" field.
-func (u *QuestionUpsertBulk) SetCreatorID(v uuid.UUID) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetCreatorID(v)
-	})
-}
-
-// UpdateCreatorID sets the "creator_id" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateCreatorID() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateCreatorID()
-	})
-}
-
-// SetSubject sets the "subject" field.
-func (u *QuestionUpsertBulk) SetSubject(v string) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetSubject(v)
-	})
-}
-
-// UpdateSubject sets the "subject" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateSubject() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateSubject()
-	})
-}
-
-// SetGrade sets the "grade" field.
-func (u *QuestionUpsertBulk) SetGrade(v string) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetGrade(v)
-	})
-}
-
-// UpdateGrade sets the "grade" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateGrade() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateGrade()
-	})
-}
-
-// SetQuestionType sets the "question_type" field.
-func (u *QuestionUpsertBulk) SetQuestionType(v string) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetQuestionType(v)
-	})
-}
-
-// UpdateQuestionType sets the "question_type" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateQuestionType() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateQuestionType()
-	})
-}
-
-// SetDifficulty sets the "difficulty" field.
-func (u *QuestionUpsertBulk) SetDifficulty(v int) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetDifficulty(v)
-	})
-}
-
-// AddDifficulty adds v to the "difficulty" field.
-func (u *QuestionUpsertBulk) AddDifficulty(v int) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.AddDifficulty(v)
-	})
-}
-
-// UpdateDifficulty sets the "difficulty" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateDifficulty() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateDifficulty()
-	})
-}
-
-// SetTags sets the "tags" field.
-func (u *QuestionUpsertBulk) SetTags(v []string) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetTags(v)
-	})
-}
-
-// UpdateTags sets the "tags" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateTags() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateTags()
-	})
-}
-
-// SetContent sets the "content" field.
-func (u *QuestionUpsertBulk) SetContent(v string) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetContent(v)
-	})
-}
-
-// UpdateContent sets the "content" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateContent() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateContent()
-	})
-}
-
-// SetOptions sets the "options" field.
-func (u *QuestionUpsertBulk) SetOptions(v []schema.Option) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetOptions(v)
-	})
-}
-
-// UpdateOptions sets the "options" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateOptions() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateOptions()
-	})
-}
-
-// SetAnswer sets the "answer" field.
-func (u *QuestionUpsertBulk) SetAnswer(v string) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetAnswer(v)
-	})
-}
-
-// UpdateAnswer sets the "answer" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateAnswer() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateAnswer()
-	})
-}
-
-// ClearAnswer clears the value of the "answer" field.
-func (u *QuestionUpsertBulk) ClearAnswer() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.ClearAnswer()
-	})
-}
-
-// SetExplanation sets the "explanation" field.
-func (u *QuestionUpsertBulk) SetExplanation(v string) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetExplanation(v)
-	})
-}
-
-// UpdateExplanation sets the "explanation" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateExplanation() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateExplanation()
-	})
-}
-
-// ClearExplanation clears the value of the "explanation" field.
-func (u *QuestionUpsertBulk) ClearExplanation() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.ClearExplanation()
-	})
-}
-
-// SetStatus sets the "status" field.
-func (u *QuestionUpsertBulk) SetStatus(v string) *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.SetStatus(v)
-	})
-}
-
-// UpdateStatus sets the "status" field to the value that was provided on create.
-func (u *QuestionUpsertBulk) UpdateStatus() *QuestionUpsertBulk {
-	return u.Update(func(s *QuestionUpsert) {
-		s.UpdateStatus()
-	})
-}
-
-// Exec executes the query.
-func (u *QuestionUpsertBulk) Exec(ctx context.Context) error {
-	if u.create.err != nil {
-		return u.create.err
-	}
-	for i, b := range u.create.builders {
-		if len(b.conflict) != 0 {
-			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the QuestionCreateBulk instead", i)
-		}
-	}
-	if len(u.create.conflict) == 0 {
-		return errors.New("ent: missing options for QuestionCreateBulk.OnConflict")
-	}
-	return u.create.Exec(ctx)
-}
-
-// ExecX is like Exec, but panics if an error occurs.
-func (u *QuestionUpsertBulk) ExecX(ctx context.Context) {
-	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

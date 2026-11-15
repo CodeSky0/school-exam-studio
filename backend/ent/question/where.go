@@ -121,6 +121,26 @@ func Status(v string) predicate.Question {
 	return predicate.Question(sql.FieldEQ(FieldStatus, v))
 }
 
+// Category applies equality check predicate on the "category" field. It's identical to CategoryEQ.
+func Category(v string) predicate.Question {
+	return predicate.Question(sql.FieldEQ(FieldCategory, v))
+}
+
+// AiGenerated applies equality check predicate on the "ai_generated" field. It's identical to AiGeneratedEQ.
+func AiGenerated(v bool) predicate.Question {
+	return predicate.Question(sql.FieldEQ(FieldAiGenerated, v))
+}
+
+// ContentHash applies equality check predicate on the "content_hash" field. It's identical to ContentHashEQ.
+func ContentHash(v string) predicate.Question {
+	return predicate.Question(sql.FieldEQ(FieldContentHash, v))
+}
+
+// SourceQuestionID applies equality check predicate on the "source_question_id" field. It's identical to SourceQuestionIDEQ.
+func SourceQuestionID(v uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldEQ(FieldSourceQuestionID, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Question {
 	return predicate.Question(sql.FieldEQ(FieldCreatedAt, v))
@@ -804,6 +824,196 @@ func StatusEqualFold(v string) predicate.Question {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.Question {
 	return predicate.Question(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// CategoryEQ applies the EQ predicate on the "category" field.
+func CategoryEQ(v string) predicate.Question {
+	return predicate.Question(sql.FieldEQ(FieldCategory, v))
+}
+
+// CategoryNEQ applies the NEQ predicate on the "category" field.
+func CategoryNEQ(v string) predicate.Question {
+	return predicate.Question(sql.FieldNEQ(FieldCategory, v))
+}
+
+// CategoryIn applies the In predicate on the "category" field.
+func CategoryIn(vs ...string) predicate.Question {
+	return predicate.Question(sql.FieldIn(FieldCategory, vs...))
+}
+
+// CategoryNotIn applies the NotIn predicate on the "category" field.
+func CategoryNotIn(vs ...string) predicate.Question {
+	return predicate.Question(sql.FieldNotIn(FieldCategory, vs...))
+}
+
+// CategoryGT applies the GT predicate on the "category" field.
+func CategoryGT(v string) predicate.Question {
+	return predicate.Question(sql.FieldGT(FieldCategory, v))
+}
+
+// CategoryGTE applies the GTE predicate on the "category" field.
+func CategoryGTE(v string) predicate.Question {
+	return predicate.Question(sql.FieldGTE(FieldCategory, v))
+}
+
+// CategoryLT applies the LT predicate on the "category" field.
+func CategoryLT(v string) predicate.Question {
+	return predicate.Question(sql.FieldLT(FieldCategory, v))
+}
+
+// CategoryLTE applies the LTE predicate on the "category" field.
+func CategoryLTE(v string) predicate.Question {
+	return predicate.Question(sql.FieldLTE(FieldCategory, v))
+}
+
+// CategoryContains applies the Contains predicate on the "category" field.
+func CategoryContains(v string) predicate.Question {
+	return predicate.Question(sql.FieldContains(FieldCategory, v))
+}
+
+// CategoryHasPrefix applies the HasPrefix predicate on the "category" field.
+func CategoryHasPrefix(v string) predicate.Question {
+	return predicate.Question(sql.FieldHasPrefix(FieldCategory, v))
+}
+
+// CategoryHasSuffix applies the HasSuffix predicate on the "category" field.
+func CategoryHasSuffix(v string) predicate.Question {
+	return predicate.Question(sql.FieldHasSuffix(FieldCategory, v))
+}
+
+// CategoryEqualFold applies the EqualFold predicate on the "category" field.
+func CategoryEqualFold(v string) predicate.Question {
+	return predicate.Question(sql.FieldEqualFold(FieldCategory, v))
+}
+
+// CategoryContainsFold applies the ContainsFold predicate on the "category" field.
+func CategoryContainsFold(v string) predicate.Question {
+	return predicate.Question(sql.FieldContainsFold(FieldCategory, v))
+}
+
+// AiGeneratedEQ applies the EQ predicate on the "ai_generated" field.
+func AiGeneratedEQ(v bool) predicate.Question {
+	return predicate.Question(sql.FieldEQ(FieldAiGenerated, v))
+}
+
+// AiGeneratedNEQ applies the NEQ predicate on the "ai_generated" field.
+func AiGeneratedNEQ(v bool) predicate.Question {
+	return predicate.Question(sql.FieldNEQ(FieldAiGenerated, v))
+}
+
+// ContentHashEQ applies the EQ predicate on the "content_hash" field.
+func ContentHashEQ(v string) predicate.Question {
+	return predicate.Question(sql.FieldEQ(FieldContentHash, v))
+}
+
+// ContentHashNEQ applies the NEQ predicate on the "content_hash" field.
+func ContentHashNEQ(v string) predicate.Question {
+	return predicate.Question(sql.FieldNEQ(FieldContentHash, v))
+}
+
+// ContentHashIn applies the In predicate on the "content_hash" field.
+func ContentHashIn(vs ...string) predicate.Question {
+	return predicate.Question(sql.FieldIn(FieldContentHash, vs...))
+}
+
+// ContentHashNotIn applies the NotIn predicate on the "content_hash" field.
+func ContentHashNotIn(vs ...string) predicate.Question {
+	return predicate.Question(sql.FieldNotIn(FieldContentHash, vs...))
+}
+
+// ContentHashGT applies the GT predicate on the "content_hash" field.
+func ContentHashGT(v string) predicate.Question {
+	return predicate.Question(sql.FieldGT(FieldContentHash, v))
+}
+
+// ContentHashGTE applies the GTE predicate on the "content_hash" field.
+func ContentHashGTE(v string) predicate.Question {
+	return predicate.Question(sql.FieldGTE(FieldContentHash, v))
+}
+
+// ContentHashLT applies the LT predicate on the "content_hash" field.
+func ContentHashLT(v string) predicate.Question {
+	return predicate.Question(sql.FieldLT(FieldContentHash, v))
+}
+
+// ContentHashLTE applies the LTE predicate on the "content_hash" field.
+func ContentHashLTE(v string) predicate.Question {
+	return predicate.Question(sql.FieldLTE(FieldContentHash, v))
+}
+
+// ContentHashContains applies the Contains predicate on the "content_hash" field.
+func ContentHashContains(v string) predicate.Question {
+	return predicate.Question(sql.FieldContains(FieldContentHash, v))
+}
+
+// ContentHashHasPrefix applies the HasPrefix predicate on the "content_hash" field.
+func ContentHashHasPrefix(v string) predicate.Question {
+	return predicate.Question(sql.FieldHasPrefix(FieldContentHash, v))
+}
+
+// ContentHashHasSuffix applies the HasSuffix predicate on the "content_hash" field.
+func ContentHashHasSuffix(v string) predicate.Question {
+	return predicate.Question(sql.FieldHasSuffix(FieldContentHash, v))
+}
+
+// ContentHashEqualFold applies the EqualFold predicate on the "content_hash" field.
+func ContentHashEqualFold(v string) predicate.Question {
+	return predicate.Question(sql.FieldEqualFold(FieldContentHash, v))
+}
+
+// ContentHashContainsFold applies the ContainsFold predicate on the "content_hash" field.
+func ContentHashContainsFold(v string) predicate.Question {
+	return predicate.Question(sql.FieldContainsFold(FieldContentHash, v))
+}
+
+// SourceQuestionIDEQ applies the EQ predicate on the "source_question_id" field.
+func SourceQuestionIDEQ(v uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldEQ(FieldSourceQuestionID, v))
+}
+
+// SourceQuestionIDNEQ applies the NEQ predicate on the "source_question_id" field.
+func SourceQuestionIDNEQ(v uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldNEQ(FieldSourceQuestionID, v))
+}
+
+// SourceQuestionIDIn applies the In predicate on the "source_question_id" field.
+func SourceQuestionIDIn(vs ...uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldIn(FieldSourceQuestionID, vs...))
+}
+
+// SourceQuestionIDNotIn applies the NotIn predicate on the "source_question_id" field.
+func SourceQuestionIDNotIn(vs ...uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldNotIn(FieldSourceQuestionID, vs...))
+}
+
+// SourceQuestionIDGT applies the GT predicate on the "source_question_id" field.
+func SourceQuestionIDGT(v uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldGT(FieldSourceQuestionID, v))
+}
+
+// SourceQuestionIDGTE applies the GTE predicate on the "source_question_id" field.
+func SourceQuestionIDGTE(v uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldGTE(FieldSourceQuestionID, v))
+}
+
+// SourceQuestionIDLT applies the LT predicate on the "source_question_id" field.
+func SourceQuestionIDLT(v uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldLT(FieldSourceQuestionID, v))
+}
+
+// SourceQuestionIDLTE applies the LTE predicate on the "source_question_id" field.
+func SourceQuestionIDLTE(v uuid.UUID) predicate.Question {
+	return predicate.Question(sql.FieldLTE(FieldSourceQuestionID, v))
+}
+
+// SourceQuestionIDIsNil applies the IsNil predicate on the "source_question_id" field.
+func SourceQuestionIDIsNil() predicate.Question {
+	return predicate.Question(sql.FieldIsNull(FieldSourceQuestionID))
+}
+
+// SourceQuestionIDNotNil applies the NotNil predicate on the "source_question_id" field.
+func SourceQuestionIDNotNil() predicate.Question {
+	return predicate.Question(sql.FieldNotNull(FieldSourceQuestionID))
 }
 
 // HasSchool applies the HasEdge predicate on the "school" edge.

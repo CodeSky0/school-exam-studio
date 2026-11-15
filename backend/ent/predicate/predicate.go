@@ -6,6 +6,12 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// AIAuditLog is the predicate function for aiauditlog builders.
+type AIAuditLog func(*sql.Selector)
+
+// AIRun is the predicate function for airun builders.
+type AIRun func(*sql.Selector)
+
 // Paper is the predicate function for paper builders.
 type Paper func(*sql.Selector)
 

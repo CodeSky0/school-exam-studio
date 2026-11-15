@@ -46,6 +46,18 @@ const (
 	FieldExplanation = "explanation"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldCategory holds the string denoting the category field in the database.
+	FieldCategory = "category"
+	// FieldKnowledgePoints holds the string denoting the knowledge_points field in the database.
+	FieldKnowledgePoints = "knowledge_points"
+	// FieldAiGenerated holds the string denoting the ai_generated field in the database.
+	FieldAiGenerated = "ai_generated"
+	// FieldAiMeta holds the string denoting the ai_meta field in the database.
+	FieldAiMeta = "ai_meta"
+	// FieldContentHash holds the string denoting the content_hash field in the database.
+	FieldContentHash = "content_hash"
+	// FieldSourceQuestionID holds the string denoting the source_question_id field in the database.
+	FieldSourceQuestionID = "source_question_id"
 	// EdgeSchool holds the string denoting the school edge name in mutations.
 	EdgeSchool = "school"
 	// EdgeCreator holds the string denoting the creator edge name in mutations.
@@ -95,6 +107,12 @@ var Columns = []string{
 	FieldAnswer,
 	FieldExplanation,
 	FieldStatus,
+	FieldCategory,
+	FieldKnowledgePoints,
+	FieldAiGenerated,
+	FieldAiMeta,
+	FieldContentHash,
+	FieldSourceQuestionID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -136,6 +154,20 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultCategory holds the default value on creation for the "category" field.
+	DefaultCategory string
+	// CategoryValidator is a validator for the "category" field. It is called by the builders before save.
+	CategoryValidator func(string) error
+	// DefaultKnowledgePoints holds the default value on creation for the "knowledge_points" field.
+	DefaultKnowledgePoints []string
+	// DefaultAiGenerated holds the default value on creation for the "ai_generated" field.
+	DefaultAiGenerated bool
+	// DefaultAiMeta holds the default value on creation for the "ai_meta" field.
+	DefaultAiMeta map[string]interface{}
+	// DefaultContentHash holds the default value on creation for the "content_hash" field.
+	DefaultContentHash string
+	// ContentHashValidator is a validator for the "content_hash" field. It is called by the builders before save.
+	ContentHashValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -211,6 +243,26 @@ func ByExplanation(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByCategory orders the results by the category field.
+func ByCategory(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCategory, opts...).ToFunc()
+}
+
+// ByAiGenerated orders the results by the ai_generated field.
+func ByAiGenerated(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiGenerated, opts...).ToFunc()
+}
+
+// ByContentHash orders the results by the content_hash field.
+func ByContentHash(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldContentHash, opts...).ToFunc()
+}
+
+// BySourceQuestionID orders the results by the source_question_id field.
+func BySourceQuestionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceQuestionID, opts...).ToFunc()
 }
 
 // BySchoolField orders the results by school field.

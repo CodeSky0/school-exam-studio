@@ -1,11 +1,12 @@
 # School Exam Studio
 
-单学校部署的中小学智能题库与组卷系统。提供学校初始化、JWT 认证、题目管理、富文本公式、本地数学 OCR、组卷、A4 打印、教师管理、题目审核与 CSV 全量事务导入。
+单学校部署的中小学智能题库与组卷系统。提供学校初始化、JWT 认证、题目管理、富文本公式、本地数学 OCR、组卷、A4 打印、教师管理、题目审核、CSV 全量事务导入，以及可替代教师重复操作的 AI Agent 工作台。
 
 ## 技术架构
 
 - 前端：Next.js 16 App Router、React 19、TypeScript、Tailwind CSS v4、shadcn/ui、TanStack Query、Zustand、Zod、TipTap、KaTeX。
 - 核心后端：Go、Echo、Ent，按 Handler、Service、Repository 分层；PostgreSQL 是唯一业务持久化存储。
+- AI：OpenAI 兼容 Chat Completions 客户端 + 内置确定性本地引擎；Agent 采用确定性意图规划与工具执行，所有写入受草稿权限约束并记录审计日志。
 - OCR：独立 Python FastAPI sidecar，调用本地 Pix2Text，仅在内存中处理图片，不写题库。
 - Redis：仅用于登录/注册限流与短期缓存，不保存业务事实数据。
 - 测试：Go testing（真实 PostgreSQL）、Vitest、Playwright、OCR 适配层 pytest。
@@ -61,6 +62,11 @@ export DATABASE_URL='postgres://user:password@localhost:5432/school_db?sslmode=d
 export REDIS_URL='redis://localhost:6379'
 export OCR_URL='http://localhost:8001'
 export JWT_SECRET='替换为至少32字节的随机字符串'
+# AI 可选：不设置 AI_API_KEY 时使用内置本地引擎
+export AI_BASE_URL='https://api.openai.com/v1'
+export AI_API_KEY=''
+export AI_MODEL='gpt-4o-mini'
+export AI_TIMEOUT_SECONDS='45'
 go run cmd/migrate/main.go
 go run cmd/api/main.go
 ```
@@ -84,7 +90,20 @@ pnpm dev
 3. 教师访问 `/register`，凭学校代码自助注册并直接启用。
 4. 管理员在 `/admin/questions` 审核发布草稿，教师才能将题目加入试卷。
 
-### 6. 启动 OCR（可选）
+### 6. AI 工作台
+
+教师与管理员分别从 `/teacher/ai`、`/admin/ai` 进入 AI 工作台。未配置 `AI_API_KEY` 时使用内置确定性本地引擎，仍可完成分类、知识点、标签、题库体检、模板出题与变式；配置后优先调用 OpenAI 兼容大模型，调用失败自动降级并提示复核。
+
+Agent 通过自然语言目标执行固定工具链：题库体检、批量整理分类与知识点、补答案与解析、按知识点出题、生成变式、智能组卷、分析指定题目。安全边界：
+
+- AI 只自动修改草稿；已发布题目只读。
+- 教师只能操作自己的草稿，管理员可操作本校草稿。
+- 所有 AI 写入记录 `ai_audit_logs`，生成内容标记待人工复核。
+- 单次批量最多 10 道题，出题最多 10 道。
+
+密钥只从环境变量读取，不写入数据库、日志、前端响应或 Git。
+
+### 7. 启动 OCR（可选）
 
 ```bash
 cd ocr

@@ -76,8 +76,11 @@ function QuestionDetails({ question }: { question: Question }) {
           <div className="mt-2 rounded-lg border border-border bg-neutral-1 p-4"><RichTextView content={question.explanation} /></div>
         </div>
         <dl className="grid grid-cols-2 gap-3 text-label-12 text-neutral-7">
+          <div><dt>分类</dt><dd className="mt-1 text-neutral-8">{question.category || "未分类"}</dd></div>
+          <div><dt>知识点</dt><dd className="mt-1 text-neutral-8">{question.knowledge_points.join("、") || "未标注"}</dd></div>
           <div><dt>题目 ID</dt><dd className="mt-1 break-all font-mono text-neutral-8">{question.id}</dd></div>
           <div><dt>创建时间</dt><dd className="mt-1 text-neutral-8">{formatUpdatedAt(question.created_at)}</dd></div>
+          <AIMeta question={question} />
         </dl>
       </section>
     </div>
@@ -94,6 +97,26 @@ function TableSkeleton() {
 
 function QuestionStatus({ question }: { question: Question }) {
   return <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-label-12 font-medium", statusStyles[question.status])}>{questionStatusLabels[question.status]}</span>;
+}
+
+function AIQuestionBadge({ question }: { question: Question }) {
+  if (!question.ai_generated) return null;
+  return <span className="inline-flex rounded-full border border-accent/30 bg-accent-soft px-2 py-0.5 text-label-12 font-medium text-accent-strong">AI 生成</span>;
+}
+
+function AIMeta({ question }: { question: Question }) {
+  if (!question.ai_generated) return null;
+  const rationale = typeof question.ai_meta.rationale === "string" ? question.ai_meta.rationale : "";
+  const provider = typeof question.ai_meta.provider === "string" ? question.ai_meta.provider : "";
+  return (
+    <div className="col-span-2">
+      <dt>AI 元信息</dt>
+      <dd className="mt-1 leading-5 text-neutral-8">
+        {[provider, rationale].filter(Boolean).join(" · ") || "AI 生成内容"}
+        {question.ai_meta.review_required === true ? " · 待人工复核" : ""}
+      </dd>
+    </div>
+  );
 }
 
 function QuestionActions({ canEdit, isDeleting, onEdit, onDelete, renderActions, className }: {
@@ -221,12 +244,12 @@ function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit
           <Button type="button" variant="ghost" size="sm" className="mb-2 -ml-2 h-7 px-2 text-label-12" aria-expanded={expanded} aria-controls={detailsId} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起" : "查看"}</Button>
           <RichTextView content={question.content} className="max-h-20 overflow-hidden text-copy-13 leading-5" />
         </td>
-        <td className="px-3 py-4 text-copy-13 leading-5 text-neutral-8">{question.subject}<br /><span className="text-neutral-7">{question.grade}</span></td>
+        <td className="px-3 py-4 text-copy-13 leading-5 text-neutral-8">{question.subject}<br /><span className="text-neutral-7">{question.grade}</span>{question.category ? <span className="mt-1 block text-label-12 text-neutral-6">{question.category}</span> : null}</td>
         <td className="whitespace-nowrap px-3 py-4 text-copy-13">{questionTypeLabels[question.question_type]}</td>
         <td className="px-3 py-4 font-mono text-copy-13">{question.difficulty} / 5</td>
-        <td className="max-w-36 px-3 py-4"><div className="flex flex-wrap gap-1">{question.tags.length ? question.tags.map((tag) => <span key={tag} className="rounded bg-neutral-3 px-1.5 py-0.5 text-label-12 text-neutral-7">{tag}</span>) : <span className="text-copy-13 text-neutral-6">无</span>}</div></td>
+        <td className="max-w-44 px-3 py-4"><div className="flex flex-wrap gap-1">{question.knowledge_points.map((point) => <span key={point} className="rounded bg-accent-soft px-1.5 py-0.5 text-label-12 text-accent-strong">{point}</span>)}{question.tags.map((tag) => <span key={tag} className="rounded bg-neutral-3 px-1.5 py-0.5 text-label-12 text-neutral-7">{tag}</span>)}{question.knowledge_points.length === 0 && question.tags.length === 0 ? <span className="text-copy-13 text-neutral-6">无</span> : null}</div></td>
         <td className="px-3 py-4 text-copy-13 text-neutral-8">{question.creator_name}</td>
-        <td className="px-3 py-4"><QuestionStatus question={question} /></td>
+        <td className="px-3 py-4"><div className="flex flex-wrap items-center gap-1"><QuestionStatus question={question} /><AIQuestionBadge question={question} /></div></td>
         <td className="whitespace-nowrap px-3 py-4 text-copy-13 text-neutral-7"><time dateTime={question.updated_at}>{formatUpdatedAt(question.updated_at)}</time></td>
         <td className="px-4 py-4"><QuestionActions canEdit={canEdit} isDeleting={isDeleting} onEdit={onEdit} onDelete={onDelete} renderActions={renderActions} /></td>
       </motion.tr>
@@ -243,16 +266,18 @@ function QuestionMobileCard({ question, canEdit, expanded, isDeleting, onToggle,
     <motion.article layout="position" variants={itemVariants} exit="exit" className="border-b border-border p-4 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
         <Button type="button" variant="ghost" size="sm" className="-ml-2 h-8 px-2 text-label-12" aria-expanded={expanded} aria-controls={detailsId} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起详情" : "查看详情"}</Button>
-        <QuestionStatus question={question} />
+        <div className="flex flex-wrap justify-end gap-1"><QuestionStatus question={question} /><AIQuestionBadge question={question} /></div>
       </div>
       <RichTextView content={question.content} className="mt-2 max-h-24 overflow-hidden text-copy-14 leading-6" />
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-label-12">
         <div><dt className="text-neutral-6">学科 / 年级</dt><dd className="mt-1 text-copy-13 text-neutral-9">{question.subject} · {question.grade}</dd></div>
         <div><dt className="text-neutral-6">题型 / 难度</dt><dd className="mt-1 text-copy-13 text-neutral-9">{questionTypeLabels[question.question_type]} · {question.difficulty} / 5</dd></div>
+        <div><dt className="text-neutral-6">分类</dt><dd className="mt-1 text-copy-13 text-neutral-9">{question.category || "未分类"}</dd></div>
+        <div><dt className="text-neutral-6">知识点</dt><dd className="mt-1 text-copy-13 text-neutral-9">{question.knowledge_points.join("、") || "未标注"}</dd></div>
         <div><dt className="text-neutral-6">创建人</dt><dd className="mt-1 text-copy-13 text-neutral-9">{question.creator_name}</dd></div>
         <div><dt className="text-neutral-6">更新时间</dt><dd className="mt-1 text-copy-13 text-neutral-9"><time dateTime={question.updated_at}>{formatUpdatedAt(question.updated_at)}</time></dd></div>
       </dl>
-      <div className="mt-3 flex flex-wrap gap-1">{question.tags.map((tag) => <span key={tag} className="rounded bg-neutral-3 px-1.5 py-0.5 text-label-12 text-neutral-7">{tag}</span>)}</div>
+      <div className="mt-3 flex flex-wrap gap-1">{question.knowledge_points.map((point) => <span key={point} className="rounded bg-accent-soft px-1.5 py-0.5 text-label-12 text-accent-strong">{point}</span>)}{question.tags.map((tag) => <span key={tag} className="rounded bg-neutral-3 px-1.5 py-0.5 text-label-12 text-neutral-7">{tag}</span>)}</div>
       <div className="mt-4 border-t border-border pt-3"><QuestionActions canEdit={canEdit} isDeleting={isDeleting} onEdit={onEdit} onDelete={onDelete} renderActions={renderActions} className="justify-start" /></div>
       <AnimatePresence initial={false}>
         {expanded ? <motion.div key={detailsId} id={detailsId} variants={detailVariants} initial="hidden" animate="visible" exit="exit" className="mt-4 overflow-hidden rounded-lg"><QuestionDetails question={question} /></motion.div> : null}
