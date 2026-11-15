@@ -21,6 +21,7 @@ import (
 	"school-exam-studio/backend/internal/platform/database"
 	"school-exam-studio/backend/internal/platform/httpserver"
 	platformmiddleware "school-exam-studio/backend/internal/platform/middleware"
+	"school-exam-studio/backend/internal/platform/migrator"
 	"school-exam-studio/backend/internal/question"
 )
 
@@ -28,6 +29,12 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatal(err)
+	}
+	if cfg.AutoMigrate {
+		if err := migrator.Up(cfg.DatabaseURL); err != nil {
+			log.Fatalf("run database migrations: %v", err)
+		}
+		log.Print("database migrations applied")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	client, err := database.Open(ctx, cfg.DatabaseURL)

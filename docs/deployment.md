@@ -7,7 +7,7 @@
 | 组件 | 默认地址 | 说明 |
 |---|---|---|
 | Next.js 前端 | `http://localhost:3000` | 生产使用 `pnpm build && pnpm start` |
-| Go API | `http://localhost:8080` | `cmd/api`，迁移使用 `cmd/migrate` |
+| Go API | `http://localhost:8080` | `cmd/api`，启动时默认自动执行数据库迁移 |
 | PostgreSQL 16 | `localhost:5432` | 唯一业务持久化存储，需要 pgcrypto |
 | Redis 7 | `localhost:6379` | 仅登录/注册限流与短期缓存 |
 | OCR sidecar | `127.0.0.1:8001` | 仅回环或内网访问，禁止暴露公网 |
@@ -24,6 +24,7 @@
 | `JWT_SECRET` | 至少 32 字节的高强度随机值，使用密钥管理系统注入 |
 | `CORS_ORIGIN` | 前端完整源，例如 `https://exam.school.edu.cn` |
 | `TRUST_PROXY` | 默认 `false`。仅当 API 位于可信反向代理之后时设为 `true`，限流将使用 `X-Forwarded-For` / `X-Real-IP`；直接暴露 API 时必须保持 `false`，否则限流身份可被伪造 |
+| `AUTO_MIGRATE` | 默认 `true`。API 启动时自动执行版本化迁移；使用独立迁移账号或由部署流水线单独迁移时设为 `false` |
 | `NEXT_PUBLIC_API_URL` | 构建时注入的 API 地址，修改后必须重新构建前端 |
 
 禁止把 `.env`、访问令牌、密码或模型缓存提交到 Git。
@@ -33,13 +34,14 @@
 ```bash
 docker compose up -d                # PostgreSQL、Redis、OCR
 cd backend
-go run cmd/migrate/main.go          # 版本化迁移，幂等
-go run cmd/api/main.go              # 或编译后由 systemd 托管
+go run cmd/api/main.go              # 启动时自动迁移，或编译后由 systemd 托管
 cd ../frontend
 pnpm install --frozen-lockfile
 pnpm build
 pnpm start
 ```
+
+API 启动时会先对 `DATABASE_URL` 执行 `migrations/` 下的版本化迁移，全部成功后才开始监听端口；迁移失败会直接退出，避免旧表结构对外服务。多实例滚动发布时由 PostgreSQL advisory lock 保证只有一个实例执行迁移。若生产环境使用独立低权限迁移账号，可设置 `AUTO_MIGRATE=false`，并在发布流水线中先执行 `go run cmd/migrate/main.go`，再启动 API。
 
 生产建议使用进程管理器（systemd、Supervisor 或容器编排）托管 API 与前端，并为 PostgreSQL 数据卷和 OCR 模型卷配置独立持久化。
 
@@ -80,7 +82,7 @@ server {
 - 每日备份 PostgreSQL：`pg_dump -Fc school_db > backup.dump`，定期演练 `pg_restore`。
 - Redis 无需备份，限流数据丢失不影响业务一致性。
 - 原题图片只在内存中处理，数据库与磁盘均不保存；OCR 模型卷只含缓存，可安全重建。
-- 迁移前必须备份数据库；`migrations/*.down.sql` 仅用于受控回滚演练。
+- 迁移前必须备份数据库。API 默认在启动时自动迁移，因此发布新版本前应先完成备份；`migrations/*.down.sql` 仅用于受控回滚演练。若需要严格分离，设置 `AUTO_MIGRATE=false` 并在发布流程中显式执行迁移。
 
 ## 6. OCR 网络安全与资源
 
@@ -92,7 +94,7 @@ server {
 ## 7. 上线检查清单
 
 1. `APP_ENV=production`、强 `JWT_SECRET`、正确 `CORS_ORIGIN` 已配置。
-2. 迁移成功，`/healthz`、`/readyz` 正常。
+2. 迁移成功（API 启动日志包含 `database migrations applied`，或手动迁移无报错），`/healthz`、`/readyz` 正常。
 3. 首次访问 `/init` 创建学校与管理员，页面仅展示一次学校代码；初始化后重复调用返回 409。
 4. 教师注册、录题、管理员审核、组卷、打印全流程人工验收。
 5. 禁用教师或重置密码后旧会话立即失效。

@@ -69,7 +69,9 @@ export AI_MODEL='gpt-4o-mini'
 export AI_TIMEOUT_SECONDS='45'
 # 学校设置中 API Key 的加密密钥；留空回退到 JWT_SECRET
 export AI_SETTINGS_SECRET=''
-go run cmd/migrate/main.go
+# API 启动时默认自动执行迁移；设为 false 可关闭
+export AUTO_MIGRATE='true'
+# API 启动会自动迁移；也可在部署前手动执行 go run cmd/migrate/main.go
 go run cmd/api/main.go
 ```
 

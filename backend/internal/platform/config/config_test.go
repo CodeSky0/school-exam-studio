@@ -30,6 +30,24 @@ func TestLoadValidConfig(t *testing.T) {
 	if cfg.HTTPAddr != ":8080" || cfg.CORSOrigin != "http://localhost:3000" || cfg.SecureCookie || cfg.TrustProxy {
 		t.Fatalf("unexpected defaults: %+v", cfg)
 	}
+	if !cfg.AutoMigrate {
+		t.Fatalf("AUTO_MIGRATE should default to true: %+v", cfg)
+	}
+}
+
+func TestLoadAutoMigrateCanBeDisabled(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://user:password@localhost:5432/school_db?sslmode=disable")
+	t.Setenv("REDIS_URL", "redis://localhost:6379")
+	t.Setenv("OCR_URL", "http://localhost:8001")
+	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
+	t.Setenv("AUTO_MIGRATE", "false")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AutoMigrate {
+		t.Fatalf("AUTO_MIGRATE=false was not honored: %+v", cfg)
+	}
 }
 
 func TestLoadTrustProxy(t *testing.T) {

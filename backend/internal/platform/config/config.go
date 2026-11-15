@@ -16,6 +16,7 @@ type Config struct {
 	HTTPAddr     string
 	SecureCookie bool
 	TrustProxy   bool
+	AutoMigrate  bool
 	AIBaseURL    string
 	AIAPIKey     string
 	AIModel      string
@@ -33,6 +34,7 @@ func Load() (Config, error) {
 		HTTPAddr:     envOr("HTTP_ADDR", ":8080"),
 		SecureCookie: os.Getenv("APP_ENV") == "production",
 		TrustProxy:   envBool("TRUST_PROXY"),
+		AutoMigrate:  envBoolDefault("AUTO_MIGRATE", true),
 		AIBaseURL:    strings.TrimSpace(os.Getenv("AI_BASE_URL")),
 		AIAPIKey:     strings.TrimSpace(os.Getenv("AI_API_KEY")),
 		AIModel:      envOr("AI_MODEL", "gpt-4o-mini"),
@@ -67,6 +69,21 @@ func envBool(key string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func envBoolDefault(key string, fallback bool) bool {
+	value, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes":
+		return true
+	case "0", "false", "no":
+		return false
+	default:
+		return fallback
 	}
 }
 
