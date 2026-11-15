@@ -92,11 +92,13 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 
 ## AI
 
-所有 AI 接口要求登录。未配置 `AI_API_KEY` 时使用内置确定性本地引擎；配置后调用 OpenAI 兼容服务，失败自动降级为本地引擎并在 `warnings` 中提示。
+所有 AI 接口要求登录。管理员可在“学校设置”中配置全校共享模型、厂商接口与 API Key，并选择启用模型；学校配置优先于服务器环境变量。未配置 `AI_API_KEY` 或管理员停用时使用内置确定性本地引擎；大模型调用失败会自动降级并在 `warnings` 中提示。API Key 加密存储，接口只返回掩码提示。
 
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
-| GET | `/ai/status` | 登录 | 返回当前 provider、模型、单次限制、能力与安全边界 |
+| GET | `/admin/ai/settings` | 管理员 | 读取全校共享模型配置、已启用模型与密钥掩码 |
+| PATCH | `/admin/ai/settings` | 管理员 | 更新厂商、接口地址、API Key、启用模型与默认模型；`api_key` 留空保留原密钥，`clear_api_key` 为 true 时清除 |
+| GET | `/ai/status` | 登录 | 返回当前 provider、模型、可用模型列表、来源、单次限制、能力与安全边界 |
 | POST | `/ai/analyze` | 登录 | 分析题干，返回分类、知识点、标签、难度、答案与解析建议；不写库 |
 | POST | `/ai/questions/:id/analyze` | 教师/管理员 | 分析指定题目；`{"apply":true}` 时按权限写回草稿元数据 |
 | POST | `/ai/questions/:id/variants` | 教师/管理员 | 生成题目变式，`strategy` 支持 `numbers`、`context`、`reverse`、`difficulty`；`persist` 为 true 时保存为草稿 |

@@ -21,37 +21,63 @@ type Options struct {
 	LLMAPIKey       string
 	LLMModel        string
 	LLMTimeout      time.Duration
+	SettingsSecret  string
 }
 
 type Service struct {
-	questions *question.Service
-	papers    *paper.Service
-	repo      *Repository
-	llm       *LLMClient
-	local     *LocalEngine
-	sanitizer *question.Sanitizer
+	questions      *question.Service
+	papers         *paper.Service
+	repo           *Repository
+	llm            *LLMClient
+	local          *LocalEngine
+	sanitizer      *question.Sanitizer
+	settingsRepo   *Repository
+	settingsCipher *settingsCipher
+	llmTimeout     time.Duration
 }
 
 func NewService(options Options) *Service {
 	return &Service{
-		questions: options.QuestionService,
-		papers:    options.PaperService,
-		repo:      options.Repository,
-		llm:       NewLLMClient(options.LLMBaseURL, options.LLMAPIKey, options.LLMModel, options.LLMTimeout),
-		local:     NewLocalEngine(),
-		sanitizer: question.NewSanitizer(),
+		questions:      options.QuestionService,
+		papers:         options.PaperService,
+		repo:           options.Repository,
+		llm:            NewLLMClient(options.LLMBaseURL, options.LLMAPIKey, options.LLMModel, options.LLMTimeout),
+		local:          NewLocalEngine(),
+		sanitizer:      question.NewSanitizer(),
+		settingsRepo:   options.Repository,
+		settingsCipher: newSettingsCipher(options.SettingsSecret),
+		llmTimeout:     options.LLMTimeout,
 	}
 }
 
-func (s *Service) Status() Status {
+func (s *Service) Status(ctx context.Context, principal auth.Principal) Status {
+	if err := validatePrincipal(principal); err != nil {
+		return Status{Provider: ProviderLocal}
+	}
+	client, config, warning, err := s.resolveLLM(ctx, principal, "")
 	provider := ProviderLocal
-	if s.llm.Enabled() {
+	model := ""
+	models := []string{}
+	defaultModel := ""
+	source := "local"
+	if err == nil && client != nil && client.Enabled() {
 		provider = ProviderLLM
+		model = config.Model
+		models = config.Models
+		defaultModel = config.DefaultModel
+		source = config.Source
+	} else if warning != "" {
+		provider = ProviderFallback
+		source = "local"
 	}
 	return Status{
-		Provider:   provider,
-		Model:      s.llm.Model(),
-		LLMEnabled: s.llm.Enabled(),
+		Provider:     provider,
+		Model:        model,
+		LLMEnabled:   provider == ProviderLLM,
+		Models:       models,
+		DefaultModel: defaultModel,
+		Source:       source,
+		Warning:      warning,
 		Limits: Limits{
 			MaxAnalyzeChars: DefaultMaxAnalyzeChars,
 			MaxGenerate:     DefaultMaxGenerate,
@@ -82,10 +108,17 @@ func (s *Service) Analyze(ctx context.Context, principal auth.Principal, input A
 		return Analysis{}, err
 	}
 	local := s.local.Analyze(input)
-	if !s.llm.Enabled() {
+	client, config, warning, err := s.resolveLLM(ctx, principal, input.Model)
+	if err != nil {
+		return Analysis{}, err
+	}
+	if client == nil {
+		if warning != "" {
+			local.Warnings = append(local.Warnings, warning)
+		}
 		return local, nil
 	}
-	raw, err := s.llm.CompleteJSON(ctx, analyzeSystemPrompt, analyzeUserPrompt(input))
+	raw, err := client.CompleteJSON(ctx, analyzeSystemPrompt, analyzeUserPrompt(input))
 	if err != nil {
 		local.Provider = ProviderFallback
 		local.Warnings = append(local.Warnings, "大模型调用失败，已自动降级为本地引擎")
@@ -97,20 +130,22 @@ func (s *Service) Analyze(ctx context.Context, principal auth.Principal, input A
 		local.Warnings = append(local.Warnings, "大模型返回内容无法解析，已自动降级为本地引擎")
 		return local, nil
 	}
-	analysis := s.normalizeAnalysis(response, input, local)
+	analysis := s.normalizeAnalysis(response, input, local, config.Model)
 	return analysis, nil
 }
 
 func (s *Service) AnalyzeQuestion(ctx context.Context, principal auth.Principal, id uuid.UUID, apply bool) (ApplyResult, error) {
-	return s.analyzeQuestion(ctx, principal, id, apply, "")
+	return s.analyzeQuestion(ctx, principal, id, apply, "", "")
 }
 
-func (s *Service) analyzeQuestion(ctx context.Context, principal auth.Principal, id uuid.UUID, apply bool, runID string) (ApplyResult, error) {
+func (s *Service) analyzeQuestion(ctx context.Context, principal auth.Principal, id uuid.UUID, apply bool, runID string, model string) (ApplyResult, error) {
 	existing, err := s.questions.Get(ctx, principal, id)
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	analysis, err := s.Analyze(ctx, principal, analyzeInputFromQuestion(existing))
+	input := analyzeInputFromQuestion(existing)
+	input.Model = model
+	analysis, err := s.Analyze(ctx, principal, input)
 	if err != nil {
 		return ApplyResult{}, err
 	}
@@ -155,14 +190,21 @@ func (s *Service) generate(ctx context.Context, principal auth.Principal, input 
 		return GenerateResult{}, err
 	}
 	result := GenerateResult{Warnings: []string{}}
-	if s.llm.Enabled() {
-		raw, err := s.llm.CompleteJSON(ctx, generateSystemPrompt, generateUserPrompt(input))
+	client, config, warning, err := s.resolveLLM(ctx, principal, input.Model)
+	if err != nil {
+		return GenerateResult{}, err
+	}
+	if warning != "" {
+		result.Warnings = append(result.Warnings, warning)
+	}
+	if client != nil {
+		raw, err := client.CompleteJSON(ctx, generateSystemPrompt, generateUserPrompt(input))
 		if err == nil {
 			var response llmItemsResponse
 			if err := json.Unmarshal([]byte(raw), &response); err == nil && len(response.Items) > 0 {
 				result.Items = s.normalizeGenerated(response.Items, input)
 				result.Provider = ProviderLLM
-				result.Model = s.llm.Model()
+				result.Model = config.Model
 			}
 		}
 		if result.Provider == "" {
@@ -176,7 +218,7 @@ func (s *Service) generate(ctx context.Context, principal auth.Principal, input 
 		result.Warnings = append(result.Warnings, warnings...)
 	}
 	if input.Persist {
-		persisted, ids, warnings := s.persistGenerated(ctx, principal, input.Subject, input.Grade, result.Items, uuid.Nil, "generate_questions", runID)
+		persisted, ids, warnings := s.persistGenerated(ctx, principal, input.Subject, input.Grade, result.Items, uuid.Nil, "generate_questions", runID, result.Model)
 		result.Persisted = persisted
 		result.QuestionIDs = ids
 		result.Warnings = append(result.Warnings, warnings...)
@@ -212,8 +254,15 @@ func (s *Service) generateVariants(ctx context.Context, principal auth.Principal
 	}
 	snapshot := toSnapshot(source)
 	result := VariantResult{Warnings: []string{}}
-	if s.llm.Enabled() {
-		raw, err := s.llm.CompleteJSON(ctx, variantSystemPrompt, variantUserPrompt(snapshot, input))
+	client, config, warning, err := s.resolveLLM(ctx, principal, input.Model)
+	if err != nil {
+		return VariantResult{}, err
+	}
+	if warning != "" {
+		result.Warnings = append(result.Warnings, warning)
+	}
+	if client != nil {
+		raw, err := client.CompleteJSON(ctx, variantSystemPrompt, variantUserPrompt(snapshot, input))
 		if err == nil {
 			var response llmItemsResponse
 			if err := json.Unmarshal([]byte(raw), &response); err == nil && len(response.Items) > 0 {
@@ -233,7 +282,7 @@ func (s *Service) generateVariants(ctx context.Context, principal auth.Principal
 					result.Items[index].Rationale = firstNonEmpty(result.Items[index].Rationale, "基于原题生成的变式")
 				}
 				result.Provider = ProviderLLM
-				result.Model = s.llm.Model()
+				result.Model = config.Model
 			}
 		}
 		if result.Provider == "" {
@@ -247,7 +296,7 @@ func (s *Service) generateVariants(ctx context.Context, principal auth.Principal
 		result.Warnings = append(result.Warnings, warnings...)
 	}
 	if input.Persist {
-		persisted, ids, warnings := s.persistGenerated(ctx, principal, source.Subject, source.Grade, result.Items, source.ID, "generate_variants", runID)
+		persisted, ids, warnings := s.persistGenerated(ctx, principal, source.Subject, source.Grade, result.Items, source.ID, "generate_variants", runID, result.Model)
 		result.Persisted = persisted
 		result.QuestionIDs = ids
 		result.Warnings = append(result.Warnings, warnings...)
@@ -361,7 +410,7 @@ func (s *Service) validateGenerateInput(principal auth.Principal, input *Generat
 	return nil
 }
 
-func (s *Service) normalizeAnalysis(response llmAnalysisResponse, input AnalyzeInput, fallback Analysis) Analysis {
+func (s *Service) normalizeAnalysis(response llmAnalysisResponse, input AnalyzeInput, fallback Analysis, model string) Analysis {
 	subject := firstNonEmpty(input.Subject, response.Subject, fallback.Subject)
 	grade := firstNonEmpty(input.Grade, response.Grade, fallback.Grade)
 	questionType := input.QuestionType
@@ -422,7 +471,7 @@ func (s *Service) normalizeAnalysis(response llmAnalysisResponse, input AnalyzeI
 		Explanation:     explanation,
 		Confidence:      confidence,
 		Provider:        ProviderLLM,
-		Model:           s.llm.Model(),
+		Model:           model,
 		ReviewRequired:  true,
 		Rationale:       firstNonEmpty(response.Rationale, "大模型分析结果，建议人工复核"),
 		Warnings:        []string{"大模型结果建议人工复核，尤其是答案与解析"},
@@ -501,7 +550,7 @@ func (s *Service) normalizeGenerated(items []llmItem, input GenerateInput) []Gen
 	return result
 }
 
-func (s *Service) persistGenerated(ctx context.Context, principal auth.Principal, subject, grade string, items []GeneratedQuestion, sourceID uuid.UUID, action string, runID string) ([]GeneratedQuestion, []string, []string) {
+func (s *Service) persistGenerated(ctx context.Context, principal auth.Principal, subject, grade string, items []GeneratedQuestion, sourceID uuid.UUID, action string, runID string, model string) ([]GeneratedQuestion, []string, []string) {
 	persisted := make([]GeneratedQuestion, 0, len(items))
 	ids := make([]string, 0, len(items))
 	warnings := []string{}
@@ -511,7 +560,7 @@ func (s *Service) persistGenerated(ctx context.Context, principal auth.Principal
 		}
 		meta := map[string]any{
 			"provider":        item.Provider,
-			"model":           s.llm.Model(),
+			"model":           model,
 			"review_required": true,
 			"rationale":       item.Rationale,
 			"generated_at":    time.Now().UTC().Format(time.RFC3339),

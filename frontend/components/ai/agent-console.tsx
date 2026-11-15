@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PaperPlaneIcon, ResetIcon } from "@radix-ui/react-icons";
 import type { CurrentUser } from "@/lib/schemas";
-import { aiQueryKeys, createAgentRun, type AIRun } from "@/lib/ai";
+import { aiQueryKeys, createAgentRun, getAIStatus, type AIRun } from "@/lib/ai";
 import { FormError } from "@/components/auth-form";
 import { questionQueryKeys } from "@/lib/questions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 const presets = [
@@ -36,6 +37,10 @@ export function AgentConsole({ user, onCreated }: AgentConsoleProps) {
   const [tag, setTag] = useState("");
   const [questionID, setQuestionID] = useState("");
   const [count, setCount] = useState("");
+  const [model, setModel] = useState("");
+  const statusQuery = useQuery({ queryKey: aiQueryKeys.status, queryFn: getAIStatus });
+  const models = statusQuery.data?.models ?? [];
+  const selectedModel = model || statusQuery.data?.default_model || "";
 
   const mutation = useMutation({
     mutationFn: () => createAgentRun({
@@ -47,6 +52,7 @@ export function AgentConsole({ user, onCreated }: AgentConsoleProps) {
       ...(tag.trim() ? { tag: tag.trim() } : {}),
       ...(questionID.trim() ? { question_id: questionID.trim() } : {}),
       ...(Number(count) > 0 ? { count: Number(count) } : {}),
+      ...(selectedModel ? { model: selectedModel } : {}),
     }),
     onSuccess: async (run) => {
       onCreated(run);
@@ -131,6 +137,14 @@ export function AgentConsole({ user, onCreated }: AgentConsoleProps) {
               <Label htmlFor="agent-count" className="text-label-12">数量</Label>
               <Input id="agent-count" className="h-9" type="number" min={1} max={10} value={count} placeholder="出题 / 变式 / 组卷题数" onChange={(event) => setCount(event.target.value)} />
             </div>
+            {models.length > 0 ? (
+              <div className="grid gap-1.5">
+                <Label htmlFor="agent-model" className="text-label-12">模型</Label>
+                <Select id="agent-model" className="h-9" value={selectedModel} onChange={(event) => setModel(event.target.value)}>
+                  {models.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+              </div>
+            ) : null}
           </div>
         </details>
 

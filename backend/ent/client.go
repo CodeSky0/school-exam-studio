@@ -17,6 +17,7 @@ import (
 	"school-exam-studio/backend/ent/paperquestion"
 	"school-exam-studio/backend/ent/question"
 	"school-exam-studio/backend/ent/school"
+	"school-exam-studio/backend/ent/schoolaisetting"
 	"school-exam-studio/backend/ent/user"
 
 	"entgo.io/ent"
@@ -43,6 +44,8 @@ type Client struct {
 	Question *QuestionClient
 	// School is the client for interacting with the School builders.
 	School *SchoolClient
+	// SchoolAISetting is the client for interacting with the SchoolAISetting builders.
+	SchoolAISetting *SchoolAISettingClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 }
@@ -62,6 +65,7 @@ func (c *Client) init() {
 	c.PaperQuestion = NewPaperQuestionClient(c.config)
 	c.Question = NewQuestionClient(c.config)
 	c.School = NewSchoolClient(c.config)
+	c.SchoolAISetting = NewSchoolAISettingClient(c.config)
 	c.User = NewUserClient(c.config)
 }
 
@@ -153,15 +157,16 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:           ctx,
-		config:        cfg,
-		AIAuditLog:    NewAIAuditLogClient(cfg),
-		AIRun:         NewAIRunClient(cfg),
-		Paper:         NewPaperClient(cfg),
-		PaperQuestion: NewPaperQuestionClient(cfg),
-		Question:      NewQuestionClient(cfg),
-		School:        NewSchoolClient(cfg),
-		User:          NewUserClient(cfg),
+		ctx:             ctx,
+		config:          cfg,
+		AIAuditLog:      NewAIAuditLogClient(cfg),
+		AIRun:           NewAIRunClient(cfg),
+		Paper:           NewPaperClient(cfg),
+		PaperQuestion:   NewPaperQuestionClient(cfg),
+		Question:        NewQuestionClient(cfg),
+		School:          NewSchoolClient(cfg),
+		SchoolAISetting: NewSchoolAISettingClient(cfg),
+		User:            NewUserClient(cfg),
 	}, nil
 }
 
@@ -179,15 +184,16 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:           ctx,
-		config:        cfg,
-		AIAuditLog:    NewAIAuditLogClient(cfg),
-		AIRun:         NewAIRunClient(cfg),
-		Paper:         NewPaperClient(cfg),
-		PaperQuestion: NewPaperQuestionClient(cfg),
-		Question:      NewQuestionClient(cfg),
-		School:        NewSchoolClient(cfg),
-		User:          NewUserClient(cfg),
+		ctx:             ctx,
+		config:          cfg,
+		AIAuditLog:      NewAIAuditLogClient(cfg),
+		AIRun:           NewAIRunClient(cfg),
+		Paper:           NewPaperClient(cfg),
+		PaperQuestion:   NewPaperQuestionClient(cfg),
+		Question:        NewQuestionClient(cfg),
+		School:          NewSchoolClient(cfg),
+		SchoolAISetting: NewSchoolAISettingClient(cfg),
+		User:            NewUserClient(cfg),
 	}, nil
 }
 
@@ -217,7 +223,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.AIAuditLog, c.AIRun, c.Paper, c.PaperQuestion, c.Question, c.School, c.User,
+		c.AIAuditLog, c.AIRun, c.Paper, c.PaperQuestion, c.Question, c.School,
+		c.SchoolAISetting, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -227,7 +234,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.AIAuditLog, c.AIRun, c.Paper, c.PaperQuestion, c.Question, c.School, c.User,
+		c.AIAuditLog, c.AIRun, c.Paper, c.PaperQuestion, c.Question, c.School,
+		c.SchoolAISetting, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -248,6 +256,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Question.mutate(ctx, m)
 	case *SchoolMutation:
 		return c.School.mutate(ctx, m)
+	case *SchoolAISettingMutation:
+		return c.SchoolAISetting.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
 	default:
@@ -1261,6 +1271,139 @@ func (c *SchoolClient) mutate(ctx context.Context, m *SchoolMutation) (Value, er
 	}
 }
 
+// SchoolAISettingClient is a client for the SchoolAISetting schema.
+type SchoolAISettingClient struct {
+	config
+}
+
+// NewSchoolAISettingClient returns a client for the SchoolAISetting from the given config.
+func NewSchoolAISettingClient(c config) *SchoolAISettingClient {
+	return &SchoolAISettingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `schoolaisetting.Hooks(f(g(h())))`.
+func (c *SchoolAISettingClient) Use(hooks ...Hook) {
+	c.hooks.SchoolAISetting = append(c.hooks.SchoolAISetting, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `schoolaisetting.Intercept(f(g(h())))`.
+func (c *SchoolAISettingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SchoolAISetting = append(c.inters.SchoolAISetting, interceptors...)
+}
+
+// Create returns a builder for creating a SchoolAISetting entity.
+func (c *SchoolAISettingClient) Create() *SchoolAISettingCreate {
+	mutation := newSchoolAISettingMutation(c.config, OpCreate)
+	return &SchoolAISettingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SchoolAISetting entities.
+func (c *SchoolAISettingClient) CreateBulk(builders ...*SchoolAISettingCreate) *SchoolAISettingCreateBulk {
+	return &SchoolAISettingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SchoolAISettingClient) MapCreateBulk(slice any, setFunc func(*SchoolAISettingCreate, int)) *SchoolAISettingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SchoolAISettingCreateBulk{err: fmt.Errorf("calling to SchoolAISettingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SchoolAISettingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SchoolAISettingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SchoolAISetting.
+func (c *SchoolAISettingClient) Update() *SchoolAISettingUpdate {
+	mutation := newSchoolAISettingMutation(c.config, OpUpdate)
+	return &SchoolAISettingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SchoolAISettingClient) UpdateOne(_m *SchoolAISetting) *SchoolAISettingUpdateOne {
+	mutation := newSchoolAISettingMutation(c.config, OpUpdateOne, withSchoolAISetting(_m))
+	return &SchoolAISettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SchoolAISettingClient) UpdateOneID(id uuid.UUID) *SchoolAISettingUpdateOne {
+	mutation := newSchoolAISettingMutation(c.config, OpUpdateOne, withSchoolAISettingID(id))
+	return &SchoolAISettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SchoolAISetting.
+func (c *SchoolAISettingClient) Delete() *SchoolAISettingDelete {
+	mutation := newSchoolAISettingMutation(c.config, OpDelete)
+	return &SchoolAISettingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SchoolAISettingClient) DeleteOne(_m *SchoolAISetting) *SchoolAISettingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SchoolAISettingClient) DeleteOneID(id uuid.UUID) *SchoolAISettingDeleteOne {
+	builder := c.Delete().Where(schoolaisetting.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SchoolAISettingDeleteOne{builder}
+}
+
+// Query returns a query builder for SchoolAISetting.
+func (c *SchoolAISettingClient) Query() *SchoolAISettingQuery {
+	return &SchoolAISettingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSchoolAISetting},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SchoolAISetting entity by its id.
+func (c *SchoolAISettingClient) Get(ctx context.Context, id uuid.UUID) (*SchoolAISetting, error) {
+	return c.Query().Where(schoolaisetting.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SchoolAISettingClient) GetX(ctx context.Context, id uuid.UUID) *SchoolAISetting {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *SchoolAISettingClient) Hooks() []Hook {
+	return c.hooks.SchoolAISetting
+}
+
+// Interceptors returns the client interceptors.
+func (c *SchoolAISettingClient) Interceptors() []Interceptor {
+	return c.inters.SchoolAISetting
+}
+
+func (c *SchoolAISettingClient) mutate(ctx context.Context, m *SchoolAISettingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SchoolAISettingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SchoolAISettingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SchoolAISettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SchoolAISettingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SchoolAISetting mutation op: %q", m.Op())
+	}
+}
+
 // UserClient is a client for the User schema.
 type UserClient struct {
 	config
@@ -1445,10 +1588,11 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AIAuditLog, AIRun, Paper, PaperQuestion, Question, School, User []ent.Hook
+		AIAuditLog, AIRun, Paper, PaperQuestion, Question, School, SchoolAISetting,
+		User []ent.Hook
 	}
 	inters struct {
-		AIAuditLog, AIRun, Paper, PaperQuestion, Question, School,
+		AIAuditLog, AIRun, Paper, PaperQuestion, Question, School, SchoolAISetting,
 		User []ent.Interceptor
 	}
 )

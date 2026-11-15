@@ -13,7 +13,7 @@ const providerCopy: Record<string, { label: string; description: string; tone: s
   },
   local: {
     label: "本地确定性引擎",
-    description: "未配置 AI_API_KEY，使用内置规则完成分类、标签、出题与题库体检；结果均可复现。",
+    description: "当前未启用全校共享模型或服务器默认模型，使用内置规则完成分类、标签、出题与题库体检；结果均可复现。",
     tone: "border-info/25 bg-info-soft text-info",
   },
   local_fallback: {
@@ -45,12 +45,15 @@ export function AIStatusCard() {
           <p className="mt-2 max-w-2xl text-copy-13 leading-6 text-neutral-7">
             {statusQuery.isError ? "无法读取 AI 状态，请确认后端与登录会话可用。" : provider.description}
           </p>
+          {status?.warning ? <p className="mt-2 text-label-12 leading-5 text-warning">{status.warning}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-label-12 font-medium", provider.tone)}>
             <LightningBoltIcon className="size-3.5" />
             {status?.provider ?? "local"}
           </span>
+          {status?.source === "school" ? <span className="rounded-full border border-accent/30 bg-accent-soft px-2.5 py-1 text-label-12 text-accent-strong">学校共享配置</span> : null}
+          {status?.source === "env" ? <span className="rounded-full border border-border bg-neutral-2 px-2.5 py-1 text-label-12 text-neutral-7">服务器默认配置</span> : null}
           {status?.model ? <span className="rounded-full border border-border bg-neutral-2 px-2.5 py-1 font-mono text-label-12 text-neutral-7">{status.model}</span> : null}
         </div>
       </div>

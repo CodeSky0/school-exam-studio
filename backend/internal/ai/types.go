@@ -55,6 +55,7 @@ type AnalyzeInput struct {
 	Options         []Option `json:"options"`
 	Answer          string   `json:"answer"`
 	Explanation     string   `json:"explanation"`
+	Model           string   `json:"model,omitempty"`
 }
 
 type Analysis struct {
@@ -86,6 +87,7 @@ type GenerateInput struct {
 	Count           int      `json:"count"`
 	Reference       string   `json:"reference"`
 	Persist         bool     `json:"persist"`
+	Model           string   `json:"model,omitempty"`
 }
 
 type GeneratedQuestion struct {
@@ -117,6 +119,7 @@ type VariantInput struct {
 	Strategy        string `json:"strategy"`
 	DifficultyDelta int    `json:"difficulty_delta"`
 	Persist         bool   `json:"persist"`
+	Model           string `json:"model,omitempty"`
 }
 
 type VariantResult struct {
@@ -168,6 +171,10 @@ type Status struct {
 	Provider     string   `json:"provider"`
 	Model        string   `json:"model"`
 	LLMEnabled   bool     `json:"llm_enabled"`
+	Models       []string `json:"models"`
+	DefaultModel string   `json:"default_model"`
+	Source       string   `json:"source"`
+	Warning      string   `json:"warning,omitempty"`
 	Limits       Limits   `json:"limits"`
 	Capabilities []string `json:"capabilities"`
 	Safety       []string `json:"safety"`
@@ -219,6 +226,7 @@ type AgentRequest struct {
 	Tag            string `json:"tag"`
 	QuestionID     string `json:"question_id"`
 	Count          int    `json:"count"`
+	Model          string `json:"model,omitempty"`
 }
 
 type AgentRun struct {
@@ -254,4 +262,5 @@ type AgentParams struct {
 	Tag            string `json:"tag,omitempty"`
 	QuestionID     string `json:"question_id,omitempty"`
 	Count          int    `json:"count,omitempty"`
+	Model          string `json:"model,omitempty"`
 }

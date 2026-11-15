@@ -14,6 +14,7 @@ import (
 	"school-exam-studio/backend/ent/question"
 	"school-exam-studio/backend/ent/schema"
 	"school-exam-studio/backend/ent/school"
+	"school-exam-studio/backend/ent/schoolaisetting"
 	"school-exam-studio/backend/ent/user"
 	"sync"
 	"time"
@@ -32,13 +33,14 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeAIAuditLog    = "AIAuditLog"
-	TypeAIRun         = "AIRun"
-	TypePaper         = "Paper"
-	TypePaperQuestion = "PaperQuestion"
-	TypeQuestion      = "Question"
-	TypeSchool        = "School"
-	TypeUser          = "User"
+	TypeAIAuditLog      = "AIAuditLog"
+	TypeAIRun           = "AIRun"
+	TypePaper           = "Paper"
+	TypePaperQuestion   = "PaperQuestion"
+	TypeQuestion        = "Question"
+	TypeSchool          = "School"
+	TypeSchoolAISetting = "SchoolAISetting"
+	TypeUser            = "User"
 )
 
 // AIAuditLogMutation represents an operation that mutates the AIAuditLog nodes in the graph.
@@ -6671,6 +6673,935 @@ func (m *SchoolMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown School edge %s", name)
+}
+
+// SchoolAISettingMutation represents an operation that mutates the SchoolAISetting nodes in the graph.
+type SchoolAISettingMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	created_at    *time.Time
+	updated_at    *time.Time
+	deleted_at    *time.Time
+	school_id     *uuid.UUID
+	provider      *string
+	base_url      *string
+	api_key       *string
+	models        *[]string
+	appendmodels  []string
+	default_model *string
+	enabled       *bool
+	updated_by    *uuid.UUID
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*SchoolAISetting, error)
+	predicates    []predicate.SchoolAISetting
+}
+
+var _ ent.Mutation = (*SchoolAISettingMutation)(nil)
+
+// schoolaisettingOption allows management of the mutation configuration using functional options.
+type schoolaisettingOption func(*SchoolAISettingMutation)
+
+// newSchoolAISettingMutation creates new mutation for the SchoolAISetting entity.
+func newSchoolAISettingMutation(c config, op Op, opts ...schoolaisettingOption) *SchoolAISettingMutation {
+	m := &SchoolAISettingMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSchoolAISetting,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSchoolAISettingID sets the ID field of the mutation.
+func withSchoolAISettingID(id uuid.UUID) schoolaisettingOption {
+	return func(m *SchoolAISettingMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SchoolAISetting
+		)
+		m.oldValue = func(ctx context.Context) (*SchoolAISetting, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SchoolAISetting.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSchoolAISetting sets the old SchoolAISetting of the mutation.
+func withSchoolAISetting(node *SchoolAISetting) schoolaisettingOption {
+	return func(m *SchoolAISettingMutation) {
+		m.oldValue = func(context.Context) (*SchoolAISetting, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SchoolAISettingMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SchoolAISettingMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of SchoolAISetting entities.
+func (m *SchoolAISettingMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SchoolAISettingMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SchoolAISettingMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SchoolAISetting.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SchoolAISettingMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SchoolAISettingMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SchoolAISettingMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SchoolAISettingMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SchoolAISettingMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SchoolAISettingMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *SchoolAISettingMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *SchoolAISettingMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *SchoolAISettingMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[schoolaisetting.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *SchoolAISettingMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[schoolaisetting.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *SchoolAISettingMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, schoolaisetting.FieldDeletedAt)
+}
+
+// SetSchoolID sets the "school_id" field.
+func (m *SchoolAISettingMutation) SetSchoolID(u uuid.UUID) {
+	m.school_id = &u
+}
+
+// SchoolID returns the value of the "school_id" field in the mutation.
+func (m *SchoolAISettingMutation) SchoolID() (r uuid.UUID, exists bool) {
+	v := m.school_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSchoolID returns the old "school_id" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldSchoolID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSchoolID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSchoolID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSchoolID: %w", err)
+	}
+	return oldValue.SchoolID, nil
+}
+
+// ResetSchoolID resets all changes to the "school_id" field.
+func (m *SchoolAISettingMutation) ResetSchoolID() {
+	m.school_id = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *SchoolAISettingMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *SchoolAISettingMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *SchoolAISettingMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetBaseURL sets the "base_url" field.
+func (m *SchoolAISettingMutation) SetBaseURL(s string) {
+	m.base_url = &s
+}
+
+// BaseURL returns the value of the "base_url" field in the mutation.
+func (m *SchoolAISettingMutation) BaseURL() (r string, exists bool) {
+	v := m.base_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBaseURL returns the old "base_url" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldBaseURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBaseURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBaseURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBaseURL: %w", err)
+	}
+	return oldValue.BaseURL, nil
+}
+
+// ResetBaseURL resets all changes to the "base_url" field.
+func (m *SchoolAISettingMutation) ResetBaseURL() {
+	m.base_url = nil
+}
+
+// SetAPIKey sets the "api_key" field.
+func (m *SchoolAISettingMutation) SetAPIKey(s string) {
+	m.api_key = &s
+}
+
+// APIKey returns the value of the "api_key" field in the mutation.
+func (m *SchoolAISettingMutation) APIKey() (r string, exists bool) {
+	v := m.api_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKey returns the old "api_key" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldAPIKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKey: %w", err)
+	}
+	return oldValue.APIKey, nil
+}
+
+// ResetAPIKey resets all changes to the "api_key" field.
+func (m *SchoolAISettingMutation) ResetAPIKey() {
+	m.api_key = nil
+}
+
+// SetModels sets the "models" field.
+func (m *SchoolAISettingMutation) SetModels(s []string) {
+	m.models = &s
+	m.appendmodels = nil
+}
+
+// Models returns the value of the "models" field in the mutation.
+func (m *SchoolAISettingMutation) Models() (r []string, exists bool) {
+	v := m.models
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModels returns the old "models" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldModels(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModels is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModels requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModels: %w", err)
+	}
+	return oldValue.Models, nil
+}
+
+// AppendModels adds s to the "models" field.
+func (m *SchoolAISettingMutation) AppendModels(s []string) {
+	m.appendmodels = append(m.appendmodels, s...)
+}
+
+// AppendedModels returns the list of values that were appended to the "models" field in this mutation.
+func (m *SchoolAISettingMutation) AppendedModels() ([]string, bool) {
+	if len(m.appendmodels) == 0 {
+		return nil, false
+	}
+	return m.appendmodels, true
+}
+
+// ResetModels resets all changes to the "models" field.
+func (m *SchoolAISettingMutation) ResetModels() {
+	m.models = nil
+	m.appendmodels = nil
+}
+
+// SetDefaultModel sets the "default_model" field.
+func (m *SchoolAISettingMutation) SetDefaultModel(s string) {
+	m.default_model = &s
+}
+
+// DefaultModel returns the value of the "default_model" field in the mutation.
+func (m *SchoolAISettingMutation) DefaultModel() (r string, exists bool) {
+	v := m.default_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDefaultModel returns the old "default_model" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldDefaultModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDefaultModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDefaultModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDefaultModel: %w", err)
+	}
+	return oldValue.DefaultModel, nil
+}
+
+// ResetDefaultModel resets all changes to the "default_model" field.
+func (m *SchoolAISettingMutation) ResetDefaultModel() {
+	m.default_model = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *SchoolAISettingMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *SchoolAISettingMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *SchoolAISettingMutation) ResetEnabled() {
+	m.enabled = nil
+}
+
+// SetUpdatedBy sets the "updated_by" field.
+func (m *SchoolAISettingMutation) SetUpdatedBy(u uuid.UUID) {
+	m.updated_by = &u
+}
+
+// UpdatedBy returns the value of the "updated_by" field in the mutation.
+func (m *SchoolAISettingMutation) UpdatedBy() (r uuid.UUID, exists bool) {
+	v := m.updated_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedBy returns the old "updated_by" field's value of the SchoolAISetting entity.
+// If the SchoolAISetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SchoolAISettingMutation) OldUpdatedBy(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedBy: %w", err)
+	}
+	return oldValue.UpdatedBy, nil
+}
+
+// ClearUpdatedBy clears the value of the "updated_by" field.
+func (m *SchoolAISettingMutation) ClearUpdatedBy() {
+	m.updated_by = nil
+	m.clearedFields[schoolaisetting.FieldUpdatedBy] = struct{}{}
+}
+
+// UpdatedByCleared returns if the "updated_by" field was cleared in this mutation.
+func (m *SchoolAISettingMutation) UpdatedByCleared() bool {
+	_, ok := m.clearedFields[schoolaisetting.FieldUpdatedBy]
+	return ok
+}
+
+// ResetUpdatedBy resets all changes to the "updated_by" field.
+func (m *SchoolAISettingMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	delete(m.clearedFields, schoolaisetting.FieldUpdatedBy)
+}
+
+// Where appends a list predicates to the SchoolAISettingMutation builder.
+func (m *SchoolAISettingMutation) Where(ps ...predicate.SchoolAISetting) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SchoolAISettingMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SchoolAISettingMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SchoolAISetting, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SchoolAISettingMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SchoolAISettingMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SchoolAISetting).
+func (m *SchoolAISettingMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SchoolAISettingMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.created_at != nil {
+		fields = append(fields, schoolaisetting.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, schoolaisetting.FieldUpdatedAt)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, schoolaisetting.FieldDeletedAt)
+	}
+	if m.school_id != nil {
+		fields = append(fields, schoolaisetting.FieldSchoolID)
+	}
+	if m.provider != nil {
+		fields = append(fields, schoolaisetting.FieldProvider)
+	}
+	if m.base_url != nil {
+		fields = append(fields, schoolaisetting.FieldBaseURL)
+	}
+	if m.api_key != nil {
+		fields = append(fields, schoolaisetting.FieldAPIKey)
+	}
+	if m.models != nil {
+		fields = append(fields, schoolaisetting.FieldModels)
+	}
+	if m.default_model != nil {
+		fields = append(fields, schoolaisetting.FieldDefaultModel)
+	}
+	if m.enabled != nil {
+		fields = append(fields, schoolaisetting.FieldEnabled)
+	}
+	if m.updated_by != nil {
+		fields = append(fields, schoolaisetting.FieldUpdatedBy)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SchoolAISettingMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case schoolaisetting.FieldCreatedAt:
+		return m.CreatedAt()
+	case schoolaisetting.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case schoolaisetting.FieldDeletedAt:
+		return m.DeletedAt()
+	case schoolaisetting.FieldSchoolID:
+		return m.SchoolID()
+	case schoolaisetting.FieldProvider:
+		return m.Provider()
+	case schoolaisetting.FieldBaseURL:
+		return m.BaseURL()
+	case schoolaisetting.FieldAPIKey:
+		return m.APIKey()
+	case schoolaisetting.FieldModels:
+		return m.Models()
+	case schoolaisetting.FieldDefaultModel:
+		return m.DefaultModel()
+	case schoolaisetting.FieldEnabled:
+		return m.Enabled()
+	case schoolaisetting.FieldUpdatedBy:
+		return m.UpdatedBy()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SchoolAISettingMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case schoolaisetting.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case schoolaisetting.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case schoolaisetting.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case schoolaisetting.FieldSchoolID:
+		return m.OldSchoolID(ctx)
+	case schoolaisetting.FieldProvider:
+		return m.OldProvider(ctx)
+	case schoolaisetting.FieldBaseURL:
+		return m.OldBaseURL(ctx)
+	case schoolaisetting.FieldAPIKey:
+		return m.OldAPIKey(ctx)
+	case schoolaisetting.FieldModels:
+		return m.OldModels(ctx)
+	case schoolaisetting.FieldDefaultModel:
+		return m.OldDefaultModel(ctx)
+	case schoolaisetting.FieldEnabled:
+		return m.OldEnabled(ctx)
+	case schoolaisetting.FieldUpdatedBy:
+		return m.OldUpdatedBy(ctx)
+	}
+	return nil, fmt.Errorf("unknown SchoolAISetting field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SchoolAISettingMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case schoolaisetting.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case schoolaisetting.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case schoolaisetting.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case schoolaisetting.FieldSchoolID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSchoolID(v)
+		return nil
+	case schoolaisetting.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case schoolaisetting.FieldBaseURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBaseURL(v)
+		return nil
+	case schoolaisetting.FieldAPIKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKey(v)
+		return nil
+	case schoolaisetting.FieldModels:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModels(v)
+		return nil
+	case schoolaisetting.FieldDefaultModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDefaultModel(v)
+		return nil
+	case schoolaisetting.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
+		return nil
+	case schoolaisetting.FieldUpdatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SchoolAISetting field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SchoolAISettingMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SchoolAISettingMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SchoolAISettingMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown SchoolAISetting numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SchoolAISettingMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(schoolaisetting.FieldDeletedAt) {
+		fields = append(fields, schoolaisetting.FieldDeletedAt)
+	}
+	if m.FieldCleared(schoolaisetting.FieldUpdatedBy) {
+		fields = append(fields, schoolaisetting.FieldUpdatedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SchoolAISettingMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SchoolAISettingMutation) ClearField(name string) error {
+	switch name {
+	case schoolaisetting.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case schoolaisetting.FieldUpdatedBy:
+		m.ClearUpdatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown SchoolAISetting nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SchoolAISettingMutation) ResetField(name string) error {
+	switch name {
+	case schoolaisetting.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case schoolaisetting.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case schoolaisetting.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case schoolaisetting.FieldSchoolID:
+		m.ResetSchoolID()
+		return nil
+	case schoolaisetting.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case schoolaisetting.FieldBaseURL:
+		m.ResetBaseURL()
+		return nil
+	case schoolaisetting.FieldAPIKey:
+		m.ResetAPIKey()
+		return nil
+	case schoolaisetting.FieldModels:
+		m.ResetModels()
+		return nil
+	case schoolaisetting.FieldDefaultModel:
+		m.ResetDefaultModel()
+		return nil
+	case schoolaisetting.FieldEnabled:
+		m.ResetEnabled()
+		return nil
+	case schoolaisetting.FieldUpdatedBy:
+		m.ResetUpdatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown SchoolAISetting field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SchoolAISettingMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SchoolAISettingMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SchoolAISettingMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SchoolAISettingMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SchoolAISettingMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SchoolAISettingMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SchoolAISettingMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown SchoolAISetting unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SchoolAISettingMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown SchoolAISetting edge %s", name)
 }
 
 // UserMutation represents an operation that mutates the User nodes in the graph.

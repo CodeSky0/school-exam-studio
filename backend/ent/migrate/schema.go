@@ -254,6 +254,34 @@ var (
 		Columns:    SchoolsColumns,
 		PrimaryKey: []*schema.Column{SchoolsColumns[0]},
 	}
+	// SchoolAiSettingsColumns holds the columns for the "school_ai_settings" table.
+	SchoolAiSettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "school_id", Type: field.TypeUUID},
+		{Name: "provider", Type: field.TypeString, Size: 30, Default: "custom"},
+		{Name: "base_url", Type: field.TypeString, Size: 500, Default: ""},
+		{Name: "api_key", Type: field.TypeString, Default: ""},
+		{Name: "models", Type: field.TypeJSON},
+		{Name: "default_model", Type: field.TypeString, Size: 120, Default: ""},
+		{Name: "enabled", Type: field.TypeBool, Default: false},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+	}
+	// SchoolAiSettingsTable holds the schema information for the "school_ai_settings" table.
+	SchoolAiSettingsTable = &schema.Table{
+		Name:       "school_ai_settings",
+		Columns:    SchoolAiSettingsColumns,
+		PrimaryKey: []*schema.Column{SchoolAiSettingsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "schoolaisetting_school_id",
+				Unique:  true,
+				Columns: []*schema.Column{SchoolAiSettingsColumns[4]},
+			},
+		},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -298,6 +326,7 @@ var (
 		PaperQuestionsTable,
 		QuestionsTable,
 		SchoolsTable,
+		SchoolAiSettingsTable,
 		UsersTable,
 	}
 )

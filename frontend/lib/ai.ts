@@ -84,6 +84,10 @@ export const aiStatusSchema = z.object({
   provider: aiProviderSchema,
   model: z.string(),
   llm_enabled: z.boolean(),
+  models: z.array(z.string()).default([]),
+  default_model: z.string().default(""),
+  source: z.string().default("local"),
+  warning: z.string().optional(),
   limits: z.object({
     max_analyze_chars: z.number().int(),
     max_generate: z.number().int(),
@@ -150,6 +154,7 @@ export interface AIAnalyzeInput {
   options?: Array<{ key: string; content: string }>;
   answer?: string;
   explanation?: string;
+  model?: string;
 }
 
 export interface AIGenerateInput {
@@ -163,6 +168,7 @@ export interface AIGenerateInput {
   count: number;
   reference?: string;
   persist?: boolean;
+  model?: string;
 }
 
 export interface AIVariantInput {
@@ -170,6 +176,7 @@ export interface AIVariantInput {
   strategy?: "numbers" | "context" | "reverse" | "difficulty";
   difficulty_delta?: number;
   persist?: boolean;
+  model?: string;
 }
 
 export interface AIAgentRequest {
@@ -181,6 +188,7 @@ export interface AIAgentRequest {
   tag?: string;
   question_id?: string;
   count?: number;
+  model?: string;
 }
 
 export type AIAnalysis = z.infer<typeof aiAnalysisSchema>;

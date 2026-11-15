@@ -64,6 +64,7 @@ func main() {
 		LLMAPIKey:       cfg.AIAPIKey,
 		LLMModel:        cfg.AIModel,
 		LLMTimeout:      time.Duration(cfg.AITimeout) * time.Second,
+		SettingsSecret:  cfg.AIEncryptKey,
 	})
 	ocrClient, err := ocr.NewClient(cfg.OCRURL, ocr.DefaultTimeout, ocr.DefaultMaxConcurrent)
 	if err != nil {

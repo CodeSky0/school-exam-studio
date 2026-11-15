@@ -13,6 +13,7 @@ import (
 	"school-exam-studio/backend/ent/paperquestion"
 	"school-exam-studio/backend/ent/question"
 	"school-exam-studio/backend/ent/school"
+	"school-exam-studio/backend/ent/schoolaisetting"
 	"school-exam-studio/backend/ent/user"
 	"sync"
 
@@ -79,13 +80,14 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			aiauditlog.Table:    aiauditlog.ValidColumn,
-			airun.Table:         airun.ValidColumn,
-			paper.Table:         paper.ValidColumn,
-			paperquestion.Table: paperquestion.ValidColumn,
-			question.Table:      question.ValidColumn,
-			school.Table:        school.ValidColumn,
-			user.Table:          user.ValidColumn,
+			aiauditlog.Table:      aiauditlog.ValidColumn,
+			airun.Table:           airun.ValidColumn,
+			paper.Table:           paper.ValidColumn,
+			paperquestion.Table:   paperquestion.ValidColumn,
+			question.Table:        question.ValidColumn,
+			school.Table:          school.ValidColumn,
+			schoolaisetting.Table: schoolaisetting.ValidColumn,
+			user.Table:            user.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

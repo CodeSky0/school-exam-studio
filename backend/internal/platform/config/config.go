@@ -20,6 +20,7 @@ type Config struct {
 	AIAPIKey     string
 	AIModel      string
 	AITimeout    int
+	AIEncryptKey string
 }
 
 func Load() (Config, error) {
@@ -36,6 +37,10 @@ func Load() (Config, error) {
 		AIAPIKey:     strings.TrimSpace(os.Getenv("AI_API_KEY")),
 		AIModel:      envOr("AI_MODEL", "gpt-4o-mini"),
 		AITimeout:    envInt("AI_TIMEOUT_SECONDS", 45),
+		AIEncryptKey: strings.TrimSpace(os.Getenv("AI_SETTINGS_SECRET")),
+	}
+	if cfg.AIEncryptKey == "" {
+		cfg.AIEncryptKey = cfg.JWTSecret
 	}
 	if cfg.AITimeout < 5 || cfg.AITimeout > 180 {
 		cfg.AITimeout = 45

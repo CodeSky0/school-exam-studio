@@ -26,11 +26,36 @@ export interface TeacherFilters {
   page_size: number;
 }
 
+export const schoolAISettingsSchema = z.object({
+  provider: z.string(),
+  base_url: z.string(),
+  api_key_hint: z.string().default(""),
+  has_api_key: z.boolean(),
+  models: z.array(z.string()).default([]),
+  default_model: z.string().default(""),
+  enabled: z.boolean(),
+  configured: z.boolean(),
+  source: z.string(),
+  warning: z.string().optional(),
+  updated_at: z.string().nullable().optional(),
+});
+
+export interface SchoolAISettingsInput {
+  provider: string;
+  base_url: string;
+  api_key?: string;
+  models: string[];
+  default_model: string;
+  enabled: boolean;
+  clear_api_key?: boolean;
+}
+
 export const adminQueryKeys = {
   teachers: ["admin", "teachers"] as const,
   teacherList: (filters: TeacherFilters) => [...adminQueryKeys.teachers, filters] as const,
   teacherOptions: ["admin", "teacher-options"] as const,
   school: ["admin", "school"] as const,
+  aiSettings: ["admin", "ai-settings"] as const,
 };
 
 export function serializeTeacherFilters(filters: TeacherFilters): URLSearchParams {
@@ -81,5 +106,17 @@ export function updateSchoolName(name: string) {
   return apiRequest("/api/v1/admin/school", schoolSchema, { method: "PATCH", body: JSON.stringify({ name }) });
 }
 
+export function getSchoolAISettings() {
+  return apiRequest("/api/v1/admin/ai/settings", schoolAISettingsSchema);
+}
+
+export function updateSchoolAISettings(input: SchoolAISettingsInput) {
+  return apiRequest("/api/v1/admin/ai/settings", schoolAISettingsSchema, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export type TeacherList = z.infer<typeof teacherListSchema>;
 export type School = z.infer<typeof schoolSchema>;
+export type SchoolAISettings = z.infer<typeof schoolAISettingsSchema>;

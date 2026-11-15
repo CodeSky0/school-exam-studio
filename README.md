@@ -67,6 +67,8 @@ export AI_BASE_URL='https://api.openai.com/v1'
 export AI_API_KEY=''
 export AI_MODEL='gpt-4o-mini'
 export AI_TIMEOUT_SECONDS='45'
+# 学校设置中 API Key 的加密密钥；留空回退到 JWT_SECRET
+export AI_SETTINGS_SECRET=''
 go run cmd/migrate/main.go
 go run cmd/api/main.go
 ```
@@ -92,7 +94,7 @@ pnpm dev
 
 ### 6. AI 工作台
 
-教师与管理员分别从 `/teacher/ai`、`/admin/ai` 进入 AI 工作台。未配置 `AI_API_KEY` 时使用内置确定性本地引擎，仍可完成分类、知识点、标签、题库体检、模板出题与变式；配置后优先调用 OpenAI 兼容大模型，调用失败自动降级并提示复核。
+教师与管理员分别从 `/teacher/ai`、`/admin/ai` 进入 AI 工作台。管理员可在 `/admin/settings` 配置全校共享模型：选择厂商、填写接口地址与 API Key、启用多个模型并设置默认模型，学校配置优先于环境变量，API Key 加密存储且不会返回前端。未配置 `AI_API_KEY` 或管理员停用时使用内置确定性本地引擎，仍可完成分类、知识点、标签、题库体检、模板出题与变式；配置后优先调用 OpenAI 兼容大模型，调用失败自动降级并提示复核。
 
 Agent 通过自然语言目标执行固定工具链：题库体检、批量整理分类与知识点、补答案与解析、按知识点出题、生成变式、智能组卷、分析指定题目。安全边界：
 

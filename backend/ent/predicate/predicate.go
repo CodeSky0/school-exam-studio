@@ -24,5 +24,8 @@ type Question func(*sql.Selector)
 // School is the predicate function for school builders.
 type School func(*sql.Selector)
 
+// SchoolAISetting is the predicate function for schoolaisetting builders.
+type SchoolAISetting func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)

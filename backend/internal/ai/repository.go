@@ -9,6 +9,7 @@ import (
 	"school-exam-studio/backend/ent"
 	"school-exam-studio/backend/ent/aiauditlog"
 	"school-exam-studio/backend/ent/airun"
+	"school-exam-studio/backend/ent/schoolaisetting"
 	"school-exam-studio/backend/internal/auth"
 )
 
@@ -239,4 +240,78 @@ func cloneMap(values map[string]any) map[string]any {
 		result[key] = value
 	}
 	return result
+}
+
+func (r *Repository) GetSchoolAISetting(ctx context.Context, schoolID uuid.UUID) (schoolAISettingRecord, error) {
+	if r.client == nil {
+		return schoolAISettingRecord{}, ErrNotFound
+	}
+	entity, err := r.client.SchoolAISetting.Query().Where(
+		schoolaisetting.SchoolIDEQ(schoolID),
+		schoolaisetting.DeletedAtIsNil(),
+	).Only(ctx)
+	if ent.IsNotFound(err) {
+		return schoolAISettingRecord{}, ErrNotFound
+	}
+	if err != nil {
+		return schoolAISettingRecord{}, err
+	}
+	return schoolAISettingFromEnt(entity), nil
+}
+
+func (r *Repository) SaveSchoolAISetting(ctx context.Context, principal auth.Principal, record schoolAISettingRecord) (schoolAISettingRecord, error) {
+	if principal.Role != auth.RoleAdmin {
+		return schoolAISettingRecord{}, ErrForbidden
+	}
+	if r.client == nil {
+		return schoolAISettingRecord{}, ErrNotFound
+	}
+	existing, err := r.client.SchoolAISetting.Query().Where(
+		schoolaisetting.SchoolIDEQ(principal.SchoolID),
+		schoolaisetting.DeletedAtIsNil(),
+	).Only(ctx)
+	if err != nil && !ent.IsNotFound(err) {
+		return schoolAISettingRecord{}, err
+	}
+	if ent.IsNotFound(err) {
+		entity, createErr := r.client.SchoolAISetting.Create().
+			SetSchoolID(principal.SchoolID).
+			SetProvider(record.Provider).
+			SetBaseURL(record.BaseURL).
+			SetAPIKey(record.APIKey).
+			SetModels(record.Models).
+			SetDefaultModel(record.DefaultModel).
+			SetEnabled(record.Enabled).
+			SetUpdatedBy(principal.UserID).
+			Save(ctx)
+		if createErr != nil {
+			return schoolAISettingRecord{}, createErr
+		}
+		return schoolAISettingFromEnt(entity), nil
+	}
+	entity, err := existing.Update().
+		SetProvider(record.Provider).
+		SetBaseURL(record.BaseURL).
+		SetAPIKey(record.APIKey).
+		SetModels(record.Models).
+		SetDefaultModel(record.DefaultModel).
+		SetEnabled(record.Enabled).
+		SetUpdatedBy(principal.UserID).
+		Save(ctx)
+	if err != nil {
+		return schoolAISettingRecord{}, err
+	}
+	return schoolAISettingFromEnt(entity), nil
+}
+
+func schoolAISettingFromEnt(entity *ent.SchoolAISetting) schoolAISettingRecord {
+	return schoolAISettingRecord{
+		Provider:     entity.Provider,
+		BaseURL:      entity.BaseURL,
+		APIKey:       entity.APIKey,
+		Models:       entity.Models,
+		DefaultModel: entity.DefaultModel,
+		Enabled:      entity.Enabled,
+		UpdatedAt:    entity.UpdatedAt,
+	}
 }

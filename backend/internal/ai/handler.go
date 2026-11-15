@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"school-exam-studio/backend/internal/auth"
 	"school-exam-studio/backend/internal/platform/apperror"
 	platformmiddleware "school-exam-studio/backend/internal/platform/middleware"
 	"school-exam-studio/backend/internal/question"
@@ -27,6 +28,8 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) Register(group *echo.Group) {
 	group.GET("/ai/status", h.Status)
+	group.GET("/admin/ai/settings", h.GetSchoolAISettings)
+	group.PATCH("/admin/ai/settings", h.UpdateSchoolAISettings)
 	group.POST("/ai/analyze", h.Analyze)
 	group.POST("/ai/questions/:id/analyze", h.AnalyzeQuestion)
 	group.POST("/ai/questions/:id/variants", h.Variants)
@@ -39,10 +42,45 @@ func (h *Handler) Register(group *echo.Group) {
 }
 
 func (h *Handler) Status(c echo.Context) error {
-	if _, ok := platformmiddleware.PrincipalFrom(c); !ok {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
 		return unauthorized()
 	}
-	return c.JSON(http.StatusOK, h.service.Status())
+	return c.JSON(http.StatusOK, h.service.Status(c.Request().Context(), principal))
+}
+
+func (h *Handler) GetSchoolAISettings(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	if principal.Role != auth.RoleAdmin {
+		return aiError(ErrForbidden)
+	}
+	result, err := h.service.GetSchoolAISettings(c.Request().Context(), principal)
+	if err != nil {
+		return aiError(err)
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) UpdateSchoolAISettings(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	if principal.Role != auth.RoleAdmin {
+		return aiError(ErrForbidden)
+	}
+	var input SchoolAISettingsInput
+	if err := decodeAIJSON(c, &input); err != nil {
+		return err
+	}
+	result, err := h.service.UpdateSchoolAISettings(c.Request().Context(), principal, input)
+	if err != nil {
+		return aiError(err)
+	}
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *Handler) Analyze(c echo.Context) error {

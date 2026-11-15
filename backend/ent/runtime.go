@@ -10,6 +10,7 @@ import (
 	"school-exam-studio/backend/ent/question"
 	"school-exam-studio/backend/ent/schema"
 	"school-exam-studio/backend/ent/school"
+	"school-exam-studio/backend/ent/schoolaisetting"
 	"school-exam-studio/backend/ent/user"
 	"time"
 
@@ -438,6 +439,55 @@ func init() {
 	schoolDescID := schoolMixinFields0[0].Descriptor()
 	// school.DefaultID holds the default value on creation for the id field.
 	school.DefaultID = schoolDescID.Default.(func() uuid.UUID)
+	schoolaisettingMixin := schema.SchoolAISetting{}.Mixin()
+	schoolaisettingMixinFields0 := schoolaisettingMixin[0].Fields()
+	_ = schoolaisettingMixinFields0
+	schoolaisettingFields := schema.SchoolAISetting{}.Fields()
+	_ = schoolaisettingFields
+	// schoolaisettingDescCreatedAt is the schema descriptor for created_at field.
+	schoolaisettingDescCreatedAt := schoolaisettingMixinFields0[1].Descriptor()
+	// schoolaisetting.DefaultCreatedAt holds the default value on creation for the created_at field.
+	schoolaisetting.DefaultCreatedAt = schoolaisettingDescCreatedAt.Default.(func() time.Time)
+	// schoolaisettingDescUpdatedAt is the schema descriptor for updated_at field.
+	schoolaisettingDescUpdatedAt := schoolaisettingMixinFields0[2].Descriptor()
+	// schoolaisetting.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	schoolaisetting.DefaultUpdatedAt = schoolaisettingDescUpdatedAt.Default.(func() time.Time)
+	// schoolaisetting.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	schoolaisetting.UpdateDefaultUpdatedAt = schoolaisettingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// schoolaisettingDescProvider is the schema descriptor for provider field.
+	schoolaisettingDescProvider := schoolaisettingFields[0].Descriptor()
+	// schoolaisetting.DefaultProvider holds the default value on creation for the provider field.
+	schoolaisetting.DefaultProvider = schoolaisettingDescProvider.Default.(string)
+	// schoolaisetting.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	schoolaisetting.ProviderValidator = schoolaisettingDescProvider.Validators[0].(func(string) error)
+	// schoolaisettingDescBaseURL is the schema descriptor for base_url field.
+	schoolaisettingDescBaseURL := schoolaisettingFields[1].Descriptor()
+	// schoolaisetting.DefaultBaseURL holds the default value on creation for the base_url field.
+	schoolaisetting.DefaultBaseURL = schoolaisettingDescBaseURL.Default.(string)
+	// schoolaisetting.BaseURLValidator is a validator for the "base_url" field. It is called by the builders before save.
+	schoolaisetting.BaseURLValidator = schoolaisettingDescBaseURL.Validators[0].(func(string) error)
+	// schoolaisettingDescAPIKey is the schema descriptor for api_key field.
+	schoolaisettingDescAPIKey := schoolaisettingFields[2].Descriptor()
+	// schoolaisetting.DefaultAPIKey holds the default value on creation for the api_key field.
+	schoolaisetting.DefaultAPIKey = schoolaisettingDescAPIKey.Default.(string)
+	// schoolaisettingDescModels is the schema descriptor for models field.
+	schoolaisettingDescModels := schoolaisettingFields[3].Descriptor()
+	// schoolaisetting.DefaultModels holds the default value on creation for the models field.
+	schoolaisetting.DefaultModels = schoolaisettingDescModels.Default.([]string)
+	// schoolaisettingDescDefaultModel is the schema descriptor for default_model field.
+	schoolaisettingDescDefaultModel := schoolaisettingFields[4].Descriptor()
+	// schoolaisetting.DefaultDefaultModel holds the default value on creation for the default_model field.
+	schoolaisetting.DefaultDefaultModel = schoolaisettingDescDefaultModel.Default.(string)
+	// schoolaisetting.DefaultModelValidator is a validator for the "default_model" field. It is called by the builders before save.
+	schoolaisetting.DefaultModelValidator = schoolaisettingDescDefaultModel.Validators[0].(func(string) error)
+	// schoolaisettingDescEnabled is the schema descriptor for enabled field.
+	schoolaisettingDescEnabled := schoolaisettingFields[5].Descriptor()
+	// schoolaisetting.DefaultEnabled holds the default value on creation for the enabled field.
+	schoolaisetting.DefaultEnabled = schoolaisettingDescEnabled.Default.(bool)
+	// schoolaisettingDescID is the schema descriptor for id field.
+	schoolaisettingDescID := schoolaisettingMixinFields0[0].Descriptor()
+	// schoolaisetting.DefaultID holds the default value on creation for the id field.
+	schoolaisetting.DefaultID = schoolaisettingDescID.Default.(func() uuid.UUID)
 	userMixin := schema.User{}.Mixin()
 	userMixinFields0 := userMixin[0].Fields()
 	_ = userMixinFields0

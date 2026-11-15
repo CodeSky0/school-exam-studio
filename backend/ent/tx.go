@@ -24,6 +24,8 @@ type Tx struct {
 	Question *QuestionClient
 	// School is the client for interacting with the School builders.
 	School *SchoolClient
+	// SchoolAISetting is the client for interacting with the SchoolAISetting builders.
+	SchoolAISetting *SchoolAISettingClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 
@@ -163,6 +165,7 @@ func (tx *Tx) init() {
 	tx.PaperQuestion = NewPaperQuestionClient(tx.config)
 	tx.Question = NewQuestionClient(tx.config)
 	tx.School = NewSchoolClient(tx.config)
+	tx.SchoolAISetting = NewSchoolAISettingClient(tx.config)
 	tx.User = NewUserClient(tx.config)
 }
 

@@ -68,6 +68,7 @@ func PlanGoal(request AgentRequest) (AgentPlan, error) {
 		Tag:            strings.TrimSpace(request.Tag),
 		QuestionID:     strings.TrimSpace(request.QuestionID),
 		Count:          request.Count,
+		Model:          strings.TrimSpace(request.Model),
 	}
 	if params.KnowledgePoint == "" {
 		params.KnowledgePoint = extractQuoted(request.Goal)
@@ -111,16 +112,29 @@ func (s *Service) ExecuteAgent(ctx context.Context, principal auth.Principal, re
 	if err != nil {
 		return AgentRun{}, err
 	}
+	client, config, warning, err := s.resolveLLM(ctx, principal, plan.Params.Model)
+	if err != nil {
+		return AgentRun{}, err
+	}
+	provider := ProviderLocal
+	model := ""
+	if client != nil && client.Enabled() {
+		provider = ProviderLLM
+		model = config.Model
+	}
 	runID := uuid.New()
 	run := AgentRun{
 		ID:       runID.String(),
 		Goal:     request.Goal,
 		Intent:   plan.Intent,
 		Status:   stepSucceeded,
-		Provider: s.currentProvider(),
-		Model:    s.llm.Model(),
+		Provider: provider,
+		Model:    model,
 		Plan:     plan.Steps,
 		Result:   map[string]any{"title": plan.Title},
+	}
+	if warning != "" {
+		run.Result["warning"] = warning
 	}
 	if plan.Intent == IntentUnknown {
 		run.Status = stepFailed
@@ -300,7 +314,9 @@ func (s *Service) agentTag(ctx context.Context, principal auth.Principal, params
 	warnings := []string{}
 	changed := []string{}
 	for _, item := range selected {
-		analysis, err := s.Analyze(ctx, principal, analyzeInputFromQuestion(item))
+		input := analyzeInputFromQuestion(item)
+		input.Model = params.Model
+		analysis, err := s.Analyze(ctx, principal, input)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("题目 %s 分析失败", item.ID))
 			continue
@@ -349,7 +365,9 @@ func (s *Service) agentFill(ctx context.Context, principal auth.Principal, param
 	warnings := []string{}
 	changed := []string{}
 	for _, item := range selected {
-		analysis, err := s.Analyze(ctx, principal, analyzeInputFromQuestion(item))
+		input := analyzeInputFromQuestion(item)
+		input.Model = params.Model
+		analysis, err := s.Analyze(ctx, principal, input)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("题目 %s 分析失败", item.ID))
 			continue
@@ -406,6 +424,7 @@ func (s *Service) agentGenerate(ctx context.Context, principal auth.Principal, p
 		Count:           count,
 		Reference:       params.KnowledgePoint,
 		Persist:         true,
+		Model:           params.Model,
 	}, runID)
 	if err != nil {
 		step.Status = stepFailed
@@ -440,7 +459,7 @@ func (s *Service) agentVariants(ctx context.Context, principal auth.Principal, p
 		count = 3
 	}
 	result, err := s.generateVariants(ctx, principal, source.ID, VariantInput{
-		Count: count, Strategy: "numbers", Persist: true,
+		Count: count, Strategy: "numbers", Persist: true, Model: params.Model,
 	}, runID)
 	if err != nil {
 		step.Status = stepFailed
@@ -588,7 +607,7 @@ func (s *Service) agentAnalyze(ctx context.Context, principal auth.Principal, pa
 	if principal.Role == auth.RoleTeacher && item.CreatorID != principal.UserID {
 		apply = false
 	}
-	analysisResult, err := s.analyzeQuestion(ctx, principal, id, apply, runID)
+	analysisResult, err := s.analyzeQuestion(ctx, principal, id, apply, runID, params.Model)
 	if err != nil {
 		step.Status = stepFailed
 		return step, result, nil, err
@@ -655,13 +674,6 @@ func (s *Service) saveRun(ctx context.Context, principal auth.Principal, run Age
 		return run, err
 	}
 	return saved, nil
-}
-
-func (s *Service) currentProvider() string {
-	if s.llm.Enabled() {
-		return ProviderLLM
-	}
-	return ProviderLocal
 }
 
 func selectDrafts(items []question.Question, principal auth.Principal, needs func(question.Question) bool, limit int) []question.Question {

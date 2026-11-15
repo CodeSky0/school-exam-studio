@@ -80,6 +80,18 @@ func (f SchoolFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SchoolMutation", m)
 }
 
+// The SchoolAISettingFunc type is an adapter to allow the use of ordinary
+// function as SchoolAISetting mutator.
+type SchoolAISettingFunc func(context.Context, *ent.SchoolAISettingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SchoolAISettingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SchoolAISettingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SchoolAISettingMutation", m)
+}
+
 // The UserFunc type is an adapter to allow the use of ordinary
 // function as User mutator.
 type UserFunc func(context.Context, *ent.UserMutation) (ent.Value, error)
