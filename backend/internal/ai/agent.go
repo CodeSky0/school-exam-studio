@@ -530,6 +530,10 @@ func (s *Service) agentComposePaper(ctx context.Context, principal auth.Principa
 		count = len(pool)
 	}
 	selected := balanceByDifficulty(pool, count)
+	if len(selected) == 0 {
+		step.Status = stepFailed
+		return step, result, nil, fmt.Errorf("没有可用于组卷的题目")
+	}
 	paperQuestions := make([]paper.QuestionInput, 0, len(selected))
 	total := 100.0
 	per := math.Round(total/float64(len(selected))*100) / 100
@@ -615,9 +619,9 @@ func (s *Service) agentAnalyze(ctx context.Context, principal auth.Principal, pa
 	result["analysis"] = analysisResult.Analysis
 	result["applied"] = analysisResult.Applied
 	result["question_id"] = id.String()
-	step.Affected = 1
-	step.QuestionIDs = []string{id.String()}
 	if analysisResult.Applied {
+		step.Affected = 1
+		step.QuestionIDs = []string{id.String()}
 		step.Summary = "已完成分析并写回草稿"
 	} else {
 		step.Summary = "已完成分析；题目非本人草稿或已发布，未自动修改"
@@ -784,14 +788,16 @@ func detectIntent(request AgentRequest) (string, string, string) {
 		return IntentGenerateVariants, "生成题目变式", ""
 	case has("出题", "生成题", "生成题目", "新题", "命题", "编题"):
 		return IntentGenerateQuestions, "按知识点出题", ""
+	// 体检类目标常同时包含“解析/答案”等词（如“找出缺少解析的题目”），
+	// 必须优先于补解析/整理判断，否则会被误路由为批量补解析。
+	case has("体检", "检查", "审计", "质量", "重复", "统计", "分析题库"):
+		return IntentAuditBank, "题库质量体检", ""
 	case has("解析", "答案", "补全") && has("标签", "分类", "知识点", "整理", "打标"):
 		return IntentOrganizeBank, "整理题库并补齐解析", ""
 	case has("解析", "答案", "补全"):
 		return IntentFillExplanations, "批量补充答案与解析", ""
 	case has("标签", "分类", "知识点", "整理", "打标", "归类"):
 		return IntentTagQuestions, "批量整理分类与知识点", ""
-	case has("体检", "检查", "审计", "质量", "重复", "统计", "分析题库"):
-		return IntentAuditBank, "题库质量体检", ""
 	case has("分析"):
 		return IntentUnknown, "需要更明确的目标", "请提供题目ID，或说明要分析整个题库还是生成题目"
 	default:
@@ -820,8 +826,8 @@ func extractQuoted(goal string) string {
 
 func matchKnowledgePoint(goal string) string {
 	best := ""
-	for _, dictionary := range knowledgeDictionary {
-		for _, keyword := range dictionary {
+	for _, subject := range subjectOrder {
+		for _, keyword := range knowledgeDictionary[subject] {
 			if strings.Contains(goal, keyword) && len([]rune(keyword)) > len([]rune(best)) {
 				best = keyword
 			}
@@ -856,6 +862,7 @@ func balanceByDifficulty(items []question.Question, count int) []question.Questi
 		buckets[item.Difficulty] = append(buckets[item.Difficulty], item)
 	}
 	selected := make([]question.Question, 0, count)
+	selectedIDs := make(map[uuid.UUID]struct{}, count)
 	for len(selected) < count {
 		added := false
 		for difficulty := 1; difficulty <= 5 && len(selected) < count; difficulty++ {
@@ -863,12 +870,23 @@ func balanceByDifficulty(items []question.Question, count int) []question.Questi
 				continue
 			}
 			selected = append(selected, buckets[difficulty][0])
+			selectedIDs[buckets[difficulty][0].ID] = struct{}{}
 			buckets[difficulty] = buckets[difficulty][1:]
 			added = true
 		}
 		if !added {
 			break
 		}
+	}
+	// 难度不在 1-5 的历史数据不会进入配平桶，这里兜底补足，避免少题甚至除零。
+	for _, item := range items {
+		if len(selected) >= count {
+			break
+		}
+		if _, ok := selectedIDs[item.ID]; ok {
+			continue
+		}
+		selected = append(selected, item)
 	}
 	return selected
 }

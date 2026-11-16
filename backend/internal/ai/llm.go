@@ -128,7 +128,7 @@ func (c *LLMClient) CompleteJSON(ctx context.Context, system, user string) (stri
 			{Role: "user", Content: user},
 		},
 		Temperature: 0.2,
-		MaxTokens:   2400,
+		MaxTokens:   4096,
 	})
 	if err != nil {
 		return "", err
@@ -144,9 +144,12 @@ func (c *LLMClient) CompleteJSON(ctx context.Context, system, user string) (stri
 		return "", fmt.Errorf("模型接口请求失败：%w", err)
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxLLMResponseBytes))
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxLLMResponseBytes+1))
 	if err != nil {
 		return "", fmt.Errorf("模型接口响应无法读取")
+	}
+	if len(body) > maxLLMResponseBytes {
+		return "", fmt.Errorf("模型接口响应超过 %d 字节限制", maxLLMResponseBytes)
 	}
 	var decoded chatResponse
 	decodeErr := json.Unmarshal(body, &decoded)
@@ -175,6 +178,10 @@ func (c *LLMClient) CompleteJSON(ctx context.Context, system, user string) (stri
 			return "", fmt.Errorf("模型接口返回空内容（finish_reason=%s）", reason)
 		}
 		return "", fmt.Errorf("模型接口返回空内容")
+	}
+	// 输出达到 token 上限时 JSON 会被截断，直接返回内容只会得到含糊的解析失败，需给出可操作的错误。
+	if strings.EqualFold(strings.TrimSpace(decoded.Choices[0].FinishReason), "length") {
+		return "", fmt.Errorf("模型输出被截断（finish_reason=length），请减少生成数量或提高模型输出上限")
 	}
 	return extractJSON(content), nil
 }

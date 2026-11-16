@@ -323,6 +323,13 @@ func aiError(err error) error {
 			Message: validation.Violation.Message,
 		}})
 	}
+	var questionValidation *question.ValidationError
+	if errors.As(err, &questionValidation) {
+		return apperror.Validation([]apperror.FieldError{{
+			Field:   questionValidation.Violation.Field,
+			Message: questionValidation.Violation.Message,
+		}})
+	}
 	switch {
 	case errors.Is(err, ErrNotFound):
 		return apperror.New(http.StatusNotFound, "AI_NOT_FOUND", "AI 记录不存在")

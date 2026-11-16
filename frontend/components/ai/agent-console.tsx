@@ -31,7 +31,8 @@ export function AgentConsole({ user, onCreated }: AgentConsoleProps) {
   const queryClient = useQueryClient();
   const [goal, setGoal] = useState("");
   const [grade, setGrade] = useState("");
-  const [subject, setSubject] = useState(user.subject || "数学");
+  // 教师的学科由后端固定；管理员默认留空，让 Agent 从目标描述中识别，避免预设“数学”覆盖其他学科。
+  const [subject, setSubject] = useState(user.role === "teacher" ? user.subject : "");
   const [category, setCategory] = useState("");
   const [knowledgePoint, setKnowledgePoint] = useState("");
   const [tag, setTag] = useState("");
@@ -58,6 +59,7 @@ export function AgentConsole({ user, onCreated }: AgentConsoleProps) {
       onCreated(run);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: aiQueryKeys.runs(20) }),
+        queryClient.invalidateQueries({ queryKey: aiQueryKeys.logs(30) }),
         queryClient.invalidateQueries({ queryKey: questionQueryKeys.all }),
       ]);
     },

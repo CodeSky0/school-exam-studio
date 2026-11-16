@@ -40,6 +40,9 @@ var knowledgeDictionary = map[string][]string{
 	"政治": {"法治意识", "市场经济", "国家制度", "公民权利", "社会责任"},
 }
 
+// subjectOrder 保证本地引擎遍历学科时使用固定顺序，避免 map 迭代随机导致结果不可重复。
+var subjectOrder = []string{"数学", "语文", "英语", "物理", "化学", "生物", "历史", "地理", "政治"}
+
 var gradeKeywords = []string{
 	"一年级", "二年级", "三年级", "四年级", "五年级", "六年级",
 	"七年级", "八年级", "九年级", "初一", "初二", "初三",
@@ -111,8 +114,20 @@ func (e *LocalEngine) Generate(input GenerateInput) ([]GeneratedQuestion, []stri
 	items := make([]GeneratedQuestion, 0, count)
 	for index := 0; index < count; index++ {
 		item := generateLocalItem(subject, grade, knowledgePoint, category, questionType, difficulty, index)
-		item.Tags = uniqueStrings(append(append([]string{}, input.Tags...), subject, category, typeLabel(questionType)))
+		tags := append([]string{}, input.Tags...)
+		tags = append(tags, item.Tags...)
+		tags = append(tags, subject, category, typeLabel(item.QuestionType))
+		if grade != "" {
+			tags = append(tags, grade)
+		}
+		item.Tags = uniqueStrings(tags)
+		if len(item.Tags) > 10 {
+			item.Tags = item.Tags[:10]
+		}
 		item.KnowledgePoints = uniqueStrings(append(append([]string{}, input.KnowledgePoints...), knowledgePoint))
+		if len(item.KnowledgePoints) > 8 {
+			item.KnowledgePoints = item.KnowledgePoints[:8]
+		}
 		item.Provider = ProviderLocal
 		if item.Answer == "" {
 			warnings = append(warnings, "部分题目未生成答案，请在保存前补充")
@@ -130,6 +145,17 @@ func (e *LocalEngine) Variants(source QuestionSnapshot, input VariantInput) ([]G
 	knowledgePoint := firstNonEmpty(strings.Join(source.KnowledgePoints, "、"), source.Category, "原题知识点")
 	category := firstNonEmpty(source.Category, "综合应用")
 	warnings := []string{"本地变式通过改写题干数字生成，请逐题核验答案与解析"}
+	// 本地变式不修改选项，因此客观题可沿用原题答案；否则占位答案无法通过校验，草稿将无法保存。
+	answer := "请根据变式后的条件重新计算并核对（待人工确认）"
+	switch source.QuestionType {
+	case question.TypeSingleChoice, question.TypeMultipleChoice, question.TypeTrueFalse:
+		if value, err := question.ValidateAnswer(source.QuestionType, toQuestionOptions(source.Options), source.Answer); err == nil {
+			answer = value
+			warnings = append(warnings, "客观题选项未改动，答案沿用原题，请核对题干改写后的正确性")
+		}
+	}
+	options := append([]Option{}, source.Options...)
+	knowledgePoints := append([]string{}, source.KnowledgePoints...)
 	items := make([]GeneratedQuestion, 0, count)
 	for index := 0; index < count; index++ {
 		difficulty := source.Difficulty + input.DifficultyDelta
@@ -144,16 +170,20 @@ func (e *LocalEngine) Variants(source QuestionSnapshot, input VariantInput) ([]G
 			content = fmt.Sprintf(`<p>变式 %d：请参考原题结构，围绕“%s”调整题设条件后完成作答。</p>`, index+1, html.EscapeString(knowledgePoint))
 			warnings = append(warnings, "原题未包含可替换数字，已生成情境改写框架")
 		}
+		tags := uniqueStrings(append(append([]string{}, source.Tags...), "变式"))
+		if len(tags) > 10 {
+			tags = tags[:10]
+		}
 		items = append(items, GeneratedQuestion{
 			Content:         content,
-			Options:         source.Options,
-			Answer:          "请根据变式后的条件重新计算并核对（待人工确认）",
+			Options:         append([]Option{}, options...),
+			Answer:          answer,
 			Explanation:     fmt.Sprintf(`<p>本题为原题的变式草稿，考查知识点“%s”。请根据调整后的条件重新推导并核对答案。</p>`, html.EscapeString(knowledgePoint)),
 			QuestionType:    source.QuestionType,
 			Difficulty:      difficulty,
 			Category:        category,
-			Tags:            uniqueStrings(append(append([]string{}, source.Tags...), "变式")),
-			KnowledgePoints: source.KnowledgePoints,
+			Tags:            tags,
+			KnowledgePoints: append([]string{}, knowledgePoints...),
 			Rationale:       "本地引擎对题干文本节点中的数字做了偏移改写",
 			ReviewRequired:  true,
 			Provider:        ProviderLocal,
@@ -174,7 +204,7 @@ func (e *LocalEngine) Audit(items []QuestionSnapshot) AuditResult {
 	}
 	hashes := map[string][]string{}
 	previews := map[string]string{}
-	var missingAnswerIDs, missingExplanationIDs, missingKnowledgeIDs, missingCategoryIDs, pendingReviewIDs []string
+	var missingAnswerIDs, missingExplanationIDs, missingKnowledgeIDs, missingCategoryIDs, missingTagIDs, pendingReviewIDs []string
 	for _, item := range items {
 		if strings.TrimSpace(item.Answer) == "" {
 			result.MissingAnswer++
@@ -194,6 +224,7 @@ func (e *LocalEngine) Audit(items []QuestionSnapshot) AuditResult {
 		}
 		if len(item.Tags) == 0 {
 			result.MissingTags++
+			missingTagIDs = append(missingTagIDs, item.ID)
 		}
 		result.Difficulty[item.Difficulty]++
 		category := item.Category
@@ -216,7 +247,13 @@ func (e *LocalEngine) Audit(items []QuestionSnapshot) AuditResult {
 			pendingReviewIDs = append(pendingReviewIDs, item.ID)
 		}
 	}
-	for hash, ids := range hashes {
+	hashKeys := make([]string, 0, len(hashes))
+	for hash := range hashes {
+		hashKeys = append(hashKeys, hash)
+	}
+	sort.Strings(hashKeys)
+	for _, hash := range hashKeys {
+		ids := hashes[hash]
 		if len(ids) > 1 {
 			result.Duplicates = append(result.Duplicates, DuplicateGroup{
 				ContentHash: hash,
@@ -226,7 +263,10 @@ func (e *LocalEngine) Audit(items []QuestionSnapshot) AuditResult {
 		}
 	}
 	sort.Slice(result.Duplicates, func(i, j int) bool {
-		return len(result.Duplicates[i].QuestionIDs) > len(result.Duplicates[j].QuestionIDs)
+		if len(result.Duplicates[i].QuestionIDs) != len(result.Duplicates[j].QuestionIDs) {
+			return len(result.Duplicates[i].QuestionIDs) > len(result.Duplicates[j].QuestionIDs)
+		}
+		return result.Duplicates[i].ContentHash < result.Duplicates[j].ContentHash
 	})
 	result.DuplicateCount = len(result.Duplicates)
 	result.Findings = append(result.Findings,
@@ -234,6 +274,7 @@ func (e *LocalEngine) Audit(items []QuestionSnapshot) AuditResult {
 		finding("missing_explanation", "medium", "缺少解析", missingExplanationIDs),
 		finding("missing_knowledge_points", "high", "缺少知识点", missingKnowledgeIDs),
 		finding("missing_category", "medium", "缺少分类", missingCategoryIDs),
+		finding("missing_tags", "low", "缺少标签", missingTagIDs),
 	)
 	if len(result.Duplicates) > 0 {
 		ids := make([]string, 0)
@@ -250,6 +291,7 @@ func (e *LocalEngine) Audit(items []QuestionSnapshot) AuditResult {
 
 func generateLocalItem(subject, grade, knowledgePoint, category, questionType string, difficulty, index int) GeneratedQuestion {
 	item := GeneratedQuestion{
+		Options:         []Option{},
 		QuestionType:    questionType,
 		Difficulty:      difficulty,
 		Category:        category,
@@ -314,9 +356,9 @@ func generateLocalItem(subject, grade, knowledgePoint, category, questionType st
 func detectSubject(text string) string {
 	lower := strings.ToLower(text)
 	best, bestScore := "", 0
-	for subject, keywords := range subjectKeywords {
+	for _, subject := range subjectOrder {
 		score := 0
-		for _, keyword := range keywords {
+		for _, keyword := range subjectKeywords[subject] {
 			if strings.Contains(lower, strings.ToLower(keyword)) {
 				score++
 			}
@@ -363,14 +405,15 @@ func detectQuestionType(input AnalyzeInput) string {
 func extractKnowledgePoints(input AnalyzeInput, text string) []string {
 	points := append([]string{}, input.KnowledgePoints...)
 	search := strings.ToLower(text + " " + strings.Join(input.Tags, " ") + " " + input.Answer)
-	for _, dictionary := range knowledgeDictionary {
-		for _, keyword := range dictionary {
+	for _, subject := range subjectOrder {
+		for _, keyword := range knowledgeDictionary[subject] {
 			if strings.Contains(search, strings.ToLower(keyword)) {
 				points = append(points, keyword)
 			}
 		}
 	}
-	return uniqueStrings(points)[:minInt(len(uniqueStrings(points)), 6)]
+	points = uniqueStrings(points)
+	return points[:minInt(len(points), 6)]
 }
 
 func inferCategory(subject string, knowledgePoints []string, text string) string {
@@ -458,7 +501,7 @@ func buildTags(existing, knowledgePoints []string, category, questionType string
 func buildExplanation(subject string, knowledgePoints []string, category, answer string) string {
 	points := "本题"
 	if len(knowledgePoints) > 0 {
-		points = "“" + strings.Join(knowledgePoints, "、") + "”"
+		points = "“" + html.EscapeString(strings.Join(knowledgePoints, "、")) + "”"
 	}
 	var builder strings.Builder
 	builder.WriteString("<p>本题考查")
@@ -514,8 +557,13 @@ func isArithmetic(value string) bool {
 }
 
 func pickCategory(text string, mapping map[string][]string, fallback string) string {
-	for category, keywords := range mapping {
-		if containsAny(text, keywords...) {
+	categories := make([]string, 0, len(mapping))
+	for category := range mapping {
+		categories = append(categories, category)
+	}
+	sort.Strings(categories)
+	for _, category := range categories {
+		if containsAny(text, mapping[category]...) {
 			return category
 		}
 	}

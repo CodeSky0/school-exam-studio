@@ -152,7 +152,10 @@ func (s *Service) Analyze(ctx context.Context, principal auth.Principal, input A
 	if err != nil {
 		return Analysis{}, err
 	}
-	if client == nil {
+	if client == nil || !client.Enabled() {
+		if client != nil {
+			local.Warnings = append(local.Warnings, "AI 配置不完整，已使用本地引擎")
+		}
 		if warning != "" {
 			local.Warnings = append(local.Warnings, warning)
 		}
@@ -237,22 +240,35 @@ func (s *Service) generate(ctx context.Context, principal auth.Principal, input 
 	if warning != "" {
 		result.Warnings = append(result.Warnings, warning)
 	}
-	if client != nil {
+	if client != nil && client.Enabled() {
 		raw, llmErr := client.CompleteJSON(ctx, generateSystemPrompt, generateUserPrompt(input))
+		decoded := false
+		decodedCount := 0
 		if llmErr == nil {
 			var response llmItemsResponse
-			if err := json.Unmarshal([]byte(raw), &response); err == nil && len(response.Items) > 0 {
-				result.Items = s.normalizeGenerated(response.Items, input)
-				result.Provider = ProviderLLM
-				result.Model = config.Model
+			if err := json.Unmarshal([]byte(raw), &response); err == nil {
+				decoded = true
+				decodedCount = len(response.Items)
+				if decodedCount > 0 {
+					result.Items = s.normalizeGenerated(response.Items, input)
+				}
 			}
 		}
-		if result.Provider == "" {
-			warning := "大模型出题失败，已自动降级为本地引擎"
-			if llmErr != nil {
-				warning += "；降级原因：" + llmErr.Error()
+		if len(result.Items) > 0 {
+			result.Provider = ProviderLLM
+			result.Model = config.Model
+			if len(result.Items) < decodedCount {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("大模型返回的 %d 道题中有 %d 道未通过校验，已过滤", decodedCount, decodedCount-len(result.Items)))
 			}
-			result.Warnings = append(result.Warnings, warning)
+		} else {
+			degradeWarning := "大模型出题失败，已自动降级为本地引擎"
+			switch {
+			case llmErr != nil:
+				degradeWarning += "；降级原因：" + llmErr.Error()
+			case decoded:
+				degradeWarning += "；降级原因：模型返回的题目未通过校验"
+			}
+			result.Warnings = append(result.Warnings, degradeWarning)
 		}
 	}
 	if len(result.Items) == 0 {
@@ -305,36 +321,56 @@ func (s *Service) generateVariants(ctx context.Context, principal auth.Principal
 	if warning != "" {
 		result.Warnings = append(result.Warnings, warning)
 	}
-	if client != nil {
+	if client != nil && client.Enabled() {
 		raw, llmErr := client.CompleteJSON(ctx, variantSystemPrompt, variantUserPrompt(snapshot, input))
+		decoded := false
+		decodedCount := 0
 		if llmErr == nil {
 			var response llmItemsResponse
-			if err := json.Unmarshal([]byte(raw), &response); err == nil && len(response.Items) > 0 {
-				generateInput := GenerateInput{
-					Subject:         source.Subject,
-					Grade:           source.Grade,
-					QuestionType:    source.QuestionType,
-					Difficulty:      source.Difficulty,
-					Category:        source.Category,
-					KnowledgePoints: source.KnowledgePoints,
-					Tags:            source.Tags,
-					Count:           input.Count,
+			if err := json.Unmarshal([]byte(raw), &response); err == nil {
+				decoded = true
+				decodedCount = len(response.Items)
+				if decodedCount > 0 {
+					difficulty := source.Difficulty + input.DifficultyDelta
+					if difficulty < 1 {
+						difficulty = 1
+					}
+					if difficulty > 5 {
+						difficulty = 5
+					}
+					generateInput := GenerateInput{
+						Subject:         source.Subject,
+						Grade:           source.Grade,
+						QuestionType:    source.QuestionType,
+						Difficulty:      difficulty,
+						Category:        source.Category,
+						KnowledgePoints: source.KnowledgePoints,
+						Tags:            source.Tags,
+						Count:           input.Count,
+					}
+					result.Items = s.normalizeGenerated(response.Items, generateInput)
+					for index := range result.Items {
+						result.Items[index].ReviewRequired = true
+						result.Items[index].Rationale = firstNonEmpty(result.Items[index].Rationale, "基于原题生成的变式")
+					}
 				}
-				result.Items = s.normalizeGenerated(response.Items, generateInput)
-				for index := range result.Items {
-					result.Items[index].ReviewRequired = true
-					result.Items[index].Rationale = firstNonEmpty(result.Items[index].Rationale, "基于原题生成的变式")
-				}
-				result.Provider = ProviderLLM
-				result.Model = config.Model
 			}
 		}
-		if result.Provider == "" {
-			warning := "大模型变式生成失败，已自动降级为本地引擎"
-			if llmErr != nil {
-				warning += "；降级原因：" + llmErr.Error()
+		if len(result.Items) > 0 {
+			result.Provider = ProviderLLM
+			result.Model = config.Model
+			if len(result.Items) < decodedCount {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("大模型返回的 %d 道变式中 %d 道未通过校验，已过滤", decodedCount, decodedCount-len(result.Items)))
 			}
-			result.Warnings = append(result.Warnings, warning)
+		} else {
+			degradeWarning := "大模型变式生成失败，已自动降级为本地引擎"
+			switch {
+			case llmErr != nil:
+				degradeWarning += "；降级原因：" + llmErr.Error()
+			case decoded:
+				degradeWarning += "；降级原因：模型返回的变式未通过校验"
+			}
+			result.Warnings = append(result.Warnings, degradeWarning)
 		}
 	}
 	if len(result.Items) == 0 {
@@ -431,6 +467,8 @@ func (s *Service) validateGenerateInput(principal auth.Principal, input *Generat
 	input.Grade = strings.TrimSpace(input.Grade)
 	input.Category = strings.TrimSpace(input.Category)
 	input.QuestionType = strings.TrimSpace(input.QuestionType)
+	input.KnowledgePoints = uniqueStrings(input.KnowledgePoints)
+	input.Tags = uniqueStrings(input.Tags)
 	if principal.Role == auth.RoleTeacher {
 		input.Subject = principal.Subject
 	}
@@ -472,11 +510,11 @@ func (s *Service) normalizeAnalysis(response llmAnalysisResponse, input AnalyzeI
 	if difficulty < 1 || difficulty > 5 {
 		difficulty = fallback.Difficulty
 	}
-	category := firstNonEmpty(response.Category, fallback.Category)
+	category := firstNonEmpty(input.Category, response.Category, fallback.Category)
 	if len([]rune(category)) > 30 {
 		category = string([]rune(category)[:30])
 	}
-	knowledgePoints := uniqueStrings(response.KnowledgePoints)
+	knowledgePoints := uniqueStrings(append(append([]string{}, input.KnowledgePoints...), response.KnowledgePoints...))
 	if len(knowledgePoints) > 6 {
 		knowledgePoints = knowledgePoints[:6]
 	}
@@ -498,9 +536,15 @@ func (s *Service) normalizeAnalysis(response llmAnalysisResponse, input AnalyzeI
 	if explanation == "" {
 		explanation = strings.TrimSpace(response.Explanation)
 	}
-	if sanitized, err := s.sanitizer.NormalizeExplanation(explanation); err == nil && strings.TrimSpace(sanitized) != "" {
-		explanation = sanitized
-	} else if explanation == "" {
+	if explanation != "" {
+		// 即使清洗后为空（例如只包含 script 标签），也必须采用清洗结果，避免把未过滤的 HTML 返回给前端。
+		if sanitized, err := s.sanitizer.NormalizeExplanation(explanation); err == nil {
+			explanation = sanitized
+		} else {
+			explanation = ""
+		}
+	}
+	if strings.TrimSpace(explanation) == "" {
 		explanation = fallback.Explanation
 	}
 	confidence := response.Confidence
@@ -547,6 +591,9 @@ func (s *Service) normalizeGenerated(items []llmItem, input GenerateInput) []Gen
 			difficulty = firstPositive(input.Difficulty, 3)
 		}
 		category := firstNonEmpty(item.Category, input.Category, "综合应用")
+		if len([]rune(category)) > 30 {
+			category = string([]rune(category)[:30])
+		}
 		knowledgePoints := uniqueStrings(append(append([]string{}, input.KnowledgePoints...), item.KnowledgePoints...))
 		if len(knowledgePoints) > 6 {
 			knowledgePoints = knowledgePoints[:6]
@@ -592,6 +639,10 @@ func (s *Service) normalizeGenerated(items []llmItem, input GenerateInput) []Gen
 			generated.QuestionType = sanitized.QuestionType
 		} else {
 			continue
+		}
+		// 非选择题 Options 为空时必须序列化为 [] 而不是 null，否则前端 schema 解析会失败。
+		if generated.Options == nil {
+			generated.Options = []Option{}
 		}
 		result = append(result, generated)
 	}
@@ -758,10 +809,17 @@ func validatePrincipal(principal auth.Principal) error {
 }
 
 func userFacingQuestionError(err error) string {
+	var validation *question.ValidationError
+	if errors.As(err, &validation) {
+		if validation.Violation.Message != "" {
+			return validation.Violation.Message
+		}
+		return "题目校验未通过"
+	}
 	switch {
-	case err == question.ErrSubjectMismatch:
+	case errors.Is(err, question.ErrSubjectMismatch):
 		return "学科与教师账户不一致"
-	case err == question.ErrForbidden:
+	case errors.Is(err, question.ErrForbidden):
 		return "没有权限"
 	default:
 		return "题目校验未通过"

@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -135,6 +136,7 @@ func TestPlanGoalIntents(t *testing.T) {
 		{"为七年级「二次函数」生成3道变式题", "", IntentGenerateVariants, 3},
 		{"出一份八年级数学试卷，10道题", "", IntentComposePaper, 10},
 		{"帮我体检题库", "", IntentAuditBank, 0},
+		{"对当前题库做一次质量体检，找出重复题和缺少解析的题目", "", IntentAuditBank, 0},
 		{"整理题库", "", IntentTagQuestions, 0},
 		{"分析这道题", uuid.NewString(), IntentAnalyzeQuestion, 0},
 		{"你好", "", IntentUnknown, 0},
@@ -150,6 +152,48 @@ func TestPlanGoalIntents(t *testing.T) {
 		if plan.Params.Count != testCase.count {
 			t.Fatalf("goal %q: expected count %d, got %d", testCase.goal, testCase.count, plan.Params.Count)
 		}
+	}
+}
+
+func TestLocalVariantsKeepValidChoiceAnswer(t *testing.T) {
+	engine := NewLocalEngine()
+	items, _ := engine.Variants(QuestionSnapshot{
+		Subject:      "数学",
+		Grade:        "八年级",
+		QuestionType: question.TypeSingleChoice,
+		Difficulty:   2,
+		Content:      "<p>已知 3 + 5 = ?</p>",
+		Options: []Option{
+			{Key: "A", Content: "6"},
+			{Key: "B", Content: "8"},
+		},
+		Answer: "B",
+	}, VariantInput{Count: 1})
+	if len(items) != 1 {
+		t.Fatalf("expected 1 variant, got %d", len(items))
+	}
+	if _, err := question.ValidateAnswer(question.TypeSingleChoice, toQuestionOptions(items[0].Options), items[0].Answer); err != nil {
+		t.Fatalf("variant answer must remain valid for objective questions: %v", err)
+	}
+}
+
+func TestLocalGenerateFillBlankSerializesOptionsAsArray(t *testing.T) {
+	items, _ := NewLocalEngine().Generate(GenerateInput{
+		Subject:         "数学",
+		Grade:           "八年级",
+		QuestionType:    question.TypeFillBlank,
+		Count:           1,
+		KnowledgePoints: []string{"函数"},
+	})
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	encoded, err := json.Marshal(items[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"options":[]`) {
+		t.Fatalf("empty options must serialize as [], got %s", encoded)
 	}
 }
 

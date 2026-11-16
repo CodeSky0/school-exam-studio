@@ -196,24 +196,24 @@ type ConnectionTestInput struct {
 }
 
 type QuestionSnapshot struct {
-	ID               string
-	CreatorID        string
-	Subject          string
-	Grade            string
-	QuestionType     string
-	Difficulty       int
-	Tags             []string
-	Category         string
-	KnowledgePoints  []string
-	Content          string
-	Options          []Option
-	Answer           string
-	Explanation      string
-	Status           string
-	AIGenerated      bool
-	ContentHash      string
-	SourceQuestionID string
-	CreatedAt        time.Time
+	ID               string    `json:"id"`
+	CreatorID        string    `json:"-"`
+	Subject          string    `json:"subject"`
+	Grade            string    `json:"grade"`
+	QuestionType     string    `json:"question_type"`
+	Difficulty       int       `json:"difficulty"`
+	Tags             []string  `json:"tags"`
+	Category         string    `json:"category"`
+	KnowledgePoints  []string  `json:"knowledge_points"`
+	Content          string    `json:"content"`
+	Options          []Option  `json:"options"`
+	Answer           string    `json:"answer"`
+	Explanation      string    `json:"explanation"`
+	Status           string    `json:"status,omitempty"`
+	AIGenerated      bool      `json:"ai_generated,omitempty"`
+	ContentHash      string    `json:"-"`
+	SourceQuestionID string    `json:"-"`
+	CreatedAt        time.Time `json:"-"`
 }
 
 type ApplyResult struct {

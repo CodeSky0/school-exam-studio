@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 function toRichText(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  if (/<[a-z][\s\S]*>/i.test(trimmed)) return trimmed;
+  // 只把常见富文本标签视为 HTML，避免 "x<y 且 y>0" 这类数学表达式被误判。
+  if (/<\/?(p|br|strong|b|em|i|u|s|span|div|ul|ol|li|sup|sub|img|table|thead|tbody|tr|td|th|blockquote|code|pre|hr)\b[^>]*>/i.test(trimmed)) return trimmed;
   const escaped = trimmed.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return `<p>${escaped}</p>`;
 }

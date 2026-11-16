@@ -62,6 +62,9 @@ func (r *Repository) GetRun(ctx context.Context, principal auth.Principal, id uu
 	if err := validatePrincipal(principal); err != nil {
 		return AgentRun{}, err
 	}
+	if r.client == nil {
+		return AgentRun{}, ErrNotFound
+	}
 	entity, err := r.client.AIRun.Query().Where(
 		airun.SchoolIDEQ(principal.SchoolID),
 		airun.IDEQ(id),
@@ -81,6 +84,9 @@ func (r *Repository) GetRun(ctx context.Context, principal auth.Principal, id uu
 func (r *Repository) ListRuns(ctx context.Context, principal auth.Principal, limit int) ([]AgentRun, error) {
 	if err := validatePrincipal(principal); err != nil {
 		return nil, err
+	}
+	if r.client == nil {
+		return []AgentRun{}, nil
 	}
 	if limit <= 0 {
 		limit = 20
@@ -112,6 +118,9 @@ func (r *Repository) ListRuns(ctx context.Context, principal auth.Principal, lim
 func (r *Repository) CreateAudit(ctx context.Context, principal auth.Principal, log AuditLog) error {
 	if err := validatePrincipal(principal); err != nil {
 		return err
+	}
+	if r.client == nil {
+		return nil
 	}
 	detail := log.Detail
 	if detail == nil {
@@ -145,6 +154,9 @@ func (r *Repository) ListAudits(ctx context.Context, principal auth.Principal, l
 	}
 	if principal.Role != auth.RoleAdmin {
 		return nil, ErrForbidden
+	}
+	if r.client == nil {
+		return []AuditLog{}, nil
 	}
 	if limit <= 0 {
 		limit = 50

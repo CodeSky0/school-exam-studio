@@ -185,14 +185,14 @@ func (s *Service) UpdateSchoolAISettings(ctx context.Context, principal auth.Pri
 	if getErr == nil {
 		record.APIKey = existing.APIKey
 	}
-	if normalized.ClearAPIKey {
-		record.APIKey = ""
-	} else if strings.TrimSpace(normalized.APIKey) != "" {
+	if strings.TrimSpace(normalized.APIKey) != "" {
 		encrypted, encryptErr := s.settingsCipher.encrypt(strings.TrimSpace(normalized.APIKey))
 		if encryptErr != nil {
 			return SchoolAISettingsView{}, encryptErr
 		}
 		record.APIKey = encrypted
+	} else if normalized.ClearAPIKey {
+		record.APIKey = ""
 	}
 	if record.Enabled {
 		if record.BaseURL == "" {
@@ -298,9 +298,11 @@ func (s *Service) settingsView(record schoolAISettingRecord) SchoolAISettingsVie
 		view.HasAPIKey = true
 		view.APIKeyHint = "已保存"
 		if s.settingsCipher != nil {
-			if apiKey, err := s.settingsCipher.decrypt(record.APIKey); err == nil && len(apiKey) >= 4 {
-				view.APIKeyHint = "••••" + apiKey[len(apiKey)-4:]
-			} else if err != nil {
+			if apiKey, err := s.settingsCipher.decrypt(record.APIKey); err == nil {
+				if runes := []rune(apiKey); len(runes) >= 4 {
+					view.APIKeyHint = "••••" + string(runes[len(runes)-4:])
+				}
+			} else {
 				view.Warning = "已保存的 API Key 无法解密，请重新输入密钥。"
 			}
 		}
