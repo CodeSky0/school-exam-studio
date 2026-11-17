@@ -2,6 +2,9 @@
 .tools/
 .env
 .env.*
+backend/data/
+backend/internal/ai/data/
+data/ai-uploads/
 !.env.example
 node_modules/
 .next/

@@ -12,8 +12,14 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// AIAttachment is the client for interacting with the AIAttachment builders.
+	AIAttachment *AIAttachmentClient
 	// AIAuditLog is the client for interacting with the AIAuditLog builders.
 	AIAuditLog *AIAuditLogClient
+	// AIConversation is the client for interacting with the AIConversation builders.
+	AIConversation *AIConversationClient
+	// AIMessage is the client for interacting with the AIMessage builders.
+	AIMessage *AIMessageClient
 	// AIRun is the client for interacting with the AIRun builders.
 	AIRun *AIRunClient
 	// Paper is the client for interacting with the Paper builders.
@@ -159,7 +165,10 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
+	tx.AIAttachment = NewAIAttachmentClient(tx.config)
 	tx.AIAuditLog = NewAIAuditLogClient(tx.config)
+	tx.AIConversation = NewAIConversationClient(tx.config)
+	tx.AIMessage = NewAIMessageClient(tx.config)
 	tx.AIRun = NewAIRunClient(tx.config)
 	tx.Paper = NewPaperClient(tx.config)
 	tx.PaperQuestion = NewPaperQuestionClient(tx.config)
@@ -176,7 +185,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: AIAuditLog.QueryXXX(), the query will be executed
+// applies a query, for example: AIAttachment.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

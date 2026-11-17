@@ -25,6 +25,9 @@
 | `CORS_ORIGIN` | 前端完整源，例如 `https://exam.school.edu.cn` |
 | `TRUST_PROXY` | 默认 `false`。仅当 API 位于可信反向代理之后时设为 `true`，限流将使用 `X-Forwarded-For` / `X-Real-IP`；直接暴露 API 时必须保持 `false`，否则限流身份可被伪造 |
 | `AUTO_MIGRATE` | 默认 `true`。API 启动时自动执行版本化迁移；使用独立迁移账号或由部署流水线单独迁移时设为 `false` |
+| `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` | 可选。OpenAI 兼容模型服务；未配置时使用本地确定性引擎 |
+| `AI_SETTINGS_SECRET` | 可选。加密学校设置中的厂商 API Key；留空回退到 `JWT_SECRET` |
+| `AI_UPLOAD_DIR` | AI 对话附件落盘目录，默认 `./data/ai-uploads`。生产必须使用持久化卷并纳入备份 |
 | `NEXT_PUBLIC_API_URL` | 构建时注入的 API 地址，修改后必须重新构建前端 |
 
 禁止把 `.env`、访问令牌、密码或模型缓存提交到 Git。
@@ -66,6 +69,8 @@ server {
     }
 
     location /api/ {
+        client_max_body_size 25m;
+        proxy_request_buffering off;
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -81,7 +86,9 @@ server {
 
 - 每日备份 PostgreSQL：`pg_dump -Fc school_db > backup.dump`，定期演练 `pg_restore`。
 - Redis 无需备份，限流数据丢失不影响业务一致性。
-- 原题图片只在内存中处理，数据库与磁盘均不保存；OCR 模型卷只含缓存，可安全重建。
+- OCR 单题图片仍只在内存中处理，不落盘；AI 对话附件会保存到 `AI_UPLOAD_DIR`，需与数据库一起备份。
+- 备份附件目录：`tar czf ai-uploads-$(date +%F).tar.gz data/ai-uploads`，恢复时保持相同路径与权限（目录 `0750`、文件 `0640`）。
+- `AI_UPLOAD_DIR` 建议放在独立数据盘；删除数据库记录不会自动删除文件，需按保留策略定期清理。
 - 迁移前必须备份数据库。API 默认在启动时自动迁移，因此发布新版本前应先完成备份；`migrations/*.down.sql` 仅用于受控回滚演练。若需要严格分离，设置 `AUTO_MIGRATE=false` 并在发布流程中显式执行迁移。
 
 ## 6. OCR 网络安全与资源
@@ -96,7 +103,7 @@ server {
 1. `APP_ENV=production`、强 `JWT_SECRET`、正确 `CORS_ORIGIN` 已配置。
 2. 迁移成功（API 启动日志包含 `database migrations applied`，或手动迁移无报错），`/healthz`、`/readyz` 正常。
 3. 首次访问 `/init` 创建学校与管理员，页面仅展示一次学校代码；初始化后重复调用返回 409。
-4. 教师注册、录题、管理员审核、组卷、打印全流程人工验收。
+4. 教师注册、录题、管理员审核、组卷、打印全流程人工验收；AI 对话上传 PDF/Word 并导入草稿、刷新后历史与工具调用恢复。
 5. 禁用教师或重置密码后旧会话立即失效。
 6. 第二所学校越权、CSV 全量回滚、XSS 白名单消毒等自动化测试全部通过。
 7. 备份策略生效，日志不含密码、Token、认证头或完整题目图片。

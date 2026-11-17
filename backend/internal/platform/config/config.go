@@ -22,6 +22,7 @@ type Config struct {
 	AIModel      string
 	AITimeout    int
 	AIEncryptKey string
+	AIUploadDir  string
 }
 
 func Load() (Config, error) {
@@ -40,6 +41,7 @@ func Load() (Config, error) {
 		AIModel:      envOr("AI_MODEL", "gpt-4o-mini"),
 		AITimeout:    envInt("AI_TIMEOUT_SECONDS", 45),
 		AIEncryptKey: strings.TrimSpace(os.Getenv("AI_SETTINGS_SECRET")),
+		AIUploadDir:  envOr("AI_UPLOAD_DIR", "./data/ai-uploads"),
 	}
 	if cfg.AIEncryptKey == "" {
 		cfg.AIEncryptKey = cfg.JWTSecret

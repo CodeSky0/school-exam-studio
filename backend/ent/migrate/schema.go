@@ -8,6 +8,44 @@ import (
 )
 
 var (
+	// AiAttachmentsColumns holds the columns for the "ai_attachments" table.
+	AiAttachmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "school_id", Type: field.TypeUUID},
+		{Name: "creator_id", Type: field.TypeUUID},
+		{Name: "conversation_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "name", Type: field.TypeString, Size: 255},
+		{Name: "mime", Type: field.TypeString, Size: 120},
+		{Name: "kind", Type: field.TypeString, Size: 20},
+		{Name: "size_bytes", Type: field.TypeInt64},
+		{Name: "storage_path", Type: field.TypeString, Size: 500, Default: ""},
+		{Name: "sha256", Type: field.TypeString, Size: 64, Default: ""},
+		{Name: "extracted_text", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "text_chars", Type: field.TypeInt, Default: 0},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "uploaded"},
+		{Name: "error", Type: field.TypeString, Size: 2147483647, Default: ""},
+	}
+	// AiAttachmentsTable holds the schema information for the "ai_attachments" table.
+	AiAttachmentsTable = &schema.Table{
+		Name:       "ai_attachments",
+		Columns:    AiAttachmentsColumns,
+		PrimaryKey: []*schema.Column{AiAttachmentsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "aiattachment_school_id_creator_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AiAttachmentsColumns[4], AiAttachmentsColumns[5], AiAttachmentsColumns[1]},
+			},
+			{
+				Name:    "aiattachment_school_id_sha256",
+				Unique:  false,
+				Columns: []*schema.Column{AiAttachmentsColumns[4], AiAttachmentsColumns[12]},
+			},
+		},
+	}
 	// AiAuditLogsColumns holds the columns for the "ai_audit_logs" table.
 	AiAuditLogsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -37,6 +75,64 @@ var (
 				Name:    "aiauditlog_school_id_actor_id_created_at",
 				Unique:  false,
 				Columns: []*schema.Column{AiAuditLogsColumns[4], AiAuditLogsColumns[5], AiAuditLogsColumns[1]},
+			},
+		},
+	}
+	// AiConversationsColumns holds the columns for the "ai_conversations" table.
+	AiConversationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "school_id", Type: field.TypeUUID},
+		{Name: "creator_id", Type: field.TypeUUID},
+		{Name: "title", Type: field.TypeString, Size: 120, Default: "新对话"},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "pinned", Type: field.TypeBool, Default: false},
+		{Name: "message_count", Type: field.TypeInt, Default: 0},
+		{Name: "last_message_at", Type: field.TypeTime},
+	}
+	// AiConversationsTable holds the schema information for the "ai_conversations" table.
+	AiConversationsTable = &schema.Table{
+		Name:       "ai_conversations",
+		Columns:    AiConversationsColumns,
+		PrimaryKey: []*schema.Column{AiConversationsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "aiconversation_school_id_creator_id_pinned_last_message_at",
+				Unique:  false,
+				Columns: []*schema.Column{AiConversationsColumns[4], AiConversationsColumns[5], AiConversationsColumns[8], AiConversationsColumns[10]},
+			},
+		},
+	}
+	// AiMessagesColumns holds the columns for the "ai_messages" table.
+	AiMessagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "school_id", Type: field.TypeUUID},
+		{Name: "conversation_id", Type: field.TypeUUID},
+		{Name: "role", Type: field.TypeString, Size: 20, Default: "user"},
+		{Name: "content", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "succeeded"},
+		{Name: "provider", Type: field.TypeString, Size: 20, Default: "local"},
+		{Name: "model", Type: field.TypeString, Size: 80, Default: ""},
+		{Name: "tool_calls", Type: field.TypeJSON},
+		{Name: "attachments", Type: field.TypeJSON},
+		{Name: "run_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "error", Type: field.TypeString, Size: 2147483647, Default: ""},
+	}
+	// AiMessagesTable holds the schema information for the "ai_messages" table.
+	AiMessagesTable = &schema.Table{
+		Name:       "ai_messages",
+		Columns:    AiMessagesColumns,
+		PrimaryKey: []*schema.Column{AiMessagesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "aimessage_school_id_conversation_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AiMessagesColumns[4], AiMessagesColumns[5], AiMessagesColumns[1]},
 			},
 		},
 	}
@@ -320,7 +416,10 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AiAttachmentsTable,
 		AiAuditLogsTable,
+		AiConversationsTable,
+		AiMessagesTable,
 		AiRunsTable,
 		PapersTable,
 		PaperQuestionsTable,

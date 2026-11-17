@@ -63,6 +63,10 @@ func main() {
 	paperService := paper.NewService(paper.NewRepository(client))
 	adminService := admin.NewService(admin.NewRepository(client), passwordHasher)
 	importService := importer.NewService(importer.NewRepository(client), sanitizer)
+	ocrClient, err := ocr.NewClient(cfg.OCRURL, ocr.DefaultTimeout, ocr.DefaultMaxConcurrent)
+	if err != nil {
+		log.Fatal(err)
+	}
 	aiService := ai.NewService(ai.Options{
 		QuestionService: questionService,
 		PaperService:    paperService,
@@ -72,11 +76,9 @@ func main() {
 		LLMModel:        cfg.AIModel,
 		LLMTimeout:      time.Duration(cfg.AITimeout) * time.Second,
 		SettingsSecret:  cfg.AIEncryptKey,
+		OCR:             ocrClient,
+		UploadDir:       cfg.AIUploadDir,
 	})
-	ocrClient, err := ocr.NewClient(cfg.OCRURL, ocr.DefaultTimeout, ocr.DefaultMaxConcurrent)
-	if err != nil {
-		log.Fatal(err)
-	}
 	e := httpserver.New(client, httpserver.Options{
 		AuthService:     authService,
 		QuestionService: questionService,

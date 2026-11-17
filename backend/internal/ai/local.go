@@ -355,6 +355,11 @@ func generateLocalItem(subject, grade, knowledgePoint, category, questionType st
 
 func detectSubject(text string) string {
 	lower := strings.ToLower(text)
+	for _, subject := range subjectOrder {
+		if strings.Contains(text, subject) {
+			return subject
+		}
+	}
 	best, bestScore := "", 0
 	for _, subject := range subjectOrder {
 		score := 0

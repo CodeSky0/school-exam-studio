@@ -49,8 +49,8 @@ func New(client *ent.Client, options ...Options) *echo.Echo {
 	e.HTTPErrorHandler = apperror.HTTPErrorHandler
 	e.Use(echomiddleware.RequestID())
 	e.Use(echomiddleware.Recover())
-	// JSON handlers apply stricter limits. Multipart OCR permits headers in addition to its 5 MiB image.
-	e.Use(echomiddleware.BodyLimit("6M"))
+	// JSON handlers apply stricter limits. Multipart OCR enforces 5 MiB per image and AI uploads enforce 20 MiB per document.
+	e.Use(echomiddleware.BodyLimit("25M"))
 	e.Use(echomiddleware.CORSWithConfig(echomiddleware.CORSConfig{
 		AllowOrigins:     []string{configuration.CORSOrigin},
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete, http.MethodOptions},

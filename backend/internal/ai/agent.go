@@ -24,6 +24,7 @@ const (
 	IntentGenerateQuestions = "generate_questions"
 	IntentComposePaper      = "compose_paper"
 	IntentAnalyzeQuestion   = "analyze_question"
+	IntentChat              = "chat"
 	IntentUnknown           = "unknown"
 
 	stepSucceeded = "succeeded"

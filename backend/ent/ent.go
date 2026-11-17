@@ -7,7 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"school-exam-studio/backend/ent/aiattachment"
 	"school-exam-studio/backend/ent/aiauditlog"
+	"school-exam-studio/backend/ent/aiconversation"
+	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
@@ -80,7 +83,10 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
+			aiattachment.Table:    aiattachment.ValidColumn,
 			aiauditlog.Table:      aiauditlog.ValidColumn,
+			aiconversation.Table:  aiconversation.ValidColumn,
+			aimessage.Table:       aimessage.ValidColumn,
 			airun.Table:           airun.ValidColumn,
 			paper.Table:           paper.ValidColumn,
 			paperquestion.Table:   paperquestion.ValidColumn,

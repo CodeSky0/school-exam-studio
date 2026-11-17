@@ -1,0 +1,398 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Cross2Icon,
+  HamburgerMenuIcon,
+  LayersIcon,
+  LightningBoltIcon,
+  MagicWandIcon,
+  PlusIcon,
+} from "@radix-ui/react-icons";
+import type { CurrentUser } from "@/lib/schemas";
+import { aiQueryKeys, getAIStatus } from "@/lib/ai";
+import {
+  aiChatQueryKeys,
+  createConversation,
+  deleteConversation,
+  listConversations,
+  listMessages,
+  listSkills,
+  listTools,
+  MAX_ATTACHMENTS,
+  sendMessage,
+  updateConversation,
+  uploadAttachment,
+  type AttachmentRef,
+  type Conversation,
+  type Skill,
+} from "@/lib/ai-chat";
+import { paperQueryKeys } from "@/lib/papers";
+import { questionQueryKeys } from "@/lib/questions";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ConversationSidebar } from "./conversation-sidebar";
+import { MessageList } from "./message-list";
+import { Composer } from "./composer";
+import { SkillsPanel } from "./skills-panel";
+import type { UploadTask } from "./attachment-tray";
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "操作失败，请稍后重试";
+}
+
+function uploadValidation(file: File) {
+  const isImage = file.type.startsWith("image/");
+  if (isImage && file.size > 10 * 1024 * 1024) return "图片不能超过 10 MiB";
+  if (!isImage && file.size > 20 * 1024 * 1024) return "文档不能超过 20 MiB";
+  const lower = file.name.toLowerCase();
+  const allowed = isImage || [".pdf", ".docx", ".txt", ".md", ".csv"].some((ext) => lower.endsWith(ext));
+  if (!allowed) return "仅支持图片、PDF、DOCX、TXT、Markdown、CSV";
+  return "";
+}
+
+export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
+  const scope: "teacher" | "admin" = user.role === "admin" ? "admin" : "teacher";
+  const queryClient = useQueryClient();
+  const [activeID, setActiveID] = useState("");
+  const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
+  const [uploads, setUploads] = useState<UploadTask[]>([]);
+  const [model, setModel] = useState("");
+  const [pendingContent, setPendingContent] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const conversationsQuery = useQuery({
+    queryKey: aiChatQueryKeys.conversations,
+    queryFn: () => listConversations(40),
+  });
+  const conversations = conversationsQuery.data?.items ?? [];
+  const activeConversation = activeID ? conversations.find((item) => item.id === activeID) : conversations[0];
+  const effectiveActiveID = activeConversation?.id ?? "";
+  const messagesQuery = useQuery({
+    queryKey: aiChatQueryKeys.messages(effectiveActiveID),
+    queryFn: () => listMessages(effectiveActiveID),
+    enabled: Boolean(effectiveActiveID),
+  });
+  const statusQuery = useQuery({ queryKey: aiQueryKeys.status, queryFn: getAIStatus });
+  const skillsQuery = useQuery({ queryKey: aiChatQueryKeys.skills, queryFn: listSkills, staleTime: 5 * 60_000 });
+  const toolsQuery = useQuery({ queryKey: aiChatQueryKeys.tools, queryFn: listTools, staleTime: 5 * 60_000 });
+
+  const messages = messagesQuery.data?.items ?? [];
+  const skills = skillsQuery.data?.items ?? [];
+  const tools = toolsQuery.data?.items ?? [];
+  const effectiveModel = model || statusQuery.data?.default_model || "";
+  const readOnly = Boolean(activeConversation && activeConversation.creator_id !== user.id);
+
+  const createMutation = useMutation({
+    mutationFn: () => createConversation(),
+    onSuccess: (conversation) => {
+      setActiveID(conversation.id);
+      setDraft("");
+      setAttachments([]);
+      setUploads([]);
+      setActionError("");
+      void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
+    },
+    onError: (error) => setActionError(errorMessage(error)),
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: (variables: { id: string; content: string; attachmentIDs: string[]; model: string }) =>
+      sendMessage(variables.id, {
+        content: variables.content,
+        attachment_ids: variables.attachmentIDs,
+        model: variables.model,
+      }),
+    onSuccess: (result) => {
+      setDraft("");
+      setAttachments([]);
+      setPendingContent("");
+      setActionError("");
+      setActiveID(result.conversation.id);
+      void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.messages(result.conversation.id) });
+      void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
+      void queryClient.invalidateQueries({ queryKey: questionQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: paperQueryKeys.all });
+    },
+    onError: (error) => {
+      setPendingContent("");
+      setActionError(errorMessage(error));
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (variables: { id: string; title?: string; pinned?: boolean }) => updateConversation(variables.id, {
+      title: variables.title,
+      pinned: variables.pinned,
+    }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
+    },
+    onError: (error) => setActionError(errorMessage(error)),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteConversation(id),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<{ items: Conversation[] }>(aiChatQueryKeys.conversations, (current) => current
+        ? { ...current, items: current.items.filter((item) => item.id !== id) }
+        : current);
+      if (id === effectiveActiveID) {
+        setActiveID("");
+        setDraft("");
+        setAttachments([]);
+      }
+      void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
+    },
+    onError: (error) => setActionError(errorMessage(error)),
+  });
+
+  const isSending = sendMutation.isPending || createMutation.isPending || creating;
+
+  function selectConversation(id: string) {
+    if (id === effectiveActiveID) return;
+    setActiveID(id);
+    setDraft("");
+    setAttachments([]);
+    setUploads([]);
+    setPendingContent("");
+    setActionError("");
+    setSidebarOpen(false);
+  }
+
+  async function handleSend() {
+    const content = draft.trim();
+    if (isSending || readOnly) return;
+    if (!content && attachments.length === 0) return;
+    if (uploads.some((item) => item.status === "uploading")) {
+      setActionError("请等待附件解析完成后再发送");
+      return;
+    }
+    if (uploads.some((item) => item.status === "failed")) {
+      setActionError("有附件上传失败，请移除失败项后重试");
+      return;
+    }
+    setActionError("");
+    setPendingContent(content || "请解析这些附件");
+    let conversationID = effectiveActiveID;
+    if (!conversationID) {
+      setCreating(true);
+      try {
+        const conversation = await createConversation();
+        conversationID = conversation.id;
+        setActiveID(conversation.id);
+        void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
+      } catch (error) {
+        setPendingContent("");
+        setActionError(errorMessage(error));
+        return;
+      } finally {
+        setCreating(false);
+      }
+    }
+    sendMutation.mutate({
+      id: conversationID,
+      content,
+      attachmentIDs: attachments.map((item) => item.id),
+      model: effectiveModel,
+    });
+  }
+
+  const handleUploadFiles = useCallback((files: File[]) => {
+    const available = MAX_ATTACHMENTS - attachments.length - uploads.filter((item) => item.status === "uploading").length;
+    if (available <= 0) {
+      setActionError(`每轮最多上传 ${MAX_ATTACHMENTS} 个附件`);
+      return;
+    }
+    const selected = files.slice(0, available);
+    if (files.length > selected.length) {
+      setActionError(`每轮最多上传 ${MAX_ATTACHMENTS} 个附件，已忽略多余文件`);
+    }
+    const tasks: UploadTask[] = [];
+    const valid: File[] = [];
+    for (const file of selected) {
+      const invalid = uploadValidation(file);
+      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      if (invalid) {
+        tasks.push({ id, name: file.name, status: "failed", error: invalid });
+      } else {
+        valid.push(file);
+        tasks.push({ id, name: file.name, status: "uploading" });
+      }
+    }
+    if (tasks.length > 0) setUploads((current) => [...current, ...tasks]);
+    valid.forEach((file, index) => {
+      const task = tasks.filter((item) => item.status === "uploading")[index];
+      uploadAttachment(file, effectiveActiveID || undefined).then((attachment) => {
+        if (attachment.status === "failed") {
+          setUploads((current) => current.map((item) => item.id === task.id
+            ? { ...item, status: "failed", error: attachment.error ?? "解析失败" }
+            : item));
+          return;
+        }
+        setUploads((current) => current.filter((item) => item.id !== task.id));
+        setAttachments((current) => current.some((item) => item.id === attachment.id) ? current : [...current, attachment]);
+      }).catch((error: unknown) => {
+        setUploads((current) => current.map((item) => item.id === task.id
+          ? { ...item, status: "failed", error: errorMessage(error) }
+          : item));
+      });
+    });
+  }, [effectiveActiveID, attachments.length, uploads]);
+
+  function useSkill(skill: Skill) {
+    setDraft(skill.prompt);
+    setActionError("");
+    setPanelOpen(false);
+    if (skill.accepts_attachments) {
+      setActionError(`${skill.title}需要附件，请点击输入框左侧的 + 上传图片、PDF 或 Word 文件。`);
+    }
+  }
+
+  function togglePin(conversation: Conversation) {
+    updateMutation.mutate({ id: conversation.id, pinned: !conversation.pinned });
+  }
+
+  const error = [
+    actionError,
+    messagesQuery.error ? errorMessage(messagesQuery.error) : "",
+    conversationsQuery.error ? errorMessage(conversationsQuery.error) : "",
+  ].filter(Boolean).join("；");
+
+  const headerTitle = activeConversation?.title ?? "新的 AI 对话";
+  const provider = statusQuery.data?.provider ?? "local";
+  const providerLabel = provider === "llm" ? "大模型" : provider === "local_fallback" ? "本地降级" : "本地引擎";
+
+  const models = useMemo(() => statusQuery.data?.models ?? [], [statusQuery.data?.models]);
+
+  return (
+    <div className="motion-rise flex h-[calc(100dvh-6.5rem)] min-h-[30rem] flex-col overflow-hidden rounded-xl border border-border bg-paper shadow-sm lg:h-[calc(100dvh-9rem)]">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-neutral-1 px-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button type="button" size="icon" variant="ghost" className="lg:hidden" aria-label="打开会话历史" onClick={() => setSidebarOpen(true)}>
+            <HamburgerMenuIcon />
+          </Button>
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-accent/25 bg-accent-soft text-accent-strong">
+            <MagicWandIcon className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-copy-13 font-medium text-neutral-9">{headerTitle}</p>
+            <p className="truncate text-caption-10 text-neutral-6">
+              {readOnly ? "只读会话 · 仅创建者可继续对话" : scope === "admin" ? "管理员 Agent · 可检索本校题库，写入仅限本人草稿" : `教师 Agent · ${user.subject} · 写入仅限本人草稿`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn("hidden items-center gap-1 rounded-full border px-2.5 py-1 text-caption-10 font-medium sm:inline-flex", provider === "llm" ? "border-accent/30 bg-accent-soft text-accent-strong" : "border-info/25 bg-info-soft text-info")}>
+            <LightningBoltIcon className="size-3" />{providerLabel}
+          </span>
+          <span className="hidden rounded-full border border-border bg-neutral-2 px-2.5 py-1 text-caption-10 text-neutral-7 md:inline-flex">
+            {messages.length} 条消息
+          </span>
+          <Button type="button" size="icon" variant="ghost" aria-label="新建对话" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+            <PlusIcon />
+          </Button>
+          <Button type="button" size="icon" variant="ghost" className="xl:hidden" aria-label="打开技能与工具" onClick={() => setPanelOpen(true)}>
+            <LayersIcon />
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)_19rem]">
+        {sidebarOpen ? (
+          <button type="button" aria-label="关闭会话历史" className="fixed inset-0 z-30 bg-neutral-10/25 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />
+        ) : null}
+        <aside
+          className={cn(
+            "fixed inset-y-0 left-0 z-40 w-72 border-r border-border bg-neutral-1 transition-transform duration-200 ease-out lg:static lg:z-auto lg:flex lg:w-auto lg:translate-x-0",
+            sidebarOpen ? "flex translate-x-0" : "flex -translate-x-full",
+          )}
+          aria-label="会话历史"
+        >
+          <div className="flex w-full flex-col">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 lg:hidden">
+              <span className="text-copy-13 font-medium text-neutral-9">对话历史</span>
+              <Button type="button" size="icon" variant="ghost" aria-label="关闭会话历史" onClick={() => setSidebarOpen(false)}><Cross2Icon /></Button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <ConversationSidebar
+                conversations={conversations}
+                activeID={effectiveActiveID}
+                isLoading={conversationsQuery.isPending}
+                error={conversationsQuery.error ? errorMessage(conversationsQuery.error) : ""}
+                onSelect={selectConversation}
+                onCreate={() => createMutation.mutate()}
+                onRename={(id, title) => updateMutation.mutate({ id, title })}
+                onTogglePin={togglePin}
+                onDelete={(id) => deleteMutation.mutate(id)}
+              />
+            </div>
+          </div>
+        </aside>
+
+        <section className="flex min-h-0 min-w-0 flex-col bg-paper" aria-label="AI 对话">
+          <MessageList
+            messages={messages}
+            pendingContent={pendingContent}
+            pendingAttachments={attachments}
+            isSending={isSending}
+            error={error}
+            skills={readOnly ? [] : skills}
+            scope={scope}
+            onUseSkill={useSkill}
+          />
+          <Composer
+            value={draft}
+            onChange={setDraft}
+            onSubmit={() => { void handleSend(); }}
+            attachments={attachments}
+            uploads={uploads}
+            isSending={isSending}
+            models={models}
+            model={effectiveModel}
+            onModelChange={setModel}
+            onRemoveAttachment={(id) => setAttachments((current) => current.filter((item) => item.id !== id))}
+            onDismissUpload={(id) => setUploads((current) => current.filter((item) => item.id !== id))}
+            onUploadFiles={handleUploadFiles}
+            skills={readOnly ? [] : skills}
+            onUseSkill={useSkill}
+            readOnly={readOnly}
+          />
+        </section>
+
+        {panelOpen ? (
+          <button type="button" aria-label="关闭技能与工具" className="fixed inset-0 z-30 bg-neutral-10/25 backdrop-blur-sm xl:hidden" onClick={() => setPanelOpen(false)} />
+        ) : null}
+        <aside
+          className={cn(
+            "fixed inset-y-0 right-0 z-40 w-80 border-l border-border bg-neutral-1 transition-transform duration-200 ease-out xl:static xl:z-auto xl:block xl:w-auto xl:translate-x-0",
+            panelOpen ? "block translate-x-0" : "hidden translate-x-full",
+          )}
+          aria-label="技能与工具"
+        >
+          <div className="flex h-full flex-col">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 xl:hidden">
+              <span className="text-copy-13 font-medium text-neutral-9">技能与工具</span>
+              <Button type="button" size="icon" variant="ghost" aria-label="关闭技能与工具" onClick={() => setPanelOpen(false)}><Cross2Icon /></Button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <SkillsPanel
+                status={statusQuery.data}
+                isStatusPending={statusQuery.isPending}
+                statusError={statusQuery.isError}
+                skills={skills}
+                tools={tools}
+                onUseSkill={useSkill}
+              />
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}

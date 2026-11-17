@@ -3,7 +3,10 @@
 package ent
 
 import (
+	"school-exam-studio/backend/ent/aiattachment"
 	"school-exam-studio/backend/ent/aiauditlog"
+	"school-exam-studio/backend/ent/aiconversation"
+	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
@@ -21,6 +24,67 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	aiattachmentMixin := schema.AIAttachment{}.Mixin()
+	aiattachmentMixinFields0 := aiattachmentMixin[0].Fields()
+	_ = aiattachmentMixinFields0
+	aiattachmentFields := schema.AIAttachment{}.Fields()
+	_ = aiattachmentFields
+	// aiattachmentDescCreatedAt is the schema descriptor for created_at field.
+	aiattachmentDescCreatedAt := aiattachmentMixinFields0[1].Descriptor()
+	// aiattachment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	aiattachment.DefaultCreatedAt = aiattachmentDescCreatedAt.Default.(func() time.Time)
+	// aiattachmentDescUpdatedAt is the schema descriptor for updated_at field.
+	aiattachmentDescUpdatedAt := aiattachmentMixinFields0[2].Descriptor()
+	// aiattachment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	aiattachment.DefaultUpdatedAt = aiattachmentDescUpdatedAt.Default.(func() time.Time)
+	// aiattachment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	aiattachment.UpdateDefaultUpdatedAt = aiattachmentDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// aiattachmentDescName is the schema descriptor for name field.
+	aiattachmentDescName := aiattachmentFields[2].Descriptor()
+	// aiattachment.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	aiattachment.NameValidator = aiattachmentDescName.Validators[0].(func(string) error)
+	// aiattachmentDescMime is the schema descriptor for mime field.
+	aiattachmentDescMime := aiattachmentFields[3].Descriptor()
+	// aiattachment.MimeValidator is a validator for the "mime" field. It is called by the builders before save.
+	aiattachment.MimeValidator = aiattachmentDescMime.Validators[0].(func(string) error)
+	// aiattachmentDescKind is the schema descriptor for kind field.
+	aiattachmentDescKind := aiattachmentFields[4].Descriptor()
+	// aiattachment.KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	aiattachment.KindValidator = aiattachmentDescKind.Validators[0].(func(string) error)
+	// aiattachmentDescStoragePath is the schema descriptor for storage_path field.
+	aiattachmentDescStoragePath := aiattachmentFields[6].Descriptor()
+	// aiattachment.DefaultStoragePath holds the default value on creation for the storage_path field.
+	aiattachment.DefaultStoragePath = aiattachmentDescStoragePath.Default.(string)
+	// aiattachment.StoragePathValidator is a validator for the "storage_path" field. It is called by the builders before save.
+	aiattachment.StoragePathValidator = aiattachmentDescStoragePath.Validators[0].(func(string) error)
+	// aiattachmentDescSha256 is the schema descriptor for sha256 field.
+	aiattachmentDescSha256 := aiattachmentFields[7].Descriptor()
+	// aiattachment.DefaultSha256 holds the default value on creation for the sha256 field.
+	aiattachment.DefaultSha256 = aiattachmentDescSha256.Default.(string)
+	// aiattachment.Sha256Validator is a validator for the "sha256" field. It is called by the builders before save.
+	aiattachment.Sha256Validator = aiattachmentDescSha256.Validators[0].(func(string) error)
+	// aiattachmentDescExtractedText is the schema descriptor for extracted_text field.
+	aiattachmentDescExtractedText := aiattachmentFields[8].Descriptor()
+	// aiattachment.DefaultExtractedText holds the default value on creation for the extracted_text field.
+	aiattachment.DefaultExtractedText = aiattachmentDescExtractedText.Default.(string)
+	// aiattachmentDescTextChars is the schema descriptor for text_chars field.
+	aiattachmentDescTextChars := aiattachmentFields[9].Descriptor()
+	// aiattachment.DefaultTextChars holds the default value on creation for the text_chars field.
+	aiattachment.DefaultTextChars = aiattachmentDescTextChars.Default.(int)
+	// aiattachmentDescStatus is the schema descriptor for status field.
+	aiattachmentDescStatus := aiattachmentFields[10].Descriptor()
+	// aiattachment.DefaultStatus holds the default value on creation for the status field.
+	aiattachment.DefaultStatus = aiattachmentDescStatus.Default.(string)
+	// aiattachment.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	aiattachment.StatusValidator = aiattachmentDescStatus.Validators[0].(func(string) error)
+	// aiattachmentDescError is the schema descriptor for error field.
+	aiattachmentDescError := aiattachmentFields[11].Descriptor()
+	// aiattachment.DefaultError holds the default value on creation for the error field.
+	aiattachment.DefaultError = aiattachmentDescError.Default.(string)
+	// aiattachmentDescID is the schema descriptor for id field.
+	aiattachmentDescID := aiattachmentMixinFields0[0].Descriptor()
+	// aiattachment.DefaultID holds the default value on creation for the id field.
+	aiattachment.DefaultID = aiattachmentDescID.Default.(func() uuid.UUID)
 	aiauditlogMixin := schema.AIAuditLog{}.Mixin()
 	aiauditlogMixinFields0 := aiauditlogMixin[0].Fields()
 	_ = aiauditlogMixinFields0
@@ -52,6 +116,108 @@ func init() {
 	aiauditlogDescID := aiauditlogMixinFields0[0].Descriptor()
 	// aiauditlog.DefaultID holds the default value on creation for the id field.
 	aiauditlog.DefaultID = aiauditlogDescID.Default.(func() uuid.UUID)
+	aiconversationMixin := schema.AIConversation{}.Mixin()
+	aiconversationMixinFields0 := aiconversationMixin[0].Fields()
+	_ = aiconversationMixinFields0
+	aiconversationFields := schema.AIConversation{}.Fields()
+	_ = aiconversationFields
+	// aiconversationDescCreatedAt is the schema descriptor for created_at field.
+	aiconversationDescCreatedAt := aiconversationMixinFields0[1].Descriptor()
+	// aiconversation.DefaultCreatedAt holds the default value on creation for the created_at field.
+	aiconversation.DefaultCreatedAt = aiconversationDescCreatedAt.Default.(func() time.Time)
+	// aiconversationDescUpdatedAt is the schema descriptor for updated_at field.
+	aiconversationDescUpdatedAt := aiconversationMixinFields0[2].Descriptor()
+	// aiconversation.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	aiconversation.DefaultUpdatedAt = aiconversationDescUpdatedAt.Default.(func() time.Time)
+	// aiconversation.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	aiconversation.UpdateDefaultUpdatedAt = aiconversationDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// aiconversationDescTitle is the schema descriptor for title field.
+	aiconversationDescTitle := aiconversationFields[1].Descriptor()
+	// aiconversation.DefaultTitle holds the default value on creation for the title field.
+	aiconversation.DefaultTitle = aiconversationDescTitle.Default.(string)
+	// aiconversation.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	aiconversation.TitleValidator = aiconversationDescTitle.Validators[0].(func(string) error)
+	// aiconversationDescStatus is the schema descriptor for status field.
+	aiconversationDescStatus := aiconversationFields[2].Descriptor()
+	// aiconversation.DefaultStatus holds the default value on creation for the status field.
+	aiconversation.DefaultStatus = aiconversationDescStatus.Default.(string)
+	// aiconversation.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	aiconversation.StatusValidator = aiconversationDescStatus.Validators[0].(func(string) error)
+	// aiconversationDescPinned is the schema descriptor for pinned field.
+	aiconversationDescPinned := aiconversationFields[3].Descriptor()
+	// aiconversation.DefaultPinned holds the default value on creation for the pinned field.
+	aiconversation.DefaultPinned = aiconversationDescPinned.Default.(bool)
+	// aiconversationDescMessageCount is the schema descriptor for message_count field.
+	aiconversationDescMessageCount := aiconversationFields[4].Descriptor()
+	// aiconversation.DefaultMessageCount holds the default value on creation for the message_count field.
+	aiconversation.DefaultMessageCount = aiconversationDescMessageCount.Default.(int)
+	// aiconversationDescLastMessageAt is the schema descriptor for last_message_at field.
+	aiconversationDescLastMessageAt := aiconversationFields[5].Descriptor()
+	// aiconversation.DefaultLastMessageAt holds the default value on creation for the last_message_at field.
+	aiconversation.DefaultLastMessageAt = aiconversationDescLastMessageAt.Default.(func() time.Time)
+	// aiconversationDescID is the schema descriptor for id field.
+	aiconversationDescID := aiconversationMixinFields0[0].Descriptor()
+	// aiconversation.DefaultID holds the default value on creation for the id field.
+	aiconversation.DefaultID = aiconversationDescID.Default.(func() uuid.UUID)
+	aimessageMixin := schema.AIMessage{}.Mixin()
+	aimessageMixinFields0 := aimessageMixin[0].Fields()
+	_ = aimessageMixinFields0
+	aimessageFields := schema.AIMessage{}.Fields()
+	_ = aimessageFields
+	// aimessageDescCreatedAt is the schema descriptor for created_at field.
+	aimessageDescCreatedAt := aimessageMixinFields0[1].Descriptor()
+	// aimessage.DefaultCreatedAt holds the default value on creation for the created_at field.
+	aimessage.DefaultCreatedAt = aimessageDescCreatedAt.Default.(func() time.Time)
+	// aimessageDescUpdatedAt is the schema descriptor for updated_at field.
+	aimessageDescUpdatedAt := aimessageMixinFields0[2].Descriptor()
+	// aimessage.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	aimessage.DefaultUpdatedAt = aimessageDescUpdatedAt.Default.(func() time.Time)
+	// aimessage.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	aimessage.UpdateDefaultUpdatedAt = aimessageDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// aimessageDescRole is the schema descriptor for role field.
+	aimessageDescRole := aimessageFields[1].Descriptor()
+	// aimessage.DefaultRole holds the default value on creation for the role field.
+	aimessage.DefaultRole = aimessageDescRole.Default.(string)
+	// aimessage.RoleValidator is a validator for the "role" field. It is called by the builders before save.
+	aimessage.RoleValidator = aimessageDescRole.Validators[0].(func(string) error)
+	// aimessageDescContent is the schema descriptor for content field.
+	aimessageDescContent := aimessageFields[2].Descriptor()
+	// aimessage.DefaultContent holds the default value on creation for the content field.
+	aimessage.DefaultContent = aimessageDescContent.Default.(string)
+	// aimessageDescStatus is the schema descriptor for status field.
+	aimessageDescStatus := aimessageFields[3].Descriptor()
+	// aimessage.DefaultStatus holds the default value on creation for the status field.
+	aimessage.DefaultStatus = aimessageDescStatus.Default.(string)
+	// aimessage.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	aimessage.StatusValidator = aimessageDescStatus.Validators[0].(func(string) error)
+	// aimessageDescProvider is the schema descriptor for provider field.
+	aimessageDescProvider := aimessageFields[4].Descriptor()
+	// aimessage.DefaultProvider holds the default value on creation for the provider field.
+	aimessage.DefaultProvider = aimessageDescProvider.Default.(string)
+	// aimessage.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	aimessage.ProviderValidator = aimessageDescProvider.Validators[0].(func(string) error)
+	// aimessageDescModel is the schema descriptor for model field.
+	aimessageDescModel := aimessageFields[5].Descriptor()
+	// aimessage.DefaultModel holds the default value on creation for the model field.
+	aimessage.DefaultModel = aimessageDescModel.Default.(string)
+	// aimessage.ModelValidator is a validator for the "model" field. It is called by the builders before save.
+	aimessage.ModelValidator = aimessageDescModel.Validators[0].(func(string) error)
+	// aimessageDescToolCalls is the schema descriptor for tool_calls field.
+	aimessageDescToolCalls := aimessageFields[6].Descriptor()
+	// aimessage.DefaultToolCalls holds the default value on creation for the tool_calls field.
+	aimessage.DefaultToolCalls = aimessageDescToolCalls.Default.([]map[string]interface{})
+	// aimessageDescAttachments is the schema descriptor for attachments field.
+	aimessageDescAttachments := aimessageFields[7].Descriptor()
+	// aimessage.DefaultAttachments holds the default value on creation for the attachments field.
+	aimessage.DefaultAttachments = aimessageDescAttachments.Default.([]map[string]interface{})
+	// aimessageDescError is the schema descriptor for error field.
+	aimessageDescError := aimessageFields[9].Descriptor()
+	// aimessage.DefaultError holds the default value on creation for the error field.
+	aimessage.DefaultError = aimessageDescError.Default.(string)
+	// aimessageDescID is the schema descriptor for id field.
+	aimessageDescID := aimessageMixinFields0[0].Descriptor()
+	// aimessage.DefaultID holds the default value on creation for the id field.
+	aimessage.DefaultID = aimessageDescID.Default.(func() uuid.UUID)
 	airunMixin := schema.AIRun{}.Mixin()
 	airunMixinFields0 := airunMixin[0].Fields()
 	_ = airunMixinFields0

@@ -8,6 +8,18 @@ import (
 	"school-exam-studio/backend/ent"
 )
 
+// The AIAttachmentFunc type is an adapter to allow the use of ordinary
+// function as AIAttachment mutator.
+type AIAttachmentFunc func(context.Context, *ent.AIAttachmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AIAttachmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AIAttachmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AIAttachmentMutation", m)
+}
+
 // The AIAuditLogFunc type is an adapter to allow the use of ordinary
 // function as AIAuditLog mutator.
 type AIAuditLogFunc func(context.Context, *ent.AIAuditLogMutation) (ent.Value, error)
@@ -18,6 +30,30 @@ func (f AIAuditLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AIAuditLogMutation", m)
+}
+
+// The AIConversationFunc type is an adapter to allow the use of ordinary
+// function as AIConversation mutator.
+type AIConversationFunc func(context.Context, *ent.AIConversationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AIConversationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AIConversationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AIConversationMutation", m)
+}
+
+// The AIMessageFunc type is an adapter to allow the use of ordinary
+// function as AIMessage mutator.
+type AIMessageFunc func(context.Context, *ent.AIMessageMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AIMessageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AIMessageMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AIMessageMutation", m)
 }
 
 // The AIRunFunc type is an adapter to allow the use of ordinary

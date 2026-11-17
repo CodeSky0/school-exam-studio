@@ -6,8 +6,17 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// AIAttachment is the predicate function for aiattachment builders.
+type AIAttachment func(*sql.Selector)
+
 // AIAuditLog is the predicate function for aiauditlog builders.
 type AIAuditLog func(*sql.Selector)
+
+// AIConversation is the predicate function for aiconversation builders.
+type AIConversation func(*sql.Selector)
+
+// AIMessage is the predicate function for aimessage builders.
+type AIMessage func(*sql.Selector)
 
 // AIRun is the predicate function for airun builders.
 type AIRun func(*sql.Selector)

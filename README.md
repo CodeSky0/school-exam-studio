@@ -6,7 +6,7 @@
 
 - 前端：Next.js 16 App Router、React 19、TypeScript、Tailwind CSS v4、shadcn/ui、TanStack Query、Zustand、Zod、TipTap、KaTeX。
 - 核心后端：Go、Echo、Ent，按 Handler、Service、Repository 分层；PostgreSQL 是唯一业务持久化存储。
-- AI：OpenAI 兼容 Chat Completions 客户端 + 内置确定性本地引擎；Agent 采用确定性意图规划与工具执行，所有写入受草稿权限约束并记录审计日志。
+- AI：OpenAI 兼容 Chat Completions（function calling）+ 内置确定性本地引擎；三栏对话工作台提供持久化会话、图片/文件附件与工具调用时间线，支持 PDF/Word/图片文档智能录题，所有写入受草稿权限约束并记录审计日志。
 - OCR：独立 Python FastAPI sidecar，调用本地 Pix2Text，仅在内存中处理图片，不写题库。
 - Redis：仅用于登录/注册限流与短期缓存，不保存业务事实数据。
 - 测试：Go testing（真实 PostgreSQL）、Vitest、Playwright、OCR 适配层 pytest。
@@ -15,7 +15,7 @@
 frontend/   Next.js 页面、题目编辑器、组卷购物车、A4 预览
 backend/    Echo API、Ent 模型、版本化 SQL 迁移、CSV 模板
 ocr/        Pix2Text FastAPI sidecar
-docs/       设计规格、实施计划、部署与 API 文档
+docs/       设计规格、实施计划、部署、API 与 AI Agent 工具契约
 ```
 
 ## 环境要求
@@ -69,6 +69,8 @@ export AI_MODEL='gpt-4o-mini'
 export AI_TIMEOUT_SECONDS='45'
 # 学校设置中 API Key 的加密密钥；留空回退到 JWT_SECRET
 export AI_SETTINGS_SECRET=''
+# AI 对话附件落盘目录；生产环境需持久化并备份
+export AI_UPLOAD_DIR='./data/ai-uploads'
 # API 启动时默认自动执行迁移；设为 false 可关闭
 export AUTO_MIGRATE='true'
 # API 启动会自动迁移；也可在部署前手动执行 go run cmd/migrate/main.go
@@ -94,18 +96,44 @@ pnpm dev
 3. 教师访问 `/register`，凭学校代码自助注册并直接启用。
 4. 管理员在 `/admin/questions` 审核发布草稿，教师才能将题目加入试卷。
 
-### 6. AI 工作台
+### 6. AI Agent 对话工作台
 
-教师与管理员从侧栏“AI 工作台”或 `/ai` 进入，`/teacher/ai`、`/admin/ai` 继续兼容。管理员可在 `/admin/settings` 配置全校共享模型：选择厂商、填写接口地址与 API Key、启用多个模型并设置默认模型，学校配置优先于环境变量，API Key 加密存储且不会返回前端。保存后点击“测试已保存配置”可验证连通性，失败时会直接显示厂商返回的错误（例如模型被限制为仅限特定客户端）。未配置 `AI_API_KEY` 或管理员停用时使用内置确定性本地引擎，仍可完成分类、知识点、标签、题库体检、模板出题与变式；配置后优先调用 OpenAI 兼容大模型，调用失败自动降级并提示复核。
+教师与管理员从侧栏“AI 助手”或 `/ai` 进入，`/teacher/ai`、`/admin/ai` 继续兼容。工作台是三栏对话界面：左侧是持久化会话历史，中间是消息流与输入区，右侧是可发现、可展开参数的工具与技能目录。
 
-Agent 通过自然语言目标执行固定工具链：题库体检、批量整理分类与知识点、补答案与解析、按知识点出题、生成变式、智能组卷、分析指定题目。安全边界：
+**对话能力**
+
+- 会话、消息与工具调用全部写入 PostgreSQL，刷新或换设备后继续。
+- 支持一次发送最多 5 个附件：PNG/JPEG/WebP（≤10 MiB）、PDF、DOCX、TXT、Markdown、CSV（≤20 MiB）。
+- 图片自动调用 OCR sidecar；PDF/DOCX 在后端抽取文本（扫描版 PDF 会提示改为图片 OCR）。
+- 每条助手消息内嵌完整工具时间线：工具名、参数、状态、耗时、返回摘要、涉及题目 ID 与可展开的原始 JSON。
+- 未配置模型时使用确定性本地规划器；模型调用失败时自动降级，已执行的工具结果不会重复执行。
+
+**内置工具**（`GET /api/v1/ai/tools` 可供外部 Agent 发现）
+
+`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`extract_questions`、`import_document_questions`、`create_questions`、`update_draft`。
+
+**内置技能**（`GET /api/v1/ai/skills`）
+
+文档智能录题、整卷拆题、题库体检与整理、课时练习生成、期末复习卷、错题变式包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
+
+**文档智能录题**
+
+上传 PDF/Word/图片后说“把这份试卷按八年级数学导入题库”，Agent 会先 `extract_questions` 预览切分结果，再调用 `import_document_questions` 写入草稿题库；缺少答案的题会被跳过并在工具结果中列出。单次最多导入 20 道题。
+
+**安全边界**
 
 - AI 只自动修改草稿；已发布题目只读。
-- 教师只能操作自己的草稿，管理员可操作本校草稿。
+- 教师只能操作自己的草稿，管理员可检索本校题库，但写入仅限本人草稿。
 - 所有 AI 写入记录 `ai_audit_logs`，生成内容标记待人工复核。
-- 单次批量最多 10 道题，出题最多 10 道。
+- 单次批量最多 10 道题，出题最多 10 道，文档导入最多 20 道。
 
-密钥只从环境变量读取，不写入数据库、日志、前端响应或 Git。
+**配置**
+
+- `AI_UPLOAD_DIR`：附件落盘目录，默认 `./data/ai-uploads`；生产环境必须持久化并纳入备份。
+- 管理员仍可在 `/admin/settings` 配置全校共享模型；学校配置优先于环境变量，API Key 加密存储且不会返回前端。
+- 旧的一次性 Agent 运行接口 `/api/v1/ai/agent/runs` 保留，历史运行记录与审计仍可查询。
+
+密钥只从环境变量或学校加密配置读取，不写入数据库明文、日志、前端响应或 Git。
 
 ### 7. 启动 OCR（可选）
 
@@ -201,3 +229,4 @@ curl -F "image=@/path/to/formula.png;type=image/png" http://127.0.0.1:8001/v1/re
 - 设计与计划：`docs/superpowers/`
 - 部署：`docs/deployment.md`
 - API：`docs/api.md`
+- AI Agent 工具与技能契约：`docs/ai-agent-tools.md`

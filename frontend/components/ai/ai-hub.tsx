@@ -2,15 +2,15 @@
 
 import { RoleAccess } from "@/components/role-access";
 import { AppShell } from "@/components/app-shell";
-import { AIWorkspace } from "./ai-workspace";
+import { AgentChatWorkspace } from "./chat/agent-chat-workspace";
 
-// AI 工作台对管理员与教师都可用，具体可见范围由 AIWorkspace 按角色收敛。
+// AI 对话工作台对管理员与教师都可用，会话可见范围由后端按角色收敛。
 export function AIHub() {
   return (
     <RoleAccess>
       {(user) => (
         <AppShell user={user}>
-          <AIWorkspace user={user} scope={user.role === "admin" ? "admin" : "teacher"} />
+          <AgentChatWorkspace user={user} />
         </AppShell>
       )}
     </RoleAccess>

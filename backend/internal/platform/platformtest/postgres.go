@@ -47,6 +47,11 @@ func Open(t *testing.T) *ent.Client {
 		name       string
 		deleteRows func() error
 	}{
+		{"ai_audit_logs", func() error { _, err := client.AIAuditLog.Delete().Exec(ctx); return err }},
+		{"ai_attachments", func() error { _, err := client.AIAttachment.Delete().Exec(ctx); return err }},
+		{"ai_messages", func() error { _, err := client.AIMessage.Delete().Exec(ctx); return err }},
+		{"ai_conversations", func() error { _, err := client.AIConversation.Delete().Exec(ctx); return err }},
+		{"ai_runs", func() error { _, err := client.AIRun.Delete().Exec(ctx); return err }},
 		{"paper_questions", func() error { _, err := client.PaperQuestion.Delete().Exec(ctx); return err }},
 		{"papers", func() error { _, err := client.Paper.Delete().Exec(ctx); return err }},
 		{"questions", func() error { _, err := client.Question.Delete().Exec(ctx); return err }},

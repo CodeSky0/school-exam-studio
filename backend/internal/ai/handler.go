@@ -40,6 +40,19 @@ func (h *Handler) Register(group *echo.Group) {
 	group.GET("/ai/agent/runs", h.ListRuns)
 	group.GET("/ai/agent/runs/:id", h.GetRun)
 	group.GET("/ai/audit-logs", h.AuditLogs)
+
+	group.GET("/ai/conversations", h.ListConversations)
+	group.POST("/ai/conversations", h.CreateConversation)
+	group.GET("/ai/conversations/:id", h.GetConversation)
+	group.PATCH("/ai/conversations/:id", h.UpdateConversation)
+	group.DELETE("/ai/conversations/:id", h.DeleteConversation)
+	group.GET("/ai/conversations/:id/messages", h.ListConversationMessages)
+	group.POST("/ai/conversations/:id/messages", h.SendMessage)
+	group.POST("/ai/attachments", h.UploadAttachment)
+	group.GET("/ai/attachments/:id", h.GetAttachment)
+	group.GET("/ai/attachments/:id/content", h.DownloadAttachment)
+	group.GET("/ai/tools", h.ListTools)
+	group.GET("/ai/skills", h.ListSkills)
 }
 
 func (h *Handler) Status(c echo.Context) error {

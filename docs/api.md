@@ -110,6 +110,67 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 | GET | `/ai/agent/runs/:id` | 教师/管理员 | 运行详情；教师仅可读自己的运行 |
 | GET | `/ai/audit-logs?limit=50` | 管理员 | 本校 AI 写入审计日志 |
 
+### AI Agent 对话
+
+对话工作台使用会话-消息模型。会话、消息与工具调用写入 PostgreSQL；附件二进制存放在 `AI_UPLOAD_DIR`，数据库保存元数据与抽取文本。
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET | `/ai/conversations?limit=30` | 教师/管理员 | 会话列表，按置顶与最后消息时间排序；教师仅见自己的会话，管理员可见本校会话 |
+| POST | `/ai/conversations` | 教师/管理员 | 新建会话，可选 `{"title":"..."}`；创建者强制为当前用户 |
+| GET | `/ai/conversations/:id` | 教师/管理员 | 返回 `{"conversation":..., "messages":[...]}`；管理员可读本校会话，教师仅限本人 |
+| PATCH | `/ai/conversations/:id` | 创建者 | 更新 `title` 与/或 `pinned`；管理员也不能修改他人会话 |
+| DELETE | `/ai/conversations/:id` | 创建者 | 软删除会话，题库中已生成的草稿不受影响 |
+| GET | `/ai/conversations/:id/messages?limit=100` | 教师/管理员 | 消息历史，按时间升序，单页最多 200 条 |
+| POST | `/ai/conversations/:id/messages` | 创建者 | 发送消息并同步执行 Agent，返回用户消息、助手消息与更新后的会话 |
+| POST | `/ai/attachments` | 教师/管理员 | multipart 字段 `file`，可选 `conversation_id`；上传后同步解析文本 |
+| GET | `/ai/attachments/:id` | 上传者/管理员 | 附件摘要：类型、状态、文本预览、字符数 |
+| GET | `/ai/attachments/:id/content` | 上传者/管理员 | 原始文件流，`inline` 展示，仅浏览器会话可访问 |
+| GET | `/ai/tools` | 教师/管理员 | 工具目录：名称、标签、说明、JSON Schema、是否写操作 |
+| GET | `/ai/skills` | 教师/管理员 | 内置技能目录：提示词、所需工具、是否接受附件 |
+
+发送消息请求：
+
+```json
+{
+  "content": "把这份试卷按八年级数学导入题库",
+  "attachment_ids": ["5f8e..."],
+  "model": ""
+}
+```
+
+消息响应中的 `tool_calls` 是完整工具时间线：
+
+```json
+{
+  "id": "msg_...",
+  "role": "assistant",
+  "content": "已完成：从文档切分 12 道题并导入 10 道草稿。",
+  "provider": "local",
+  "tool_calls": [
+    {
+      "name": "extract_questions",
+      "label": "文档切题",
+      "status": "succeeded",
+      "arguments": {"attachment_ids": ["5f8e..."]},
+      "summary": "已从文档切分 12 道题目，等待确认后入库",
+      "result": {"data": {"total": 12}, "question_ids": []},
+      "started_at": "2026-11-17T09:00:00Z",
+      "finished_at": "2026-11-17T09:00:00.120Z"
+    }
+  ]
+}
+```
+
+附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。解析状态为 `uploaded`、`parsed`、`failed`；失败原因在 `error` 中返回。扫描版 PDF 无法抽取足够文本时返回 `failed` 并提示改用图片 OCR。
+
+Agent 运行策略：
+
+1. 模型可用时使用 OpenAI 兼容 function calling，最多 4 轮、8 次工具调用；工具结果回填模型后再生成最终回复。
+2. 模型不可用时使用确定性本地规划器，规则覆盖文档导入、体检、整理、补解析、出题、变式、组卷、检索。
+3. 模型在工具执行后中断时保留已执行结果，不回退重跑，避免重复写入。
+4. 所有写工具只作用于草稿；教师学科与调用参数不一致时拒绝执行。
+
 Agent 支持的目标：题库体检、分类与知识点整理、补答案与解析、按知识点出题、生成变式、智能组卷、分析指定题目。Agent 工具单次最多处理 10 道题；AI 只自动修改草稿，已发布题目只读；教师只能操作自己的草稿；所有写入记录审计日志并标记待人工复核。
 
 单次限制：分析题干 20,000 字符、一次生成 10 道题、批量处理 10 道题。
