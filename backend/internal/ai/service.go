@@ -43,6 +43,7 @@ type Service struct {
 	llmTimeout     time.Duration
 	attachments    *AttachmentStore
 	ocr            ImageRecognizer
+	breakers       *breakerSet
 }
 
 func NewService(options Options) *Service {
@@ -62,6 +63,7 @@ func NewService(options Options) *Service {
 		settingsRepo:   options.Repository,
 		settingsCipher: newSettingsCipher(options.SettingsSecret),
 		llmTimeout:     options.LLMTimeout,
+		breakers:       newBreakerSet(defaultBreakerOpen, breakerThreshold),
 	}
 }
 
@@ -69,30 +71,54 @@ func (s *Service) Status(ctx context.Context, principal auth.Principal) Status {
 	if err := validatePrincipal(principal); err != nil {
 		return Status{Provider: ProviderLocal}
 	}
-	client, config, warning, err := s.resolveLLM(ctx, principal, "")
+	candidates, warning, err := s.resolveCandidates(ctx, principal, "")
 	provider := ProviderLocal
 	model := ""
 	models := []string{}
 	defaultModel := ""
 	source := "local"
-	if err == nil && client != nil && client.Enabled() {
+	health := make([]ModelHealth, 0, len(candidates))
+	for _, candidate := range candidates {
+		failures, openedUntil := s.breaker().state(candidate.Key)
+		status := "healthy"
+		retryAfter := 0
+		if !openedUntil.IsZero() && time.Now().Before(openedUntil) {
+			status = "open"
+			retryAfter = int(time.Until(openedUntil).Seconds()) + 1
+		} else if failures > 0 {
+			status = "degraded"
+		}
+		health = append(health, ModelHealth{
+			Model:             candidate.Config.Model,
+			Status:            status,
+			Failures:          failures,
+			RetryAfterSeconds: retryAfter,
+		})
+	}
+	if err == nil && len(candidates) > 0 {
 		provider = ProviderLLM
-		model = config.Model
-		models = config.Models
-		defaultModel = config.DefaultModel
-		source = config.Source
+		model = candidates[0].Config.Model
+		models = candidates[0].Config.Models
+		defaultModel = candidates[0].Config.DefaultModel
+		source = candidates[0].Config.Source
 	} else if warning != "" {
 		provider = ProviderFallback
 		source = "local"
 	}
+	fallbackPolicy := "error"
+	if s.allowLocalFallback() {
+		fallbackPolicy = "local"
+	}
 	return Status{
-		Provider:     provider,
-		Model:        model,
-		LLMEnabled:   provider == ProviderLLM,
-		Models:       models,
-		DefaultModel: defaultModel,
-		Source:       source,
-		Warning:      warning,
+		Provider:       provider,
+		Model:          model,
+		LLMEnabled:     provider == ProviderLLM,
+		Models:         models,
+		DefaultModel:   defaultModel,
+		Source:         source,
+		Warning:        warning,
+		FallbackPolicy: fallbackPolicy,
+		ModelsHealth:   health,
 		Limits: Limits{
 			MaxAnalyzeChars: DefaultMaxAnalyzeChars,
 			MaxGenerate:     DefaultMaxGenerate,
@@ -167,32 +193,26 @@ func (s *Service) Analyze(ctx context.Context, principal auth.Principal, input A
 		return Analysis{}, err
 	}
 	local := s.local.Analyze(input)
-	client, config, warning, err := s.resolveLLM(ctx, principal, input.Model)
+	raw, config, warnings, err := s.completeJSON(ctx, principal, input.Model, analyzeSystemPrompt, analyzeUserPrompt(input))
 	if err != nil {
-		return Analysis{}, err
-	}
-	if client == nil || !client.Enabled() {
-		if client != nil {
-			local.Warnings = append(local.Warnings, "AI 配置不完整，已使用本地引擎")
+		if !s.allowLocalFallback() {
+			return Analysis{}, err
 		}
-		if warning != "" {
-			local.Warnings = append(local.Warnings, warning)
-		}
+		local.Provider = ProviderFallback
+		local.Warnings = append(local.Warnings, "大模型调用失败，已按 AI_ALLOW_LOCAL_FALLBACK 配置降级为本地引擎", "降级原因："+err.Error())
+		local.Warnings = append(local.Warnings, warnings...)
 		return local, nil
 	}
-	raw, err := client.CompleteJSON(ctx, analyzeSystemPrompt, analyzeUserPrompt(input))
-	if err != nil {
-		local.Provider = ProviderFallback
-		local.Warnings = append(local.Warnings, "大模型调用失败，已自动降级为本地引擎", "降级原因："+err.Error())
+	if config.Source == "local" {
+		local.Warnings = append(local.Warnings, warnings...)
 		return local, nil
 	}
 	var response llmAnalysisResponse
 	if err := json.Unmarshal([]byte(raw), &response); err != nil {
-		local.Provider = ProviderFallback
-		local.Warnings = append(local.Warnings, "大模型返回内容无法解析，已自动降级为本地引擎")
-		return local, nil
+		return Analysis{}, fmt.Errorf("%w: 模型返回内容无法解析", ErrModelUnavailable)
 	}
 	analysis := s.normalizeAnalysis(response, input, local, config.Model)
+	analysis.Warnings = append(analysis.Warnings, warnings...)
 	return analysis, nil
 }
 
@@ -252,49 +272,44 @@ func (s *Service) generate(ctx context.Context, principal auth.Principal, input 
 		return GenerateResult{}, err
 	}
 	result := GenerateResult{Warnings: []string{}}
-	client, config, warning, err := s.resolveLLM(ctx, principal, input.Model)
+	raw, config, warnings, err := s.completeJSON(ctx, principal, input.Model, generateSystemPrompt, generateUserPrompt(input))
+	result.Warnings = append(result.Warnings, warnings...)
 	if err != nil {
-		return GenerateResult{}, err
-	}
-	if warning != "" {
-		result.Warnings = append(result.Warnings, warning)
-	}
-	if client != nil && client.Enabled() {
-		raw, llmErr := client.CompleteJSON(ctx, generateSystemPrompt, generateUserPrompt(input))
-		decoded := false
-		decodedCount := 0
-		if llmErr == nil {
-			var response llmItemsResponse
-			if err := json.Unmarshal([]byte(raw), &response); err == nil {
-				decoded = true
-				decodedCount = len(response.Items)
-				if decodedCount > 0 {
-					result.Items = s.normalizeGenerated(response.Items, input)
-				}
-			}
+		if !s.allowLocalFallback() {
+			return GenerateResult{}, err
 		}
-		if len(result.Items) > 0 {
-			result.Provider = ProviderLLM
-			result.Model = config.Model
-			if len(result.Items) < decodedCount {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("大模型返回的 %d 道题中有 %d 道未通过校验，已过滤", decodedCount, decodedCount-len(result.Items)))
-			}
-		} else {
-			degradeWarning := "大模型出题失败，已自动降级为本地引擎"
-			switch {
-			case llmErr != nil:
-				degradeWarning += "；降级原因：" + llmErr.Error()
-			case decoded:
-				degradeWarning += "；降级原因：模型返回的题目未通过校验"
-			}
-			result.Warnings = append(result.Warnings, degradeWarning)
-		}
-	}
-	if len(result.Items) == 0 {
-		items, warnings := s.local.Generate(input)
+		items, localWarnings := s.local.Generate(input)
+		result.Items = items
+		result.Provider = ProviderFallback
+		result.Warnings = append(result.Warnings, "大模型出题失败，已按 AI_ALLOW_LOCAL_FALLBACK 配置降级为本地引擎")
+		result.Warnings = append(result.Warnings, localWarnings...)
+	} else if config.Source == "local" {
+		items, localWarnings := s.local.Generate(input)
 		result.Items = items
 		result.Provider = ProviderLocal
-		result.Warnings = append(result.Warnings, warnings...)
+		result.Warnings = append(result.Warnings, localWarnings...)
+	} else {
+		var response llmItemsResponse
+		if err := json.Unmarshal([]byte(raw), &response); err != nil {
+			return GenerateResult{}, fmt.Errorf("%w: 模型返回内容无法解析", ErrModelUnavailable)
+		}
+		result.Items = s.normalizeGenerated(response.Items, input)
+		if len(result.Items) == 0 {
+			if !s.allowLocalFallback() {
+				return GenerateResult{}, fmt.Errorf("%w: 模型返回的题目未通过校验", ErrModelUnavailable)
+			}
+			items, localWarnings := s.local.Generate(input)
+			result.Items = items
+			result.Provider = ProviderFallback
+			result.Warnings = append(result.Warnings, "模型返回的题目未通过校验，已按配置降级为本地引擎")
+			result.Warnings = append(result.Warnings, localWarnings...)
+		} else {
+			result.Provider = ProviderLLM
+			result.Model = config.Model
+			if len(result.Items) < len(response.Items) {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("大模型返回的 %d 道题中有 %d 道未通过校验，已过滤", len(response.Items), len(response.Items)-len(result.Items)))
+			}
+		}
 	}
 	if input.Persist {
 		persisted, ids, warnings := s.persistGenerated(ctx, principal, input.Subject, input.Grade, result.Items, uuid.Nil, "generate_questions", runID, result.Model)
@@ -333,70 +348,65 @@ func (s *Service) generateVariants(ctx context.Context, principal auth.Principal
 	}
 	snapshot := toSnapshot(source)
 	result := VariantResult{Warnings: []string{}}
-	client, config, warning, err := s.resolveLLM(ctx, principal, input.Model)
+	difficulty := source.Difficulty + input.DifficultyDelta
+	if difficulty < 1 {
+		difficulty = 1
+	}
+	if difficulty > 5 {
+		difficulty = 5
+	}
+	generateInput := GenerateInput{
+		Subject:         source.Subject,
+		Grade:           source.Grade,
+		QuestionType:    source.QuestionType,
+		Difficulty:      difficulty,
+		Category:        source.Category,
+		KnowledgePoints: source.KnowledgePoints,
+		Tags:            source.Tags,
+		Count:           input.Count,
+	}
+	raw, config, warnings, err := s.completeJSON(ctx, principal, input.Model, variantSystemPrompt, variantUserPrompt(snapshot, input))
+	result.Warnings = append(result.Warnings, warnings...)
 	if err != nil {
-		return VariantResult{}, err
-	}
-	if warning != "" {
-		result.Warnings = append(result.Warnings, warning)
-	}
-	if client != nil && client.Enabled() {
-		raw, llmErr := client.CompleteJSON(ctx, variantSystemPrompt, variantUserPrompt(snapshot, input))
-		decoded := false
-		decodedCount := 0
-		if llmErr == nil {
-			var response llmItemsResponse
-			if err := json.Unmarshal([]byte(raw), &response); err == nil {
-				decoded = true
-				decodedCount = len(response.Items)
-				if decodedCount > 0 {
-					difficulty := source.Difficulty + input.DifficultyDelta
-					if difficulty < 1 {
-						difficulty = 1
-					}
-					if difficulty > 5 {
-						difficulty = 5
-					}
-					generateInput := GenerateInput{
-						Subject:         source.Subject,
-						Grade:           source.Grade,
-						QuestionType:    source.QuestionType,
-						Difficulty:      difficulty,
-						Category:        source.Category,
-						KnowledgePoints: source.KnowledgePoints,
-						Tags:            source.Tags,
-						Count:           input.Count,
-					}
-					result.Items = s.normalizeGenerated(response.Items, generateInput)
-					for index := range result.Items {
-						result.Items[index].ReviewRequired = true
-						result.Items[index].Rationale = firstNonEmpty(result.Items[index].Rationale, "基于原题生成的变式")
-					}
-				}
-			}
+		if !s.allowLocalFallback() {
+			return VariantResult{}, err
 		}
-		if len(result.Items) > 0 {
-			result.Provider = ProviderLLM
-			result.Model = config.Model
-			if len(result.Items) < decodedCount {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("大模型返回的 %d 道变式中 %d 道未通过校验，已过滤", decodedCount, decodedCount-len(result.Items)))
-			}
-		} else {
-			degradeWarning := "大模型变式生成失败，已自动降级为本地引擎"
-			switch {
-			case llmErr != nil:
-				degradeWarning += "；降级原因：" + llmErr.Error()
-			case decoded:
-				degradeWarning += "；降级原因：模型返回的变式未通过校验"
-			}
-			result.Warnings = append(result.Warnings, degradeWarning)
-		}
-	}
-	if len(result.Items) == 0 {
-		items, warnings := s.local.Variants(snapshot, input)
+		items, localWarnings := s.local.Variants(snapshot, input)
+		result.Items = items
+		result.Provider = ProviderFallback
+		result.Warnings = append(result.Warnings, "大模型变式生成失败，已按 AI_ALLOW_LOCAL_FALLBACK 配置降级为本地引擎")
+		result.Warnings = append(result.Warnings, localWarnings...)
+	} else if config.Source == "local" {
+		items, localWarnings := s.local.Variants(snapshot, input)
 		result.Items = items
 		result.Provider = ProviderLocal
-		result.Warnings = append(result.Warnings, warnings...)
+		result.Warnings = append(result.Warnings, localWarnings...)
+	} else {
+		var response llmItemsResponse
+		if err := json.Unmarshal([]byte(raw), &response); err != nil {
+			return VariantResult{}, fmt.Errorf("%w: 模型返回内容无法解析", ErrModelUnavailable)
+		}
+		result.Items = s.normalizeGenerated(response.Items, generateInput)
+		for index := range result.Items {
+			result.Items[index].ReviewRequired = true
+			result.Items[index].Rationale = firstNonEmpty(result.Items[index].Rationale, "基于原题生成的变式")
+		}
+		if len(result.Items) == 0 {
+			if !s.allowLocalFallback() {
+				return VariantResult{}, fmt.Errorf("%w: 模型返回的变式未通过校验", ErrModelUnavailable)
+			}
+			items, localWarnings := s.local.Variants(snapshot, input)
+			result.Items = items
+			result.Provider = ProviderFallback
+			result.Warnings = append(result.Warnings, "模型返回的变式未通过校验，已按配置降级为本地引擎")
+			result.Warnings = append(result.Warnings, localWarnings...)
+		} else {
+			result.Provider = ProviderLLM
+			result.Model = config.Model
+			if len(result.Items) < len(response.Items) {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("大模型返回的 %d 道变式中 %d 道未通过校验，已过滤", len(response.Items), len(response.Items)-len(result.Items)))
+			}
+		}
 	}
 	if input.Persist {
 		persisted, ids, warnings := s.persistGenerated(ctx, principal, source.Subject, source.Grade, result.Items, source.ID, "generate_variants", runID, result.Model)

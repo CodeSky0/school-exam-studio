@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const providerCopy: Record<string, { label: string; description: string; tone: string }> = {
   llm: {
     label: "大模型已配置",
-    description: "分析、出题与补解析优先调用外部大模型，失败时自动降级为本地引擎。可在学校设置中点击“测试已保存配置”验证连通性。",
+    description: "分析、出题与补解析优先调用外部大模型；失败时会自动重试并切换备用模型，仍失败则明确报错，不再静默降级。",
     tone: "border-accent/30 bg-accent-soft text-accent-strong",
   },
   local: {
@@ -17,8 +17,8 @@ const providerCopy: Record<string, { label: string; description: string; tone: s
     tone: "border-info/25 bg-info-soft text-info",
   },
   local_fallback: {
-    label: "本地降级模式",
-    description: "大模型调用失败时自动使用本地引擎，并在结果中提示需要人工复核。",
+    label: "本地兜底模式",
+    description: "已显式开启本地兜底：大模型重试与故障转移均失败后使用本地引擎，并在结果中标注降级原因。",
     tone: "border-warning/30 bg-warning-soft text-warning",
   },
   none: {
@@ -55,6 +55,14 @@ export function AIStatusCard() {
           {status?.source === "school" ? <span className="rounded-full border border-accent/30 bg-accent-soft px-2.5 py-1 text-label-12 text-accent-strong">学校共享配置</span> : null}
           {status?.source === "env" ? <span className="rounded-full border border-border bg-neutral-2 px-2.5 py-1 text-label-12 text-neutral-7">服务器默认配置</span> : null}
           {status?.model ? <span className="rounded-full border border-border bg-neutral-2 px-2.5 py-1 font-mono text-label-12 text-neutral-7">{status.model}</span> : null}
+          {status ? (
+            <span className={cn(
+              "rounded-full border px-2.5 py-1 text-label-12",
+              status.fallback_policy === "local" ? "border-warning/30 bg-warning-soft text-warning" : "border-border bg-neutral-2 text-neutral-7",
+            )}>
+              {status.fallback_policy === "local" ? "允许本地兜底" : "失败即报错"}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -80,6 +88,25 @@ export function AIStatusCard() {
               {status.safety.map((item) => <li key={item}>{item}</li>)}
             </ul>
           </div>
+        </div>
+      ) : null}
+
+      {status && status.models_health.length > 0 ? (
+        <div className="mt-5 border-t border-border pt-5">
+          <h3 className="text-label-12 font-medium tracking-wide text-neutral-7">模型健康</h3>
+          <ul className="mt-2 grid gap-1.5 text-label-12 text-neutral-8">
+            {status.models_health.map((item) => (
+              <li key={item.model} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-neutral-1 px-3 py-2">
+                <span className="font-mono">{item.model}</span>
+                <span className={cn(
+                  "rounded-full px-2 py-0.5",
+                  item.status === "healthy" ? "bg-accent-soft text-accent-strong" : item.status === "open" ? "bg-warning-soft text-warning" : "bg-neutral-2 text-neutral-7",
+                )}>
+                  {item.status === "healthy" ? "正常" : item.status === "open" ? `熔断中${item.retry_after_seconds > 0 ? `（${item.retry_after_seconds}s）` : ""}` : `降级（失败 ${item.failures} 次）`}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </section>

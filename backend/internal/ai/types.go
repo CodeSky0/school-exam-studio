@@ -168,16 +168,26 @@ type Limits struct {
 }
 
 type Status struct {
-	Provider     string   `json:"provider"`
-	Model        string   `json:"model"`
-	LLMEnabled   bool     `json:"llm_enabled"`
-	Models       []string `json:"models"`
-	DefaultModel string   `json:"default_model"`
-	Source       string   `json:"source"`
-	Warning      string   `json:"warning,omitempty"`
-	Limits       Limits   `json:"limits"`
-	Capabilities []string `json:"capabilities"`
-	Safety       []string `json:"safety"`
+	Provider       string        `json:"provider"`
+	Model          string        `json:"model"`
+	LLMEnabled     bool          `json:"llm_enabled"`
+	Models         []string      `json:"models"`
+	DefaultModel   string        `json:"default_model"`
+	Source         string        `json:"source"`
+	Warning        string        `json:"warning,omitempty"`
+	FallbackPolicy string        `json:"fallback_policy"`
+	ModelsHealth   []ModelHealth `json:"models_health,omitempty"`
+	Limits         Limits        `json:"limits"`
+	Capabilities   []string      `json:"capabilities"`
+	Safety         []string      `json:"safety"`
+}
+
+// ModelHealth 描述单个模型当前的熔断状态。
+type ModelHealth struct {
+	Model             string `json:"model"`
+	Status            string `json:"status"`
+	Failures          int    `json:"failures"`
+	RetryAfterSeconds int    `json:"retry_after_seconds,omitempty"`
 }
 
 // ConnectionTestResult 记录一次模型连通性测试的结果。

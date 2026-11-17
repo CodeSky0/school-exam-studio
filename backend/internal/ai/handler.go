@@ -52,7 +52,9 @@ func (h *Handler) Register(group *echo.Group) {
 	group.GET("/ai/attachments/:id", h.GetAttachment)
 	group.GET("/ai/attachments/:id/content", h.DownloadAttachment)
 	group.GET("/ai/tools", h.ListTools)
+	group.POST("/ai/tools/:name", h.RunTool)
 	group.GET("/ai/skills", h.ListSkills)
+	group.POST("/ai/skills/:id/run", h.RunSkill)
 }
 
 func (h *Handler) Status(c echo.Context) error {
@@ -61,6 +63,40 @@ func (h *Handler) Status(c echo.Context) error {
 		return unauthorized()
 	}
 	return c.JSON(http.StatusOK, h.service.Status(c.Request().Context(), principal))
+}
+
+// RunTool 允许前端与外部 Agent 直接执行工具，复用统一校验、权限与审计。
+func (h *Handler) RunTool(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	args := map[string]any{}
+	if err := decodeOptionalAIJSON(c, &args); err != nil {
+		return err
+	}
+	result, err := h.service.RunTool(c.Request().Context(), principal, ToolContext{RunID: uuid.NewString()}, c.Param("name"), args)
+	if err != nil {
+		return aiError(err)
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+// RunSkill 以技能提示词发起一次会话消息，供前端一键执行与外部 Agent 调用。
+func (h *Handler) RunSkill(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	var input SkillRunInput
+	if err := decodeOptionalAIJSON(c, &input); err != nil {
+		return err
+	}
+	result, err := h.service.RunSkill(c.Request().Context(), principal, c.Param("id"), input)
+	if err != nil {
+		return aiError(err)
+	}
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *Handler) GetSchoolAISettings(c echo.Context) error {

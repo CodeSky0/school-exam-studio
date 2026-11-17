@@ -81,13 +81,21 @@ func contentText(raw json.RawMessage) string {
 	return strings.TrimSpace(builder.String())
 }
 
-// ProviderError 描述模型服务返回的业务错误，保留状态码与厂商消息便于管理员定位。
+// ProviderError 描述模型服务返回的业务错误，保留状态码、错误类别与厂商消息便于弹性层决策。
 type ProviderError struct {
 	StatusCode int
 	Message    string
+	Kind       ErrorKind
+	RetryAfter time.Duration
 }
 
 func (e *ProviderError) Error() string {
+	if e.StatusCode == 0 {
+		if e.Message != "" {
+			return e.Message
+		}
+		return "模型接口请求失败"
+	}
 	if e.Message != "" {
 		return fmt.Sprintf("模型接口返回 HTTP %d：%s", e.StatusCode, e.Message)
 	}
@@ -141,15 +149,15 @@ func (c *LLMClient) CompleteJSON(ctx context.Context, system, user string) (stri
 	request.Header.Set("Authorization", "Bearer "+c.apiKey)
 	response, err := c.http.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("模型接口请求失败：%w", err)
+		return "", &ProviderError{Kind: ErrorKindRetryable, Message: fmt.Sprintf("模型接口请求失败：%v", err)}
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxLLMResponseBytes+1))
 	if err != nil {
-		return "", fmt.Errorf("模型接口响应无法读取")
+		return "", &ProviderError{Kind: ErrorKindRetryable, Message: "模型接口响应无法读取"}
 	}
 	if len(body) > maxLLMResponseBytes {
-		return "", fmt.Errorf("模型接口响应超过 %d 字节限制", maxLLMResponseBytes)
+		return "", &ProviderError{Kind: ErrorKindFatal, Message: fmt.Sprintf("模型接口响应超过 %d 字节限制", maxLLMResponseBytes)}
 	}
 	var decoded chatResponse
 	decodeErr := json.Unmarshal(body, &decoded)
@@ -161,27 +169,37 @@ func (c *LLMClient) CompleteJSON(ctx context.Context, system, user string) (stri
 		if message == "" {
 			message = providerMessage(body)
 		}
-		return "", &ProviderError{StatusCode: response.StatusCode, Message: sanitizeProviderMessage(message)}
+		return "", &ProviderError{
+			StatusCode: response.StatusCode,
+			Message:    sanitizeProviderMessage(message),
+			Kind:       classifyStatus(response.StatusCode),
+			RetryAfter: retryAfterFromHeader(response.Header),
+		}
 	}
 	if decodeErr != nil {
-		return "", fmt.Errorf("模型接口返回了无法解析的响应")
+		return "", &ProviderError{Kind: ErrorKindParse, Message: "模型接口返回了无法解析的响应"}
 	}
 	if decoded.Error != nil && decoded.Error.Message != "" {
-		return "", &ProviderError{StatusCode: response.StatusCode, Message: sanitizeProviderMessage(decoded.Error.Message)}
+		return "", &ProviderError{
+			StatusCode: response.StatusCode,
+			Message:    sanitizeProviderMessage(decoded.Error.Message),
+			Kind:       classifyStatus(response.StatusCode),
+			RetryAfter: retryAfterFromHeader(response.Header),
+		}
 	}
 	if len(decoded.Choices) == 0 {
-		return "", fmt.Errorf("模型接口未返回任何结果")
+		return "", &ProviderError{Kind: ErrorKindRetryable, Message: "模型接口未返回任何结果"}
 	}
 	content := decoded.Choices[0].Message.text()
 	if content == "" {
 		if reason := strings.TrimSpace(decoded.Choices[0].FinishReason); reason != "" {
-			return "", fmt.Errorf("模型接口返回空内容（finish_reason=%s）", reason)
+			return "", &ProviderError{Kind: ErrorKindRetryable, Message: fmt.Sprintf("模型接口返回空内容（finish_reason=%s）", reason)}
 		}
-		return "", fmt.Errorf("模型接口返回空内容")
+		return "", &ProviderError{Kind: ErrorKindRetryable, Message: "模型接口返回空内容"}
 	}
 	// 输出达到 token 上限时 JSON 会被截断，直接返回内容只会得到含糊的解析失败，需给出可操作的错误。
 	if strings.EqualFold(strings.TrimSpace(decoded.Choices[0].FinishReason), "length") {
-		return "", fmt.Errorf("模型输出被截断（finish_reason=length），请减少生成数量或提高模型输出上限")
+		return "", &ProviderError{Kind: ErrorKindFatal, Message: "模型输出被截断（finish_reason=length），请减少生成数量或提高模型输出上限"}
 	}
 	return extractJSON(content), nil
 }

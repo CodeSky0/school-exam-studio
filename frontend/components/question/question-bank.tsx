@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusMessage } from "@/components/ui/status-message";
 import { CsvImport } from "./csv-import";
+import { QuestionBankAI } from "./question-bank-ai";
 import { QuestionEditor } from "./editor";
 import { QuestionFilterBar } from "./filter-bar";
 import { QuestionTable } from "./question-table";
@@ -51,6 +52,8 @@ export function QuestionBank({ user }: { user: CurrentUser }) {
 
       <StatusMessage message={message} tone="success" className="mb-5" />
       <StatusMessage message={deleteMutation.isError ? deleteMutation.error.message : null} tone="error" className="mb-5" />
+
+      {!editor ? <QuestionBankAI onEdit={(question) => { setMessage(null); setEditor({ mode: "edit", question }); }} /> : null}
 
       {editor ? (
         <div className="rounded-lg border border-border bg-neutral-1 p-4 shadow-sm sm:p-6">

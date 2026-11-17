@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -210,7 +211,27 @@ func TestPlanGoalExtractsKnowledgeAndGrade(t *testing.T) {
 	}
 }
 
-func TestServiceAnalyzeFallsBackWhenProviderFails(t *testing.T) {
+func TestServiceAnalyzeReturnsModelUnavailableWhenProviderFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		http.Error(writer, "boom", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	service := NewService(Options{
+		LLMBaseURL: server.URL,
+		LLMAPIKey:  "test-key",
+		LLMModel:   "test-model",
+		LLMTimeout: 5 * time.Second,
+	})
+	_, err := service.Analyze(context.Background(), testPrincipal(), AnalyzeInput{
+		Content: "<p>计算 1 + 1。</p>",
+	})
+	if !errors.Is(err, ErrModelUnavailable) {
+		t.Fatalf("expected ErrModelUnavailable, got %v", err)
+	}
+}
+
+func TestServiceAnalyzeFallsBackWhenExplicitlyAllowed(t *testing.T) {
+	t.Setenv("AI_ALLOW_LOCAL_FALLBACK", "true")
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		http.Error(writer, "boom", http.StatusInternalServerError)
 	}))
@@ -229,9 +250,6 @@ func TestServiceAnalyzeFallsBackWhenProviderFails(t *testing.T) {
 	}
 	if result.Provider != ProviderFallback {
 		t.Fatalf("expected fallback provider, got %q", result.Provider)
-	}
-	if !containsString(result.Warnings, "大模型调用失败，已自动降级为本地引擎") {
-		t.Fatalf("expected fallback warning, got %v", result.Warnings)
 	}
 }
 

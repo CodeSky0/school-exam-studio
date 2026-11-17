@@ -106,15 +106,21 @@ pnpm dev
 - 支持一次发送最多 5 个附件：PNG/JPEG/WebP（≤10 MiB）、PDF、DOCX、TXT、Markdown、CSV（≤20 MiB）。
 - 图片自动调用 OCR sidecar；PDF/DOCX 在后端抽取文本（扫描版 PDF 会提示改为图片 OCR）。
 - 每条助手消息内嵌完整工具时间线：工具名、参数、状态、耗时、返回摘要、涉及题目 ID 与可展开的原始 JSON。
-- 未配置模型时使用确定性本地规划器；模型调用失败时自动降级，已执行的工具结果不会重复执行。
+- 未配置模型时使用确定性本地规划器；模型调用失败时先重试并切换备用模型，仍失败则明确报错，不再静默降级本地（设置 `AI_ALLOW_LOCAL_FALLBACK=true` 可显式开启兜底）。
+- 模型调用具备错误分类、指数退避重试、多模型故障转移与 60 秒熔断；JSON 解析失败会自动追加一次修复调用。
 
-**内置工具**（`GET /api/v1/ai/tools` 可供外部 Agent 发现）
+**内置工具**（`GET /api/v1/ai/tools` 可供外部 Agent 发现，`POST /api/v1/ai/tools/:name` 可直接执行）
 
-`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`extract_questions`、`import_document_questions`、`create_questions`、`update_draft`。
+`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`extract_questions`、`import_document_questions`、`create_questions`、`update_draft`、`list_papers`、`get_paper`、`paper_audit`、`update_paper_draft`、`bank_stats`、`find_duplicates`、`review_queue`、`search_similar_questions`。
 
-**内置技能**（`GET /api/v1/ai/skills`）
+**内置技能**（`GET /api/v1/ai/skills`，`POST /api/v1/ai/skills/:id/run` 一键执行）
 
-文档智能录题、整卷拆题、题库体检与整理、课时练习生成、期末复习卷、错题变式包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
+文档智能录题、整卷拆题、题库体检与整理、课时练习生成、期末复习卷、错题变式包、题库覆盖度分析、重复题排查、试卷质检、AI 产出复核、双向细目表组卷、相似题练习包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
+
+**业务入口**
+
+- 题目列表提供“AI 待复核”和“题库体检”，可直接打开待复核草稿进入编辑。
+- 试卷列表每份试卷提供“AI 质检”，展示总分、难度分布、知识点覆盖与缺答案/解析题。
 
 **文档智能录题**
 
@@ -130,6 +136,7 @@ pnpm dev
 **配置**
 
 - `AI_UPLOAD_DIR`：附件落盘目录，默认 `./data/ai-uploads`；生产环境必须持久化并纳入备份。
+- `AI_ALLOW_LOCAL_FALLBACK`：默认 `false`。模型重试与故障转移均失败时是否回退本地引擎；开启后响应会标注 `provider=fallback` 与降级原因。
 - 管理员仍可在 `/admin/settings` 配置全校共享模型；学校配置优先于环境变量，API Key 加密存储且不会返回前端。
 - 旧的一次性 Agent 运行接口 `/api/v1/ai/agent/runs` 保留，历史运行记录与审计仍可查询。
 

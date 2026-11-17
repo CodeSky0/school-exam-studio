@@ -318,14 +318,23 @@ func (s *Service) SendMessage(ctx context.Context, principal auth.Principal, con
 
 func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string) (string, []ToolCall, string, string, []string) {
 	warnings := []string{}
-	client, config, warning, err := s.resolveLLM(ctx, principal, model)
+	candidates, warning, err := s.resolveCandidates(ctx, principal, model)
 	if warning != "" {
 		warnings = append(warnings, warning)
 	}
-	if err == nil && client != nil && client.Enabled() {
-		reply, calls, llmErr := s.runLLMTurn(ctx, principal, conversation, history, content, attachments, config.Model, runID, client)
+	if err != nil {
+		return err.Error(), nil, ProviderLLM, "", warnings
+	}
+	lastModel := ""
+	for _, candidate := range candidates {
+		lastModel = candidate.Config.Model
+		if !s.breaker().allow(candidate.Key, time.Now()) {
+			warnings = append(warnings, candidate.Config.Model+" 暂时熔断，已跳过")
+			continue
+		}
+		reply, calls, llmErr := s.runLLMTurn(ctx, principal, conversation, history, content, attachments, candidate.Config.Model, runID, candidate)
 		if llmErr == nil {
-			return reply, calls, ProviderLLM, config.Model, warnings
+			return reply, calls, ProviderLLM, candidate.Config.Model, warnings
 		}
 		if len(calls) > 0 {
 			warnings = append(warnings, "模型调用中断，本轮已执行的工具结果保留如下；请确认后决定是否继续："+llmErr.Error())
@@ -333,9 +342,22 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 			if summary == "" {
 				summary = "模型调用中断，本轮未能完成回复。"
 			}
-			return summary, calls, ProviderFallback, config.Model, warnings
+			return summary, calls, ProviderFallback, candidate.Config.Model, warnings
 		}
-		warnings = append(warnings, "模型调用失败，已切换本地执行："+llmErr.Error())
+		warnings = append(warnings, fmt.Sprintf("%s 调用失败：%v", candidate.Config.Model, llmErr))
+		if kind := errorKindOf(llmErr); kind == ErrorKindConfig || kind == ErrorKindFatal {
+			break
+		}
+		s.breaker().failure(candidate.Key, time.Now())
+	}
+	if len(candidates) > 0 && !s.allowLocalFallback() {
+		reason := "模型调用失败"
+		if len(warnings) > 0 {
+			reason += "：" + strings.Join(warnings, "；")
+		} else if err != nil {
+			reason += "：" + err.Error()
+		}
+		return reason, []ToolCall{}, ProviderLLM, lastModel, warnings
 	}
 	refs := make([]AttachmentRef, 0, len(attachments))
 	for _, item := range attachments {
@@ -365,7 +387,7 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 	return reply, calls, ProviderLocal, "", warnings
 }
 
-func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, client *LLMClient) (string, []ToolCall, error) {
+func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, candidate modelCandidate) (string, []ToolCall, error) {
 	descriptors := s.ToolCatalog(principal)
 	llmTools := make([]LLMTool, 0, len(descriptors))
 	for _, item := range descriptors {
@@ -415,7 +437,7 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 	}
 	calls := make([]ToolCall, 0, maxLLMToolCalls)
 	for round := 0; round < maxLLMToolRounds; round++ {
-		reply, err := client.ChatTools(ctx, messages, llmTools)
+		reply, err := s.chatTools(ctx, candidate, messages, llmTools)
 		if err != nil {
 			return "", calls, err
 		}

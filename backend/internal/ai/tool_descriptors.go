@@ -73,4 +73,44 @@ var (
 		Description: "修改一道草稿题目的分类、知识点、标签、难度、答案或解析；已发布题目只读。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"question_id":{"type":"string","format":"uuid"},"category":{"type":"string"},"knowledge_points":{"type":"array","items":{"type":"string"}},"tags":{"type":"array","items":{"type":"string"}},"difficulty":{"type":"integer","minimum":1,"maximum":5},"answer":{"type":"string"},"explanation":{"type":"string"},"model":{"type":"string"}},"required":["question_id"],"additionalProperties":false}`),
 	}
+	toolListPapers = ToolDescriptor{
+		Name: "list_papers", Label: "列出试卷", Writes: false,
+		Description: "按学科、年级与标题关键词列出试卷，返回试卷 ID、题量、总分与时长。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"keyword":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50}},"additionalProperties":false}`),
+	}
+	toolGetPaper = ToolDescriptor{
+		Name: "get_paper", Label: "读取试卷", Writes: false,
+		Description: "读取试卷详情、题目顺序、分值以及每道题的完整快照。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"paper_id":{"type":"string","format":"uuid"}},"required":["paper_id"],"additionalProperties":false}`),
+	}
+	toolPaperAudit = ToolDescriptor{
+		Name: "paper_audit", Label: "试卷质检", Writes: false,
+		Description: "检查试卷题量、总分、难度分布、知识点覆盖以及缺少答案或解析的题目。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"paper_id":{"type":"string","format":"uuid"}},"required":["paper_id"],"additionalProperties":false}`),
+	}
+	toolUpdatePaperDraft = ToolDescriptor{
+		Name: "update_paper_draft", Label: "调整试卷", Writes: true,
+		Description: "替换本人草稿试卷的题目顺序与分值，可同时修改标题与时长；只能修改本人创建的试卷。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"paper_id":{"type":"string","format":"uuid"},"title":{"type":"string"},"duration_minutes":{"type":"integer","minimum":1,"maximum":600},"questions":{"type":"array","items":{"type":"object","properties":{"question_id":{"type":"string","format":"uuid"},"assigned_score":{"type":"number"}},"required":["question_id","assigned_score"]}}},"required":["paper_id","questions"],"additionalProperties":false}`),
+	}
+	toolBankStats = ToolDescriptor{
+		Name: "bank_stats", Label: "题库统计", Writes: false,
+		Description: "统计题库在学科、年级、题型、难度与知识点上的分布，并列出覆盖不足的知识点。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":1000}},"additionalProperties":false}`),
+	}
+	toolFindDuplicates = ToolDescriptor{
+		Name: "find_duplicates", Label: "重复题排查", Writes: false,
+		Description: "按内容指纹找出重复题分组，返回题目 ID、重复数量与题干摘要。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":1000}},"additionalProperties":false}`),
+	}
+	toolReviewQueue = ToolDescriptor{
+		Name: "review_queue", Label: "AI 待复核", Writes: false,
+		Description: "列出 AI 生成且标记为待人工复核的草稿题目，供教师逐条审核。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}},"additionalProperties":false}`),
+	}
+	toolSearchSimilar = ToolDescriptor{
+		Name: "search_similar_questions", Label: "相似题检索", Writes: false,
+		Description: "根据题目 ID 或题干关键词，按文本重合度检索相似题目，用于组卷补题与去重参考。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"question_id":{"type":"string","format":"uuid"},"keyword":{"type":"string"},"subject":{"type":"string"},"grade":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":30}},"additionalProperties":false}`),
+	}
 )

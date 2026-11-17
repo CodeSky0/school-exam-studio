@@ -25,6 +25,7 @@ type ToolDescriptor struct {
 	Description string          `json:"description"`
 	Parameters  json.RawMessage `json:"parameters"`
 	Writes      bool            `json:"writes"`
+	Category    string          `json:"category"`
 }
 
 type ToolContext struct {
@@ -64,12 +65,36 @@ func (s *Service) toolRegistry() map[string]registeredTool {
 		{descriptor: toolImportDocument, run: s.toolImportDocument},
 		{descriptor: toolCreateQuestions, run: s.toolCreateQuestions},
 		{descriptor: toolUpdateDraft, run: s.toolUpdateDraft},
+		{descriptor: toolListPapers, run: s.toolListPapers},
+		{descriptor: toolGetPaper, run: s.toolGetPaper},
+		{descriptor: toolPaperAudit, run: s.toolPaperAudit},
+		{descriptor: toolUpdatePaperDraft, run: s.toolUpdatePaperDraft},
+		{descriptor: toolBankStats, run: s.toolBankStats},
+		{descriptor: toolFindDuplicates, run: s.toolFindDuplicates},
+		{descriptor: toolReviewQueue, run: s.toolReviewQueue},
+		{descriptor: toolSearchSimilar, run: s.toolSearchSimilar},
 	}
 	registry := make(map[string]registeredTool, len(tools))
 	for _, item := range tools {
+		if item.descriptor.Category == "" {
+			item.descriptor.Category = toolCategory(item.descriptor.Name)
+		}
 		registry[item.descriptor.Name] = item
 	}
 	return registry
+}
+
+func toolCategory(name string) string {
+	switch name {
+	case "list_papers", "get_paper", "paper_audit", "update_paper_draft", "compose_paper":
+		return "paper"
+	case "bank_stats", "bank_audit", "find_duplicates", "review_queue", "search_similar_questions":
+		return "analytics"
+	case "list_attachments", "extract_questions", "import_document_questions":
+		return "document"
+	default:
+		return "question"
+	}
 }
 
 // ToolCatalog 返回稳定排序的工具目录。
@@ -755,6 +780,14 @@ func validateToolArguments(name string, args map[string]any) error {
 		"import_document_questions": {"subject": true, "grade": true, "category": true, "tags": true, "attachment_ids": true},
 		"create_questions":          {"subject": true, "grade": true, "items": true},
 		"update_draft":              {"question_id": true, "category": true, "knowledge_points": true, "tags": true, "difficulty": true, "answer": true, "explanation": true, "model": true},
+		"list_papers":               {"subject": true, "grade": true, "keyword": true, "limit": true},
+		"get_paper":                 {"paper_id": true},
+		"paper_audit":               {"paper_id": true},
+		"update_paper_draft":        {"paper_id": true, "title": true, "duration_minutes": true, "questions": true},
+		"bank_stats":                {"subject": true, "grade": true, "limit": true},
+		"find_duplicates":           {"limit": true},
+		"review_queue":              {"subject": true, "grade": true, "limit": true},
+		"search_similar_questions":  {"question_id": true, "keyword": true, "subject": true, "grade": true, "limit": true},
 	}
 	fields, ok := allowed[name]
 	if !ok {
@@ -774,6 +807,16 @@ func validateToolArguments(name string, args map[string]any) error {
 	case "get_question", "analyze_question", "update_draft":
 		if _, err := uuidArgument(args, "question_id"); err != nil {
 			return err
+		}
+	case "get_paper", "paper_audit", "update_paper_draft":
+		if _, err := uuidArgument(args, "paper_id"); err != nil {
+			return err
+		}
+	case "search_similar_questions":
+		if raw := stringArgument(args, "question_id"); raw != "" {
+			if _, err := uuidArgument(args, "question_id"); err != nil {
+				return err
+			}
 		}
 	case "generate_variants":
 		if _, err := uuidArgument(args, "question_id"); err != nil {

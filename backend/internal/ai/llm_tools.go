@@ -91,15 +91,15 @@ func (c *LLMClient) ChatTools(ctx context.Context, messages []LLMMessage, tools 
 	request.Header.Set("Authorization", "Bearer "+c.apiKey)
 	response, err := c.http.Do(request)
 	if err != nil {
-		return LLMReply{}, fmt.Errorf("模型接口请求失败：%w", err)
+		return LLMReply{}, &ProviderError{Kind: ErrorKindRetryable, Message: fmt.Sprintf("模型接口请求失败：%v", err)}
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxLLMResponseBytes+1))
 	if err != nil {
-		return LLMReply{}, fmt.Errorf("模型接口响应无法读取")
+		return LLMReply{}, &ProviderError{Kind: ErrorKindRetryable, Message: "模型接口响应无法读取"}
 	}
 	if len(body) > maxLLMResponseBytes {
-		return LLMReply{}, fmt.Errorf("模型接口响应超过 %d 字节限制", maxLLMResponseBytes)
+		return LLMReply{}, &ProviderError{Kind: ErrorKindFatal, Message: fmt.Sprintf("模型接口响应超过 %d 字节限制", maxLLMResponseBytes)}
 	}
 	var decoded llmToolResponse
 	decodeErr := json.Unmarshal(body, &decoded)
@@ -111,21 +111,31 @@ func (c *LLMClient) ChatTools(ctx context.Context, messages []LLMMessage, tools 
 		if message == "" {
 			message = providerMessage(body)
 		}
-		return LLMReply{}, &ProviderError{StatusCode: response.StatusCode, Message: sanitizeProviderMessage(message)}
+		return LLMReply{}, &ProviderError{
+			StatusCode: response.StatusCode,
+			Message:    sanitizeProviderMessage(message),
+			Kind:       classifyStatus(response.StatusCode),
+			RetryAfter: retryAfterFromHeader(response.Header),
+		}
 	}
 	if decodeErr != nil {
-		return LLMReply{}, fmt.Errorf("模型接口返回了无法解析的响应")
+		return LLMReply{}, &ProviderError{Kind: ErrorKindParse, Message: "模型接口返回了无法解析的响应"}
 	}
 	if decoded.Error != nil && decoded.Error.Message != "" {
-		return LLMReply{}, &ProviderError{StatusCode: response.StatusCode, Message: sanitizeProviderMessage(decoded.Error.Message)}
+		return LLMReply{}, &ProviderError{
+			StatusCode: response.StatusCode,
+			Message:    sanitizeProviderMessage(decoded.Error.Message),
+			Kind:       classifyStatus(response.StatusCode),
+			RetryAfter: retryAfterFromHeader(response.Header),
+		}
 	}
 	if len(decoded.Choices) == 0 {
-		return LLMReply{}, fmt.Errorf("模型接口未返回任何结果")
+		return LLMReply{}, &ProviderError{Kind: ErrorKindRetryable, Message: "模型接口未返回任何结果"}
 	}
 	choice := decoded.Choices[0]
 	content := contentText(choice.Message.Content)
 	if content == "" && len(choice.Message.ToolCalls) == 0 {
-		return LLMReply{}, fmt.Errorf("模型接口返回空内容（finish_reason=%s）", strings.TrimSpace(choice.FinishReason))
+		return LLMReply{}, &ProviderError{Kind: ErrorKindRetryable, Message: fmt.Sprintf("模型接口返回空内容（finish_reason=%s）", strings.TrimSpace(choice.FinishReason))}
 	}
 	return LLMReply{
 		Content:      content,

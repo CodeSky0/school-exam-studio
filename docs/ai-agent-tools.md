@@ -2,8 +2,11 @@
 
 本文档描述对话工作台暴露给内置 Agent 与外部调用方的工具、技能、权限边界与返回结构。运行中的服务通过以下接口提供同一份机器可读契约：
 
-- `GET /api/v1/ai/tools`：工具名称、标签、说明、JSON Schema、是否为写操作。
+- `GET /api/v1/ai/tools`：工具名称、标签、说明、JSON Schema、分类与是否为写操作。
+- `POST /api/v1/ai/tools/:name`：按 Schema 直接执行工具，供外部 Agent 与业务页面调用。
 - `GET /api/v1/ai/skills`：内置技能、提示词、所需工具、是否接受附件。
+- `POST /api/v1/ai/skills/:id/run`：以技能提示词发起一次会话消息。
+- `GET /api/v1/ai/status`：模型来源、降级策略、各模型熔断状态与能力清单。
 
 所有接口要求登录；请求必须来自配置的 `CORS_ORIGIN`，并携带认证 Cookie。
 
@@ -25,6 +28,14 @@
 | `import_document_questions` | 是 | `attachment_ids`、`subject`、`grade`、`category`、`tags` | `agent_tool_import_document_questions`、每题 `agent_import_question` | 文档切题并写入草稿，缺少答案的题跳过 |
 | `create_questions` | 是 | `subject`、`grade`、`items` | `agent_tool_create_questions` | 结构化题目批量创建草稿，单次 ≤10 道 |
 | `update_draft` | 是 | `question_id`、`category`、`knowledge_points`、`tags`、`difficulty`、`answer`、`explanation` | `agent_tool_update_draft` | 修改草稿；已发布题目只读 |
+| `list_papers` | 否 | `subject`、`grade`、`keyword`、`limit` | — | 列出试卷，返回 ID、题量、总分与时长 |
+| `get_paper` | 否 | `paper_id` | — | 读取试卷详情、题目顺序、分值与题目快照 |
+| `paper_audit` | 否 | `paper_id` | — | 试卷质检：总分、难度分布、知识点覆盖、缺答案/解析题 |
+| `update_paper_draft` | 是 | `paper_id`、`title`、`duration_minutes`、`questions[]` | `agent_tool_update_paper_draft` | 调整本人草稿试卷的题目与分值 |
+| `bank_stats` | 否 | `subject`、`grade`、`limit` | — | 题库分布统计与知识点覆盖缺口 |
+| `find_duplicates` | 否 | `limit` | — | 重复题分组，返回题目 ID 与摘要 |
+| `review_queue` | 否 | `subject`、`grade`、`limit` | — | AI 生成且待人工复核的草稿列表 |
+| `search_similar_questions` | 否 | `question_id` 或 `keyword`、`subject`、`grade`、`limit` | — | 基于文本重合度检索相似题 |
 
 ### 1.1 参数与返回
 
@@ -46,8 +57,13 @@
 ### 1.2 执行策略
 
 - 模型可用：OpenAI 兼容 function calling，最多 4 轮、8 次工具调用；工具结果回填模型后生成最终回复。
-- 模型不可用：确定性本地规划器按规则选择工具，同一次请求最多 3 个步骤。
+- 弹性调用：每个模型最多重试 3 次（300ms/900ms 指数退避，尊重 `Retry-After`）；仍失败时按学校启用模型顺序切换，最多 3 个模型。
+- 熔断：同一「学校 + 模型」连续 3 次可重试失败后熔断 60 秒，期间直接跳过；状态见 `GET /ai/status` 的 `models_health`。
+- JSON 修复：模型返回非法 JSON 时追加一次“仅输出合法 JSON”的修复调用。
+- 未配置模型：使用确定性本地规划器；已配置模型失败时**不再静默降级本地**，而是返回 `model_unavailable` 与尝试记录。
+- 显式兜底：设置 `AI_ALLOW_LOCAL_FALLBACK=true` 后，模型失败可回退本地，并在 `warnings` 与 `fallback_policy` 中标注。
 - 模型在工具执行后中断：保留已执行工具结果并停止，不回退重跑，避免重复写入。
+- 重试与故障转移只作用于模型 HTTP 调用，绝不重放已执行的工具写操作。
 - 所有写操作只作用于草稿；每次写入写 `ai_audit_logs`，并标记待人工复核。
 
 ## 2. 技能
@@ -62,6 +78,14 @@
 | `lesson_practice` | 课时练习生成 | 否 | `generate_questions` |
 | `final_review` | 期末复习卷 | 否 | `compose_paper` |
 | `variant_pack` | 错题变式包 | 否 | `generate_variants` |
+| `bank_gap_analysis` | 题库覆盖度分析 | 否 | `bank_stats` → `bank_audit` |
+| `duplicate_cleanup` | 重复题排查 | 否 | `find_duplicates` → `bank_audit` |
+| `paper_quality_check` | 试卷质检 | 否 | `list_papers` → `paper_audit` |
+| `review_assistant` | AI 产出复核 | 否 | `review_queue` → `get_question` |
+| `exam_blueprint` | 双向细目表组卷 | 否 | `bank_stats` → `compose_paper` |
+| `similar_question_pack` | 相似题练习包 | 否 | `search_similar_questions` → `create_questions` |
+
+技能也可通过 `POST /api/v1/ai/skills/:id/run` 直接执行，请求体为 `{"content": "可选的补充要求", "model": "可选的模型"}`，返回新建会话与助手消息。
 
 ## 3. 外部 Agent 接入
 

@@ -220,54 +220,14 @@ func (s *Service) UpdateSchoolAISettings(ctx context.Context, principal auth.Pri
 }
 
 func (s *Service) resolveLLM(ctx context.Context, principal auth.Principal, requestedModel string) (*LLMClient, LLMConfig, string, error) {
-	requestedModel = strings.TrimSpace(requestedModel)
-	if s.settingsRepo != nil {
-		record, err := s.settingsRepo.GetSchoolAISetting(ctx, principal.SchoolID)
-		if err == nil {
-			if !record.Enabled {
-				return nil, LLMConfig{Source: "local"}, "", nil
-			}
-			model, modelErr := chooseAIModel(record.Models, record.DefaultModel, requestedModel)
-			if modelErr != nil {
-				return nil, LLMConfig{}, "", modelErr
-			}
-			apiKey, decryptErr := s.settingsCipher.decrypt(record.APIKey)
-			if decryptErr != nil || strings.TrimSpace(apiKey) == "" {
-				return nil, LLMConfig{Source: "local"}, "学校 AI 密钥不可用，请联系管理员重新配置", nil
-			}
-			config := LLMConfig{
-				Provider:     ProviderLLM,
-				BaseURL:      record.BaseURL,
-				APIKey:       apiKey,
-				Model:        model,
-				Timeout:      s.llmTimeout,
-				Source:       "school",
-				Models:       record.Models,
-				DefaultModel: record.DefaultModel,
-			}
-			return NewLLMClient(config.BaseURL, config.APIKey, config.Model, config.Timeout), config, "", nil
-		}
-		if !errors.Is(err, ErrNotFound) {
-			return nil, LLMConfig{}, "", err
-		}
+	candidates, warning, err := s.resolveCandidates(ctx, principal, requestedModel)
+	if err != nil {
+		return nil, LLMConfig{}, "", err
 	}
-	if s.llm == nil || !s.llm.Enabled() {
-		return nil, LLMConfig{Source: "local"}, "", nil
+	if len(candidates) == 0 {
+		return nil, LLMConfig{Source: "local"}, warning, nil
 	}
-	if requestedModel != "" && requestedModel != s.llm.Model() {
-		return nil, LLMConfig{}, "", validationError("model", "所选模型未启用，请联系管理员在学校设置中开启")
-	}
-	config := LLMConfig{
-		Provider:     ProviderLLM,
-		BaseURL:      s.llm.baseURL,
-		APIKey:       s.llm.apiKey,
-		Model:        s.llm.Model(),
-		Timeout:      s.llmTimeout,
-		Source:       "env",
-		Models:       []string{s.llm.Model()},
-		DefaultModel: s.llm.Model(),
-	}
-	return s.llm, config, "", nil
+	return candidates[0].Client, candidates[0].Config, warning, nil
 }
 
 func (s *Service) envSettingsView() SchoolAISettingsView {

@@ -66,6 +66,7 @@ export const toolDescriptorSchema = z.object({
   description: z.string(),
   parameters: z.unknown(),
   writes: z.boolean().default(false),
+  category: z.string().default("question"),
 });
 
 export const skillSchema = z.object({
@@ -73,7 +74,9 @@ export const skillSchema = z.object({
   title: z.string(),
   description: z.string(),
   icon: z.string(),
+  category: z.string().default("general"),
   prompt: z.string(),
+  steps: z.array(z.string()).default([]),
   required_tools: z.array(z.string()).default([]),
   accepts_attachments: z.boolean().default(false),
 });

@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeftIcon, ChevronRightIcon, EyeOpenIcon, MagnifyingGlassIcon, Pencil1Icon, FileTextIcon, ResetIcon, TrashIcon } from "@radix-ui/react-icons";
+import { ChevronLeftIcon, ChevronRightIcon, EyeOpenIcon, MagnifyingGlassIcon, MagicWandIcon, Pencil1Icon, FileTextIcon, ResetIcon, TrashIcon } from "@radix-ui/react-icons";
 import { deletePaper, listPapers, paperQueryKeys, type PaperFilters } from "@/lib/papers";
+import { runAITool, type AIToolResult } from "@/lib/ai-tools";
 import type { PaperSummary } from "@/lib/paper-schemas";
 import { FormError } from "@/components/auth-form";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -40,9 +41,10 @@ function formatUpdatedAt(value: string): string {
   }).format(date);
 }
 
-function PaperActions({ paper, isDeleting, onDelete }: { paper: PaperSummary; isDeleting: boolean; onDelete: () => void }) {
+function PaperActions({ paper, isDeleting, isAuditing, onDelete, onAudit }: { paper: PaperSummary; isDeleting: boolean; isAuditing: boolean; onDelete: () => void; onAudit: () => void }) {
   return (
     <div className="flex flex-wrap justify-end gap-1">
+      <Button type="button" variant="ghost" size="sm" disabled={isAuditing} onClick={onAudit}><MagicWandIcon />AI 质检</Button>
       <Link href={`/teacher/papers/${paper.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}><Pencil1Icon />编辑</Link>
       <Link href={`/teacher/papers/${paper.id}/print`} className={buttonVariants({ variant: "ghost", size: "sm" })} aria-label={`预览并打印${paper.title}`}><EyeOpenIcon /><FileTextIcon /><span className="sr-only">打印</span></Link>
       <Button type="button" variant="ghost" size="sm" className="text-error hover:bg-error-soft hover:text-error" disabled={isDeleting} onClick={onDelete}><TrashIcon />删除</Button>
@@ -56,6 +58,7 @@ export function PaperList() {
   const [draft, setDraft] = useState<PaperFilters>(filters);
   const [deleteTarget, setDeleteTarget] = useState<PaperSummary | null>(null);
   const [message, setMessage] = useState("");
+  const [audit, setAudit] = useState<{ title: string; result: AIToolResult } | null>(null);
   const listQuery = useQuery({
     queryKey: paperQueryKeys.list(filters),
     queryFn: () => listPapers(filters),
@@ -71,6 +74,11 @@ export function PaperList() {
       setMessage("试卷已删除");
       await queryClient.invalidateQueries({ queryKey: paperQueryKeys.all });
     },
+  });
+  const auditMutation = useMutation({
+    mutationFn: (paper: PaperSummary) => runAITool("paper_audit", { paper_id: paper.id }),
+    onMutate: () => { setAudit(null); },
+    onSuccess: (result, paper) => setAudit({ title: paper.title, result }),
   });
 
   const data = listQuery.data;
@@ -108,6 +116,24 @@ export function PaperList() {
         </div>
       </form>
       <StatusMessage message={message} tone="success" className="mx-5 my-4" />
+      <StatusMessage message={auditMutation.isError ? auditMutation.error.message : null} tone="error" className="mx-5 my-4" />
+      {auditMutation.isPending ? <p className="mx-5 mb-4 text-label-12 text-neutral-7">AI 正在质检试卷…</p> : null}
+      {audit ? (
+        <div className="mx-5 mb-4 rounded-md border border-accent/25 bg-accent-soft/40 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="flex items-center gap-1.5 text-copy-13 font-medium text-neutral-10"><MagicWandIcon className="size-4 text-accent" />{audit.title}</h3>
+              <p className="mt-1 text-copy-13 leading-6 text-neutral-8">{audit.result.summary}</p>
+            </div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setAudit(null)}>关闭</Button>
+          </div>
+          {audit.result.warnings.length > 0 ? (
+            <ul className="mt-2 grid gap-1 text-label-12 text-warning">
+              {audit.result.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
       {listQuery.isPending ? (
         <div className="grid animate-pulse gap-px bg-border" aria-label="正在读取试卷列表">
           {[0, 1, 2, 3].map((item) => <div key={item} className="h-20 bg-neutral-1" />)}
@@ -143,7 +169,7 @@ export function PaperList() {
                     <td className="px-3 py-4 font-mono text-copy-13">{paper.total_score} 分</td>
                     <td className="px-3 py-4 font-mono text-copy-13">{paper.duration_minutes} 分钟</td>
                     <td className="whitespace-nowrap px-3 py-4 text-copy-13 text-neutral-7"><time dateTime={paper.updated_at}>{formatUpdatedAt(paper.updated_at)}</time></td>
-                    <td className="px-5 py-4"><PaperActions paper={paper} isDeleting={deleteMutation.isPending && deleteMutation.variables === paper.id} onDelete={() => { setMessage(""); deleteMutation.reset(); setDeleteTarget(paper); }} /></td>
+                    <td className="px-5 py-4"><PaperActions paper={paper} isDeleting={deleteMutation.isPending && deleteMutation.variables === paper.id} isAuditing={auditMutation.isPending && auditMutation.variables?.id === paper.id} onAudit={() => auditMutation.mutate(paper)} onDelete={() => { setMessage(""); deleteMutation.reset(); setDeleteTarget(paper); }} /></td>
                   </motion.tr>
                 ))}
               </motion.tbody>
@@ -165,7 +191,7 @@ export function PaperList() {
                     <div><dt className="text-neutral-6">题数 / 时长</dt><dd className="mt-1 font-mono text-copy-13 text-neutral-9">{paper.question_count} 题 · {paper.duration_minutes} 分钟</dd></div>
                     <div className="col-span-2"><dt className="text-neutral-6">更新时间</dt><dd className="mt-1 text-copy-13 text-neutral-9"><time dateTime={paper.updated_at}>{formatUpdatedAt(paper.updated_at)}</time></dd></div>
                   </dl>
-                  <div className="mt-4 border-t border-border pt-3"><PaperActions paper={paper} isDeleting={deleteMutation.isPending && deleteMutation.variables === paper.id} onDelete={() => { setMessage(""); deleteMutation.reset(); setDeleteTarget(paper); }} /></div>
+                  <div className="mt-4 border-t border-border pt-3"><PaperActions paper={paper} isDeleting={deleteMutation.isPending && deleteMutation.variables === paper.id} isAuditing={auditMutation.isPending && auditMutation.variables?.id === paper.id} onAudit={() => auditMutation.mutate(paper)} onDelete={() => { setMessage(""); deleteMutation.reset(); setDeleteTarget(paper); }} /></div>
                 </motion.article>
               ))}
             </AnimatePresence>
