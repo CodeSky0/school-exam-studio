@@ -11,12 +11,18 @@ import {
 import { AttachmentImage } from "./attachment-image";
 import { ToolCallTimeline } from "./tool-call-timeline";
 
-const providerLabels: Record<string, string> = {
-  llm: "大模型",
-  local: "本地引擎",
-  local_fallback: "本地降级",
-  user: "我",
-};
+function ThinkingLine() {
+  return (
+    <span className="inline-flex items-center gap-2 text-label-12 text-neutral-7" aria-label="AI 正在处理">
+      <span className="flex gap-1" aria-hidden="true">
+        <span className="size-1.5 animate-bounce rounded-full bg-accent [animation-delay:-200ms]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-accent [animation-delay:-100ms]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-accent" />
+      </span>
+      正在思考…
+    </span>
+  );
+}
 
 function renderInline(text: string, prefix: string) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
@@ -123,12 +129,13 @@ export function MessageBubble({ message, scope }: { message: ChatMessage; scope:
       </article>
     );
   }
+  const isRunning = message.status === "running";
   return (
     <article className="motion-rise flex gap-3">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-accent/25 bg-accent-soft text-caption-10 font-semibold text-accent-strong" aria-hidden="true">AI</div>
       <div className="min-w-0 flex-1">
         <div className="rounded-lg border border-border bg-neutral-1 px-4 py-3 shadow-sm">
-          {message.content ? <MessageText content={message.content} /> : <p className="text-copy-13 leading-6 text-neutral-7">已执行本轮工具调用。</p>}
+          {message.content ? <MessageText content={message.content} /> : isRunning ? <ThinkingLine /> : null}
           <MessageAttachments message={message} />
           <ToolCallTimeline calls={message.tool_calls} scope={scope} />
           {message.status === "failed" ? (
@@ -139,10 +146,7 @@ export function MessageBubble({ message, scope }: { message: ChatMessage; scope:
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-caption-10 text-neutral-6">
           <span>{formatChatTime(message.created_at)}</span>
-          <span>·</span>
-          <span>{providerLabels[message.provider] ?? message.provider}</span>
-          {message.model ? <span className="font-mono text-neutral-5">{message.model}</span> : null}
-          {message.tool_calls.length > 0 ? <span>· {message.tool_calls.length} 次工具调用</span> : null}
+          {message.tool_calls.length > 0 ? <span>· {message.tool_calls.length} 个工具</span> : null}
         </div>
       </div>
     </article>

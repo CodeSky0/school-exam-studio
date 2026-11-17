@@ -48,6 +48,7 @@ func (h *Handler) Register(group *echo.Group) {
 	group.DELETE("/ai/conversations/:id", h.DeleteConversation)
 	group.GET("/ai/conversations/:id/messages", h.ListConversationMessages)
 	group.POST("/ai/conversations/:id/messages", h.SendMessage)
+	group.POST("/ai/conversations/:id/messages/stream", h.StreamMessage)
 	group.POST("/ai/attachments", h.UploadAttachment)
 	group.GET("/ai/attachments/:id", h.GetAttachment)
 	group.GET("/ai/attachments/:id/content", h.DownloadAttachment)

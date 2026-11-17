@@ -56,10 +56,9 @@ export function ConversationSidebar({
     <div className="flex h-full min-h-0 flex-col bg-neutral-2/55">
       <div className="border-b border-border px-3 py-3">
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-caption-10 font-medium uppercase tracking-[0.18em] text-neutral-6">对话历史</p>
-            <p className="mt-1 text-label-12 text-neutral-7">{conversations.length} 个会话</p>
-          </div>
+          <p className="text-caption-10 font-medium tracking-[0.14em] text-neutral-6">
+            对话历史<span className="ml-1.5 font-normal text-neutral-5">{conversations.length}</span>
+          </p>
           <Button type="button" size="icon" variant="secondary" aria-label="新建对话" onClick={onCreate}>
             <PlusIcon />
           </Button>
@@ -82,7 +81,7 @@ export function ConversationSidebar({
         {!isLoading && !error && filtered.length === 0 ? (
           <div className="px-2 py-6 text-center">
             <ChatBubbleIcon className="mx-auto size-6 text-neutral-5" />
-            <p className="mt-2 text-label-12 leading-5 text-neutral-6">{search ? "没有匹配的会话" : "还没有对话。新建一个开始吧。"}</p>
+            <p className="mt-2 text-label-12 leading-5 text-neutral-6">{search ? "没有匹配的会话" : "暂无对话"}</p>
           </div>
         ) : null}
         <ul className="grid gap-1">
@@ -151,14 +150,10 @@ export function ConversationSidebar({
         </ul>
       </div>
 
-      <div className="border-t border-border px-3 py-2.5">
-        <p className="text-caption-10 leading-4 text-neutral-6">会话保存在学校数据库中，刷新或换设备后仍可继续。</p>
-      </div>
-
       <ConfirmDialog
         open={deleteTarget !== null}
         title="删除这个会话？"
-        description={`「${deleteTarget?.title ?? ""}」的对话记录将从列表中移除，题库中已生成的草稿不会被删除。`}
+        description={`「${deleteTarget?.title ?? ""}」的对话记录将从列表中移除。`}
         confirmLabel="删除会话"
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {

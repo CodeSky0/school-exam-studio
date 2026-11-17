@@ -191,6 +191,15 @@ func (s *Service) failAttachment(ctx context.Context, principal auth.Principal, 
 }
 
 func (s *Service) SendMessage(ctx context.Context, principal auth.Principal, conversationID uuid.UUID, input SendMessageInput) (SendMessageResult, error) {
+	return s.sendMessage(ctx, principal, conversationID, input, nil)
+}
+
+// SendMessageStream 在完整回复落库的同时，把用户消息、工具调用与最终消息实时推送给调用方。
+func (s *Service) SendMessageStream(ctx context.Context, principal auth.Principal, conversationID uuid.UUID, input SendMessageInput, sink ChatEventSink) (SendMessageResult, error) {
+	return s.sendMessage(ctx, principal, conversationID, input, sink)
+}
+
+func (s *Service) sendMessage(ctx context.Context, principal auth.Principal, conversationID uuid.UUID, input SendMessageInput, sink ChatEventSink) (SendMessageResult, error) {
 	if err := validatePrincipal(principal); err != nil {
 		return SendMessageResult{}, err
 	}
@@ -254,6 +263,7 @@ func (s *Service) SendMessage(ctx context.Context, principal auth.Principal, con
 	if err != nil {
 		return SendMessageResult{}, err
 	}
+	emitChatEvent(sink, ChatStreamEvent{Type: ChatEventUserMessage, Message: &userMessage})
 	if conversation.MessageCount == 0 {
 		title := content
 		if title == "" && len(refs) > 0 {
@@ -279,7 +289,7 @@ func (s *Service) SendMessage(ctx context.Context, principal auth.Principal, con
 	}); err != nil {
 		return SendMessageResult{}, err
 	}
-	reply, toolCalls, provider, model, warnings := s.runChatTurn(ctx, principal, conversation, history, content, attachments, input.Model, runID)
+	reply, toolCalls, provider, model, warnings := s.runChatTurn(ctx, principal, conversation, history, content, attachments, input.Model, runID, sink)
 	status := MessageStatusSucceeded
 	errorMessage := ""
 	if reply == "" {
@@ -316,7 +326,7 @@ func (s *Service) SendMessage(ctx context.Context, principal auth.Principal, con
 	}, nil
 }
 
-func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string) (string, []ToolCall, string, string, []string) {
+func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, sink ChatEventSink) (string, []ToolCall, string, string, []string) {
 	warnings := []string{}
 	candidates, warning, err := s.resolveCandidates(ctx, principal, model)
 	if warning != "" {
@@ -332,7 +342,7 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 			warnings = append(warnings, candidate.Config.Model+" 暂时熔断，已跳过")
 			continue
 		}
-		reply, calls, llmErr := s.runLLMTurn(ctx, principal, conversation, history, content, attachments, candidate.Config.Model, runID, candidate)
+		reply, calls, llmErr := s.runLLMTurn(ctx, principal, conversation, history, content, attachments, candidate.Config.Model, runID, candidate, sink)
 		if llmErr == nil {
 			return reply, calls, ProviderLLM, candidate.Config.Model, warnings
 		}
@@ -374,7 +384,7 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 	calls := make([]ToolCall, 0, len(plan.Calls))
 	for _, planned := range plan.Calls {
 		arguments := withModelArgument(planned.Name, planned.Arguments, model)
-		call := s.executeToolCall(ctx, principal, toolContext, planned.Name, arguments)
+		call := s.executeToolCall(ctx, principal, toolContext, planned.Name, arguments, sink)
 		calls = append(calls, call)
 		if call.Status == ToolStatusFailed {
 			break
@@ -387,7 +397,7 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 	return reply, calls, ProviderLocal, "", warnings
 }
 
-func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, candidate modelCandidate) (string, []ToolCall, error) {
+func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, candidate modelCandidate, sink ChatEventSink) (string, []ToolCall, error) {
 	descriptors := s.ToolCatalog(principal)
 	llmTools := make([]LLMTool, 0, len(descriptors))
 	for _, item := range descriptors {
@@ -459,7 +469,7 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 				}
 			}
 			arguments = withModelArgument(llmCall.Function.Name, arguments, model)
-			call := s.executeToolCall(ctx, principal, toolContext, llmCall.Function.Name, arguments)
+			call := s.executeToolCall(ctx, principal, toolContext, llmCall.Function.Name, arguments, sink)
 			calls = append(calls, call)
 			messages = append(messages, LLMMessage{
 				Role:       "tool",
@@ -479,7 +489,7 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 	return reply, calls, nil
 }
 
-func (s *Service) executeToolCall(ctx context.Context, principal auth.Principal, toolContext ToolContext, name string, arguments map[string]any) ToolCall {
+func (s *Service) executeToolCall(ctx context.Context, principal auth.Principal, toolContext ToolContext, name string, arguments map[string]any, sink ChatEventSink) ToolCall {
 	started := time.Now()
 	call := ToolCall{
 		ID:        uuid.NewString(),
@@ -489,6 +499,7 @@ func (s *Service) executeToolCall(ctx context.Context, principal auth.Principal,
 		Arguments: arguments,
 		StartedAt: &started,
 	}
+	emitChatEvent(sink, ChatStreamEvent{Type: ChatEventToolStarted, ToolCall: &call})
 	result, err := s.RunTool(ctx, principal, toolContext, name, arguments)
 	finished := time.Now()
 	call.FinishedAt = &finished
@@ -496,6 +507,7 @@ func (s *Service) executeToolCall(ctx context.Context, principal auth.Principal,
 		call.Status = ToolStatusFailed
 		call.Error = userFacingToolError(err)
 		call.Summary = "执行失败：" + call.Error
+		emitChatEvent(sink, ChatStreamEvent{Type: ChatEventToolFinished, ToolCall: &call})
 		return call
 	}
 	call.Status = ToolStatusSucceeded
@@ -506,6 +518,7 @@ func (s *Service) executeToolCall(ctx context.Context, principal auth.Principal,
 		"warnings":     result.Warnings,
 		"question_ids": result.QuestionIDs,
 	}
+	emitChatEvent(sink, ChatStreamEvent{Type: ChatEventToolFinished, ToolCall: &call})
 	return call
 }
 

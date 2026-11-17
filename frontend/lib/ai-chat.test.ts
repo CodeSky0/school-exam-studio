@@ -1,12 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   attachmentKindLabel,
   chatMessageSchema,
   formatBytes,
   formatToolDuration,
   messageQuestionIDs,
+  streamMessage,
   toolCallSchema,
   toolStatusLabel,
+  type ChatStreamEvent,
 } from "./ai-chat";
 
 describe("ai chat schemas", () => {
@@ -48,6 +50,48 @@ describe("ai chat schemas", () => {
       id: "t1", name: "x", label: "x", status: "exploded", arguments: {},
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+function sseResponse(frames: string[]) {
+  const encoder = new TextEncoder();
+  return new Response(new ReadableStream({
+    start(controller) {
+      for (const frame of frames) controller.enqueue(encoder.encode(frame));
+      controller.close();
+    },
+  }), { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
+
+describe("streamMessage", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("dispatches frames even when chunks split mid-event", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse([
+      'event: user_message\ndata: {"type":"user_message","message":{"id":"m1","conversation_id":"c1","role":"user","created_at":"2026-11-17T10:00:00Z"}}\n\n',
+      'event: tool_started\ndata: {"type":"tool_started","tool_call":{"id":"t1","name":"search_questions","label":"检索题目","status":"running","arguments":{}}}\n\nevent: tool_f',
+      'inished\ndata: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","label":"检索题目","status":"succeeded","summary":"找到 2 道","arguments":{}}}\n\n',
+      'event: done\ndata: {"type":"done"}\n\n',
+    ]));
+    vi.stubGlobal("fetch", fetchMock);
+    const events: ChatStreamEvent[] = [];
+    await streamMessage("c1", { content: "找题" }, (event) => events.push(event));
+    expect(events.map((event) => event.type)).toEqual(["user_message", "tool_started", "tool_finished", "done"]);
+    expect(events[2].tool_call?.summary).toBe("找到 2 道");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/api/v1/ai/conversations/c1/messages/stream",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ content: "找题", attachment_ids: [], model: "" }) }),
+    );
+  });
+
+  it("throws the API error message for non-2xx responses", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ error: { code: "BAD_REQUEST", message: "消息内容不能为空" }, request_id: "req-1" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    )));
+    await expect(streamMessage("c1", { content: "" }, () => {})).rejects.toThrow("消息内容不能为空");
   });
 });
 

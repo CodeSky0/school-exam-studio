@@ -120,7 +120,7 @@ export function QuestionEditor({ user, question, onSaved, onCancel }: {
           <RichTextEditor label="解析（可选）" value={form.explanation} error={errors.explanation} onChange={(explanation) => updateForm({ explanation })} onActivate={() => setActiveField("explanation")} />
         </div>
         <aside className="grid min-w-0 content-start gap-4 xl:sticky xl:top-24">
-          <QuestionAIAssistant state={form} onApply={updateForm} />
+          <QuestionAIAssistant state={form} questionID={question?.id} onApply={updateForm} />
           <OcrUpload activeField={activeField} onActiveFieldChange={setActiveField} onApply={applyOcrText} />
         </aside>
       </div>

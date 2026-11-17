@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiDownload, apiRequest } from "./api";
+import { ApiError, apiDownload, apiRequest, apiStream } from "./api";
 
 export const attachmentRefSchema = z.object({
   id: z.string(),
@@ -81,6 +81,14 @@ export const skillSchema = z.object({
   accepts_attachments: z.boolean().default(false),
 });
 
+export const chatStreamEventSchema = z.object({
+  type: z.enum(["user_message", "tool_started", "tool_finished", "assistant_message", "done", "error"]),
+  message: chatMessageSchema.optional(),
+  tool_call: toolCallSchema.optional(),
+  conversation: conversationSchema.optional(),
+  error: z.string().optional(),
+});
+
 export type AttachmentRef = z.infer<typeof attachmentRefSchema>;
 export type ToolCall = z.infer<typeof toolCallSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
@@ -88,6 +96,17 @@ export type Conversation = z.infer<typeof conversationSchema>;
 export type SendMessageResult = z.infer<typeof sendMessageResultSchema>;
 export type ToolDescriptor = z.infer<typeof toolDescriptorSchema>;
 export type Skill = z.infer<typeof skillSchema>;
+export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
+
+// LiveTurn 表示尚未落库的一轮对话，用于流式渲染用户消息、工具链与最终回复。
+export interface LiveTurn {
+  content: string;
+  attachments: AttachmentRef[];
+  toolCalls: ToolCall[];
+  assistantContent: string;
+  status: "running" | "failed";
+  error?: string;
+}
 
 export const ATTACHMENT_ACCEPT = "image/png,image/jpeg,image/webp,image/gif,.pdf,.docx,.txt,.md,.csv";
 export const MAX_ATTACHMENTS = 5;
@@ -136,6 +155,59 @@ export function sendMessage(id: string, input: { content: string; attachment_ids
     method: "POST",
     body: JSON.stringify({ content: input.content, attachment_ids: input.attachment_ids ?? [], model: input.model ?? "" }),
   });
+}
+
+// streamMessage 消费后端 SSE：用户消息、工具开始/结束与最终回复逐帧回调。
+export async function streamMessage(
+  id: string,
+  input: { content: string; attachment_ids?: string[]; model?: string },
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
+) {
+  const response = await apiStream(`/api/v1/ai/conversations/${encodeURIComponent(id)}/messages/stream`, {
+    method: "POST",
+    headers: { Accept: "text/event-stream" },
+    body: JSON.stringify({ content: input.content, attachment_ids: input.attachment_ids ?? [], model: input.model ?? "" }),
+    signal,
+  });
+  const reader = response.body?.getReader();
+  if (!reader) throw new ApiError("服务未返回流式响应", response.status, "INVALID_STREAM");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const dispatch = (block: string) => {
+    const data = block
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n")
+      .trim();
+    if (!data) return;
+    let payload: unknown;
+    try {
+      payload = JSON.parse(data);
+    } catch {
+      return;
+    }
+    const parsed = chatStreamEventSchema.safeParse(payload);
+    if (parsed.success) onEvent(parsed.data);
+  };
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary = buffer.search(/\r?\n\r?\n/);
+      while (boundary >= 0) {
+        const block = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + (buffer.startsWith("\r\n", boundary) ? 4 : 2));
+        dispatch(block);
+        boundary = buffer.search(/\r?\n\r?\n/);
+      }
+    }
+    dispatch(buffer);
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 export function uploadAttachment(file: File, conversationID?: string) {

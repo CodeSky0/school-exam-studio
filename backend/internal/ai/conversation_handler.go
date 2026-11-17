@@ -1,6 +1,9 @@
 package ai
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -140,6 +143,69 @@ func (h *Handler) SendMessage(c echo.Context) error {
 		return aiError(err)
 	}
 	return c.JSON(http.StatusOK, result)
+}
+
+// StreamMessage 以 SSE 推送用户消息、工具调用与最终回复，供对话工作台实时渲染。
+func (h *Handler) StreamMessage(c echo.Context) error {
+	principal, id, err := principalAndID(c)
+	if err != nil {
+		return err
+	}
+	var input SendMessageInput
+	if err := decodeAIJSON(c, &input); err != nil {
+		return err
+	}
+	response := c.Response()
+	response.Header().Set(echo.HeaderContentType, "text/event-stream; charset=utf-8")
+	response.Header().Set("Cache-Control", "no-cache")
+	response.Header().Set("Connection", "keep-alive")
+	response.Header().Set("X-Accel-Buffering", "no")
+	response.WriteHeader(http.StatusOK)
+	flusher, _ := response.Writer.(http.Flusher)
+	sink := func(event ChatStreamEvent) {
+		_ = writeChatEvent(response, flusher, event)
+	}
+	result, err := h.service.SendMessageStream(c.Request().Context(), principal, id, input, sink)
+	if err != nil {
+		sink(ChatStreamEvent{Type: ChatEventError, Error: streamAIErrorMessage(err)})
+		return nil
+	}
+	sink(ChatStreamEvent{
+		Type:         ChatEventAssistantMessage,
+		Message:      &result.AssistantMessage,
+		Conversation: &result.Conversation,
+	})
+	sink(ChatStreamEvent{Type: ChatEventDone})
+	return nil
+}
+
+func writeChatEvent(writer io.Writer, flusher http.Flusher, event ChatStreamEvent) error {
+	raw, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(writer, "event: %s\ndata: %s\n\n", event.Type, raw); err != nil {
+		return err
+	}
+	if flusher != nil {
+		flusher.Flush()
+	}
+	return nil
+}
+
+func streamAIErrorMessage(err error) string {
+	var validation *ValidationError
+	if errors.As(err, &validation) {
+		return validation.Violation.Message
+	}
+	switch {
+	case errors.Is(err, ErrForbidden):
+		return "没有操作权限"
+	case errors.Is(err, ErrNotFound):
+		return "会话不存在或已被删除"
+	default:
+		return "AI 处理失败，请稍后重试"
+	}
 }
 
 func (h *Handler) UploadAttachment(c echo.Context) error {

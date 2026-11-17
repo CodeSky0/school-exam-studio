@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { MagicWandIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { runAITool, type AIToolResult } from "@/lib/ai-tools";
@@ -88,6 +89,14 @@ export function QuestionBankAI({ onEdit }: { onEdit: (question: Question) => voi
               ))}
             </ul>
           ) : null}
+          {activeTool === "review_queue" && items.length > 0 ? (
+            <Link
+              href={`/ai?prompt=${encodeURIComponent(`帮我复核这 ${items.length} 道待复核题目：${items.slice(0, 10).map((item) => item.question_id).join("、")}。请检查答案解析、知识点与难度，并给出处理建议。`)}`}
+              className="mt-2 inline-block text-label-12 font-medium text-accent-strong underline-offset-2 hover:underline"
+            >
+              在 AI 助手中批量复核
+            </Link>
+          ) : null}
           {activeTool === "bank_stats" && result.data.total !== undefined ? (
             <dl className="mt-3 grid grid-cols-2 gap-2 font-mono text-label-12 text-neutral-8 sm:grid-cols-4">
               <div><dt className="text-neutral-6">题目总数</dt><dd className="mt-1">{String(result.data.total)}</dd></div>
@@ -95,6 +104,14 @@ export function QuestionBankAI({ onEdit }: { onEdit: (question: Question) => voi
               <div><dt className="text-neutral-6">知识点</dt><dd className="mt-1">{Object.keys((result.data.knowledge_points as Record<string, number>) ?? {}).length}</dd></div>
               <div><dt className="text-neutral-6">覆盖不足</dt><dd className="mt-1">{Array.isArray(result.data.sparse_knowledge) ? result.data.sparse_knowledge.length : 0}</dd></div>
             </dl>
+          ) : null}
+          {activeTool === "bank_stats" ? (
+            <Link
+              href={`/ai?prompt=${encodeURIComponent(`请根据题库体检结果继续分析：${result.summary}。给出补齐知识点覆盖和清理待复核题目的具体步骤。`)}`}
+              className="mt-2 inline-block text-label-12 font-medium text-accent-strong underline-offset-2 hover:underline"
+            >
+              在 AI 助手中继续
+            </Link>
           ) : null}
         </div>
       ) : null}

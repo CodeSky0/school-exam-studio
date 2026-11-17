@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { CheckIcon, MagicWandIcon } from "@radix-ui/react-icons";
 import { analyzeDraft, type AIAnalysis } from "@/lib/ai";
@@ -47,8 +48,9 @@ function buildPatch(state: QuestionFormState, analysis: AIAnalysis): Partial<Que
   return patch;
 }
 
-export function QuestionAIAssistant({ state, onApply }: {
+export function QuestionAIAssistant({ state, questionID, onApply }: {
   state: QuestionFormState;
+  questionID?: string;
   onApply: (patch: Partial<QuestionFormState>) => void;
 }) {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
@@ -118,6 +120,14 @@ export function QuestionAIAssistant({ state, onApply }: {
           <p className="text-caption-10 leading-4 text-neutral-6">只补充空白的答案与解析，不会覆盖已填写内容。</p>
         </div>
       ) : null}
+      <Link
+        href={`/ai?prompt=${encodeURIComponent(questionID
+          ? `帮我深入分析题目 ${questionID}：检查答案解析、知识点、难度与相似题，必要时生成草稿修改建议。`
+          : "帮我检查这道新题：分析题干、答案与解析，并给出知识点、难度和标签建议。")}`}
+        className="mt-3 inline-block text-label-12 font-medium text-accent-strong underline-offset-2 hover:underline"
+      >
+        在 AI 助手中深入分析
+      </Link>
     </section>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   CheckCircledIcon,
   ChevronDownIcon,
@@ -117,15 +118,21 @@ function ToolCallCard({ call, last, scope }: { call: ToolCall; last: boolean; sc
               </button>
             </div>
             <p className="mt-1 break-all font-mono text-caption-10 leading-5 text-neutral-7">{questionIDs.slice(0, 8).join(" · ")}{questionIDs.length > 8 ? ` 等 ${questionIDs.length} 道` : ""}</p>
-            <p className="mt-1 text-caption-10 text-neutral-6">
-              可在{scope === "admin" ? "全校题库" : "教师题库"}中搜索这些 ID 查看草稿。
-            </p>
+            <Link
+              href={scope === "admin" ? "/admin/questions" : "/teacher/questions"}
+              className="mt-1.5 inline-block text-caption-10 font-medium text-accent-strong underline-offset-2 hover:underline"
+            >
+              打开题库
+            </Link>
           </div>
         ) : null}
         {paperID ? (
-          <p className="mt-2 rounded-md border border-accent/25 bg-accent-soft px-2.5 py-2 text-label-12 text-accent-strong">
-            已生成试卷草稿：<span className="font-mono">{paperID}</span>
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent/25 bg-accent-soft px-2.5 py-2 text-label-12 text-accent-strong">
+            <span>试卷草稿 <span className="font-mono">{paperID}</span></span>
+            {scope === "teacher" ? (
+              <Link href={`/teacher/papers/${paperID}`} className="font-medium underline-offset-2 hover:underline">打开试卷</Link>
+            ) : null}
+          </div>
         ) : null}
         <details className="group mt-2 rounded-md border border-border bg-neutral-1">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-1.5 text-caption-10 text-neutral-6 hover:text-neutral-9">

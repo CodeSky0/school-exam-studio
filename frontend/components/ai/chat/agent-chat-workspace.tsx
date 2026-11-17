@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Cross2Icon,
@@ -21,11 +21,13 @@ import {
   listSkills,
   listTools,
   MAX_ATTACHMENTS,
-  sendMessage,
+  streamMessage,
   updateConversation,
   uploadAttachment,
   type AttachmentRef,
+  type ChatMessage,
   type Conversation,
+  type LiveTurn,
   type Skill,
 } from "@/lib/ai-chat";
 import { paperQueryKeys } from "@/lib/papers";
@@ -38,8 +40,17 @@ import { Composer } from "./composer";
 import { SkillsPanel } from "./skills-panel";
 import type { UploadTask } from "./attachment-tray";
 
+function initialPrompt() {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("prompt") ?? "";
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "操作失败，请稍后重试";
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function uploadValidation(file: File) {
@@ -55,12 +66,13 @@ function uploadValidation(file: File) {
 export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
   const scope: "teacher" | "admin" = user.role === "admin" ? "admin" : "teacher";
   const queryClient = useQueryClient();
+  const abortRef = useRef<AbortController | null>(null);
   const [activeID, setActiveID] = useState("");
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(initialPrompt);
   const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
   const [uploads, setUploads] = useState<UploadTask[]>([]);
   const [model, setModel] = useState("");
-  const [pendingContent, setPendingContent] = useState("");
+  const [liveTurn, setLiveTurn] = useState<LiveTurn | null>(null);
   const [actionError, setActionError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -87,6 +99,9 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
   const tools = toolsQuery.data?.items ?? [];
   const effectiveModel = model || statusQuery.data?.default_model || "";
   const readOnly = Boolean(activeConversation && activeConversation.creator_id !== user.id);
+  const isSending = liveTurn?.status === "running" || creating;
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const createMutation = useMutation({
     mutationFn: () => createConversation(),
@@ -99,30 +114,6 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
       void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
     },
     onError: (error) => setActionError(errorMessage(error)),
-  });
-
-  const sendMutation = useMutation({
-    mutationFn: (variables: { id: string; content: string; attachmentIDs: string[]; model: string }) =>
-      sendMessage(variables.id, {
-        content: variables.content,
-        attachment_ids: variables.attachmentIDs,
-        model: variables.model,
-      }),
-    onSuccess: (result) => {
-      setDraft("");
-      setAttachments([]);
-      setPendingContent("");
-      setActionError("");
-      setActiveID(result.conversation.id);
-      void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.messages(result.conversation.id) });
-      void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
-      void queryClient.invalidateQueries({ queryKey: questionQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: paperQueryKeys.all });
-    },
-    onError: (error) => {
-      setPendingContent("");
-      setActionError(errorMessage(error));
-    },
   });
 
   const updateMutation = useMutation({
@@ -152,17 +143,32 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
     onError: (error) => setActionError(errorMessage(error)),
   });
 
-  const isSending = sendMutation.isPending || createMutation.isPending || creating;
+  function stopStreaming() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLiveTurn(null);
+    void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.messages(effectiveActiveID) });
+  }
 
   function selectConversation(id: string) {
     if (id === effectiveActiveID) return;
+    abortRef.current?.abort();
+    abortRef.current = null;
     setActiveID(id);
     setDraft("");
     setAttachments([]);
     setUploads([]);
-    setPendingContent("");
+    setLiveTurn(null);
     setActionError("");
     setSidebarOpen(false);
+  }
+
+  function appendMessageToCache(conversationID: string, message: ChatMessage) {
+    queryClient.setQueryData<{ items: ChatMessage[] }>(aiChatQueryKeys.messages(conversationID), (current) => {
+      const items = current?.items ?? [];
+      if (items.some((item) => item.id === message.id)) return current;
+      return { items: [...items, message] };
+    });
   }
 
   async function handleSend() {
@@ -178,7 +184,6 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
       return;
     }
     setActionError("");
-    setPendingContent(content || "请解析这些附件");
     let conversationID = effectiveActiveID;
     if (!conversationID) {
       setCreating(true);
@@ -188,19 +193,83 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         setActiveID(conversation.id);
         void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
       } catch (error) {
-        setPendingContent("");
+        setCreating(false);
         setActionError(errorMessage(error));
         return;
-      } finally {
-        setCreating(false);
       }
+      setCreating(false);
     }
-    sendMutation.mutate({
-      id: conversationID,
-      content,
-      attachmentIDs: attachments.map((item) => item.id),
-      model: effectiveModel,
+    const sentAttachments = attachments;
+    setLiveTurn({
+      content: content || "请解析这些附件",
+      attachments: sentAttachments,
+      toolCalls: [],
+      assistantContent: "",
+      status: "running",
     });
+    setDraft("");
+    setAttachments([]);
+    setUploads([]);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      await streamMessage(conversationID, {
+        content,
+        attachment_ids: sentAttachments.map((item) => item.id),
+        model: effectiveModel,
+      }, (event) => {
+        switch (event.type) {
+          case "user_message":
+            if (event.message) appendMessageToCache(conversationID, event.message);
+            break;
+          case "tool_started":
+          case "tool_finished": {
+            const call = event.tool_call;
+            if (!call) break;
+            setLiveTurn((current) => {
+              if (!current) return current;
+              const toolCalls = current.toolCalls.some((item) => item.id === call.id)
+                ? current.toolCalls.map((item) => (item.id === call.id ? call : item))
+                : [...current.toolCalls, call];
+              return { ...current, toolCalls };
+            });
+            break;
+          }
+          case "assistant_message":
+            if (event.message) {
+              appendMessageToCache(conversationID, event.message);
+              setLiveTurn((current) => current
+                ? { ...current, assistantContent: event.message?.content ?? current.assistantContent }
+                : current);
+            }
+            break;
+          case "error": {
+            const message = event.error ?? "AI 处理失败，请稍后重试";
+            setActionError(message);
+            setLiveTurn((current) => current ? { ...current, status: "failed", error: message } : current);
+            break;
+          }
+          case "done":
+            setLiveTurn(null);
+            void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
+            void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.messages(conversationID) });
+            void queryClient.invalidateQueries({ queryKey: questionQueryKeys.all });
+            void queryClient.invalidateQueries({ queryKey: paperQueryKeys.all });
+            break;
+        }
+      }, controller.signal);
+    } catch (error) {
+      if (isAbortError(error)) {
+        setLiveTurn(null);
+        void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.messages(conversationID) });
+        return;
+      }
+      setLiveTurn((current) => current
+        ? { ...current, status: "failed", error: errorMessage(error) }
+        : current);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+    }
   }
 
   const handleUploadFiles = useCallback((files: File[]) => {
@@ -247,11 +316,8 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
 
   function useSkill(skill: Skill) {
     setDraft(skill.prompt);
-    setActionError("");
+    setActionError(skill.accepts_attachments ? "请先添加图片或文档" : "");
     setPanelOpen(false);
-    if (skill.accepts_attachments) {
-      setActionError(`${skill.title}需要附件，请点击输入框左侧的 + 上传图片、PDF 或 Word 文件。`);
-    }
   }
 
   function togglePin(conversation: Conversation) {
@@ -267,7 +333,6 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
   const headerTitle = activeConversation?.title ?? "新的 AI 对话";
   const provider = statusQuery.data?.provider ?? "local";
   const providerLabel = provider === "llm" ? "大模型" : provider === "local_fallback" ? "本地降级" : "本地引擎";
-
   const models = useMemo(() => statusQuery.data?.models ?? [], [statusQuery.data?.models]);
 
   return (
@@ -282,22 +347,17 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-copy-13 font-medium text-neutral-9">{headerTitle}</p>
-            <p className="truncate text-caption-10 text-neutral-6">
-              {readOnly ? "只读会话 · 仅创建者可继续对话" : scope === "admin" ? "管理员 Agent · 可检索本校题库，写入仅限本人草稿" : `教师 Agent · ${user.subject} · 写入仅限本人草稿`}
-            </p>
+            <p className="truncate text-caption-10 text-neutral-6">{readOnly ? "只读" : scope === "admin" ? "管理员" : user.subject}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span className={cn("hidden items-center gap-1 rounded-full border px-2.5 py-1 text-caption-10 font-medium sm:inline-flex", provider === "llm" ? "border-accent/30 bg-accent-soft text-accent-strong" : "border-info/25 bg-info-soft text-info")}>
             <LightningBoltIcon className="size-3" />{providerLabel}
           </span>
-          <span className="hidden rounded-full border border-border bg-neutral-2 px-2.5 py-1 text-caption-10 text-neutral-7 md:inline-flex">
-            {messages.length} 条消息
-          </span>
           <Button type="button" size="icon" variant="ghost" aria-label="新建对话" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
             <PlusIcon />
           </Button>
-          <Button type="button" size="icon" variant="ghost" className="xl:hidden" aria-label="打开技能与工具" onClick={() => setPanelOpen(true)}>
+          <Button type="button" size="icon" variant="ghost" className="xl:hidden" aria-label="技能与工具" onClick={() => setPanelOpen(true)}>
             <LayersIcon />
           </Button>
         </div>
@@ -338,9 +398,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         <section className="flex min-h-0 min-w-0 flex-col bg-paper" aria-label="AI 对话">
           <MessageList
             messages={messages}
-            pendingContent={pendingContent}
-            pendingAttachments={attachments}
-            isSending={isSending}
+            liveTurn={liveTurn}
             error={error}
             skills={readOnly ? [] : skills}
             scope={scope}
@@ -350,6 +408,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
             value={draft}
             onChange={setDraft}
             onSubmit={() => { void handleSend(); }}
+            onCancel={stopStreaming}
             attachments={attachments}
             uploads={uploads}
             isSending={isSending}

@@ -94,6 +94,16 @@ export async function apiRequest<T>(
   return parsed.data;
 }
 
+// apiStream 返回原始响应流，供 SSE 等增量接口使用；HTTP 错误仍按统一格式抛出。
+export async function apiStream(path: string, options: RequestInit = {}): Promise<Response> {
+  const response = await fetchApi(path, options);
+  if (!response.ok) {
+    const payload = await readJsonPayload(response);
+    throw responseError(response, payload);
+  }
+  return response;
+}
+
 export async function apiDownload(path: string): Promise<Blob> {
   const response = await fetchApi(path, {});
   if (!response.ok) {

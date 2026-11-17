@@ -43,26 +43,22 @@ export function SkillsPanel({ status, isStatusPending, statusError, skills, tool
 }) {
   const [tab, setTab] = useState<"skills" | "tools">("skills");
   const provider = status?.provider ?? "local";
-  const providerLabel = provider === "llm" ? "大模型已配置" : provider === "local_fallback" ? "本地降级模式" : "本地确定性引擎";
+  const providerLabel = provider === "llm" ? "大模型" : provider === "local_fallback" ? "本地降级" : "本地引擎";
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-neutral-1">
       <div className="border-b border-border p-3">
-        <p className="text-caption-10 font-medium uppercase tracking-[0.18em] text-neutral-6">Agent 能力</p>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-caption-10 font-medium", provider === "llm" ? "border-accent/30 bg-accent-soft text-accent-strong" : "border-info/25 bg-info-soft text-info")}>
             <LightningBoltIcon className="size-3" />{isStatusPending ? "读取中" : providerLabel}
           </span>
           {status?.model ? <span className="max-w-full truncate rounded-full bg-neutral-2 px-2 py-0.5 font-mono text-caption-10 text-neutral-7">{status.model}</span> : null}
         </div>
         {status?.warning ? <p className="mt-2 text-caption-10 leading-4 text-warning">{status.warning}</p> : null}
-        {statusError ? <p className="mt-2 text-caption-10 leading-4 text-error">无法读取引擎状态。</p> : null}
-        <p className="mt-2 text-caption-10 leading-4 text-neutral-6">
-          {status?.capabilities.length ?? 0} 项能力 · {tools.length} 个工具
-        </p>
+        {statusError ? <p className="mt-2 text-caption-10 leading-4 text-error">无法读取引擎状态</p> : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-1 border-b border-border p-2" role="tablist" aria-label="Agent 能力面板">
+      <div className="grid grid-cols-2 gap-1 border-b border-border p-2" role="tablist" aria-label="技能与工具">
         <button
           type="button"
           role="tab"
@@ -128,12 +124,6 @@ export function SkillsPanel({ status, isStatusPending, statusError, skills, tool
         )}
       </div>
 
-      <div className="border-t border-border p-3">
-        <p className="flex items-start gap-1.5 text-caption-10 leading-4 text-neutral-6">
-          <LockClosedIcon className="mt-0.5 size-3 shrink-0" />
-          所有写入仅限草稿，已发布题目只读，操作记录进入审计日志。
-        </p>
-      </div>
     </div>
   );
 }

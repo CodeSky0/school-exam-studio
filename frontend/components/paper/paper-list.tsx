@@ -58,7 +58,7 @@ export function PaperList() {
   const [draft, setDraft] = useState<PaperFilters>(filters);
   const [deleteTarget, setDeleteTarget] = useState<PaperSummary | null>(null);
   const [message, setMessage] = useState("");
-  const [audit, setAudit] = useState<{ title: string; result: AIToolResult } | null>(null);
+  const [audit, setAudit] = useState<{ title: string; paperID: string; result: AIToolResult } | null>(null);
   const listQuery = useQuery({
     queryKey: paperQueryKeys.list(filters),
     queryFn: () => listPapers(filters),
@@ -78,7 +78,7 @@ export function PaperList() {
   const auditMutation = useMutation({
     mutationFn: (paper: PaperSummary) => runAITool("paper_audit", { paper_id: paper.id }),
     onMutate: () => { setAudit(null); },
-    onSuccess: (result, paper) => setAudit({ title: paper.title, result }),
+    onSuccess: (result, paper) => setAudit({ title: paper.title, paperID: paper.id, result }),
   });
 
   const data = listQuery.data;
@@ -132,6 +132,15 @@ export function PaperList() {
               {audit.result.warnings.map((warning) => <li key={warning}>{warning}</li>)}
             </ul>
           ) : null}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <Link
+              href={`/ai?prompt=${encodeURIComponent(`帮我复查试卷「${audit.title}」（ID: ${audit.paperID}），重点检查难度分布、知识点覆盖与重复题，并给出调整建议。`)}`}
+              className="text-label-12 font-medium text-accent-strong underline-offset-2 hover:underline"
+            >
+              在 AI 助手中处理
+            </Link>
+            <Link href={`/teacher/papers/${audit.paperID}`} className="text-label-12 text-neutral-7 underline-offset-2 hover:text-accent-strong hover:underline">打开试卷</Link>
+          </div>
         </div>
       ) : null}
       {listQuery.isPending ? (

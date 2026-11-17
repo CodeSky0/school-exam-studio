@@ -123,6 +123,7 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 | DELETE | `/ai/conversations/:id` | 创建者 | 软删除会话，题库中已生成的草稿不受影响 |
 | GET | `/ai/conversations/:id/messages?limit=100` | 教师/管理员 | 消息历史，按时间升序，单页最多 200 条 |
 | POST | `/ai/conversations/:id/messages` | 创建者 | 发送消息并同步执行 Agent，返回用户消息、助手消息与更新后的会话 |
+| POST | `/ai/conversations/:id/messages/stream` | 创建者 | 同一条消息以 SSE 推送：用户消息、工具开始/结束、助手消息与完成事件 |
 | POST | `/ai/attachments` | 教师/管理员 | multipart 字段 `file`，可选 `conversation_id`；上传后同步解析文本 |
 | GET | `/ai/attachments/:id` | 上传者/管理员 | 附件摘要：类型、状态、文本预览、字符数 |
 | GET | `/ai/attachments/:id/content` | 上传者/管理员 | 原始文件流，`inline` 展示，仅浏览器会话可访问 |
@@ -137,6 +138,27 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
   "attachment_ids": ["5f8e..."],
   "model": ""
 }
+```
+
+流式接口返回 `text/event-stream`，每帧格式为 `event: <type>` + `data: <json>`，`json.type` 与事件名一致：
+
+| 事件 | 负载 | 说明 |
+|---|---|---|
+| `user_message` | `message` | 用户消息落库后立即推送 |
+| `tool_started` | `tool_call` | 工具开始执行，状态为 `running` |
+| `tool_finished` | `tool_call` | 工具结束，含耗时、摘要、参数与结果 |
+| `assistant_message` | `message` + `conversation` | 本轮助手回复与更新后的会话 |
+| `done` | — | 正常结束 |
+| `error` | `error` | 处理失败，连接随后关闭 |
+
+示例：
+
+```
+event: tool_started
+data: {"type":"tool_started","tool_call":{"id":"t1","name":"search_questions","label":"检索题目","status":"running","arguments":{"keyword":"函数"}}}
+
+event: tool_finished
+data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","label":"检索题目","status":"succeeded","summary":"找到 8 道题","arguments":{"keyword":"函数"}}}
 ```
 
 消息响应中的 `tool_calls` 是完整工具时间线：

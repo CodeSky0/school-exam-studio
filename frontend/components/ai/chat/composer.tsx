@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MagicWandIcon, PaperPlaneIcon, PlusIcon } from "@radix-ui/react-icons";
+import { MagicWandIcon, PaperPlaneIcon, PlusIcon, StopIcon } from "@radix-ui/react-icons";
 import {
   ATTACHMENT_ACCEPT,
   MAX_ATTACHMENTS,
@@ -17,6 +17,7 @@ interface ComposerProps {
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
+  onCancel: () => void;
   attachments: AttachmentRef[];
   uploads: UploadTask[];
   isSending: boolean;
@@ -32,7 +33,7 @@ interface ComposerProps {
 }
 
 export function Composer({
-  value, onChange, onSubmit, attachments, uploads, isSending, models, model, onModelChange,
+  value, onChange, onSubmit, onCancel, attachments, uploads, isSending, models, model, onModelChange,
   onRemoveAttachment, onDismissUpload, onUploadFiles, skills, onUseSkill, readOnly = false,
 }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -75,7 +76,7 @@ export function Composer({
     >
       {dragging ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-t-lg bg-accent-soft/80 backdrop-blur-sm">
-          <p className="text-copy-13 font-medium text-accent-strong">松开即可上传图片、PDF、Word 或文本</p>
+          <p className="text-copy-13 font-medium text-accent-strong">松开上传</p>
         </div>
       ) : null}
       {skills.length > 0 ? (
@@ -94,9 +95,7 @@ export function Composer({
       ) : null}
       <AttachmentTray attachments={attachments} uploads={uploads} onRemove={onRemoveAttachment} onDismissUpload={onDismissUpload} />
       {readOnly ? (
-        <p className="border-b border-border bg-neutral-2/60 px-3 py-2 text-caption-10 leading-4 text-neutral-7">
-          这是其他教师创建的会话，管理员仅可查看历史与工具结果；写入操作需由会话创建者本人执行。
-        </p>
+        <p className="border-b border-border bg-neutral-2/60 px-3 py-1.5 text-caption-10 text-neutral-7">只读对话</p>
       ) : null}
       <div className="px-3 py-2.5">
         <Textarea
@@ -104,7 +103,7 @@ export function Composer({
           value={value}
           rows={1}
           maxLength={8000}
-          placeholder={readOnly ? "只读会话" : isSending ? "AI 正在执行，请稍候…" : "描述目标，或粘贴/拖入试卷图片、PDF、Word 文件…"}
+          placeholder={readOnly ? "只读对话" : isSending ? "正在执行…" : "描述任务，或粘贴、拖入图片与文件…"}
           aria-label="消息内容"
           disabled={isSending || readOnly}
           onChange={(event) => onChange(event.target.value)}
@@ -138,12 +137,10 @@ export function Composer({
                 event.target.value = "";
               }}
             />
-            <Button type="button" size="icon" variant="ghost" aria-label="添加图片或文件" disabled={full || isSending || readOnly} onClick={() => fileInputRef.current?.click()}>
+            <Button type="button" size="icon" variant="ghost" aria-label="添加图片或文件" title="添加图片或文件" disabled={full || isSending || readOnly} onClick={() => fileInputRef.current?.click()}>
               <PlusIcon />
             </Button>
-            <span className="text-caption-10 text-neutral-6">
-              {full ? `附件已达 ${MAX_ATTACHMENTS} 个上限` : "支持 PNG/JPG/WebP、PDF、DOCX、TXT、MD、CSV"}
-            </span>
+            {full ? <span className="text-caption-10 text-neutral-6">最多 {MAX_ATTACHMENTS} 个附件</span> : null}
           </div>
           <div className="flex items-center gap-2">
             {value.length > 6000 ? <span className={cn("text-caption-10", value.length > 7600 ? "text-error" : "text-warning")}>{value.length}/8000</span> : null}
@@ -160,10 +157,17 @@ export function Composer({
                 </select>
               </label>
             ) : null}
-            <Button type="button" size="sm" onClick={submit} disabled={!canSend}>
-              <PaperPlaneIcon />
-              {isSending ? "执行中…" : "发送"}
-            </Button>
+            {isSending ? (
+              <Button type="button" size="sm" variant="outline" onClick={onCancel}>
+                <StopIcon />
+                停止
+              </Button>
+            ) : (
+              <Button type="button" size="sm" onClick={submit} disabled={!canSend}>
+                <PaperPlaneIcon />
+                发送
+              </Button>
+            )}
           </div>
         </div>
       </div>

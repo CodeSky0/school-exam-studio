@@ -32,7 +32,33 @@ const (
 	AttachmentStatusUploaded = "uploaded"
 	AttachmentStatusParsed   = "parsed"
 	AttachmentStatusFailed   = "failed"
+
+	ChatEventUserMessage      = "user_message"
+	ChatEventToolStarted      = "tool_started"
+	ChatEventToolFinished     = "tool_finished"
+	ChatEventAssistantMessage = "assistant_message"
+	ChatEventDone             = "done"
+	ChatEventError            = "error"
 )
+
+// ChatStreamEvent 是对话流的单帧事件。
+type ChatStreamEvent struct {
+	Type         string        `json:"type"`
+	Message      *ChatMessage  `json:"message,omitempty"`
+	ToolCall     *ToolCall     `json:"tool_call,omitempty"`
+	Conversation *Conversation `json:"conversation,omitempty"`
+	Error        string        `json:"error,omitempty"`
+}
+
+// ChatEventSink 接收实时事件；nil 表示调用方不需要流式输出。
+type ChatEventSink func(ChatStreamEvent)
+
+func emitChatEvent(sink ChatEventSink, event ChatStreamEvent) {
+	if sink == nil {
+		return
+	}
+	sink(event)
+}
 
 // Conversation 是对话列表使用的会话摘要。
 type Conversation struct {
