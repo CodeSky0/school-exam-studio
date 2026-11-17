@@ -36,6 +36,7 @@ export const chatMessageSchema = z.object({
   model: z.string().default(""),
   tool_calls: z.array(toolCallSchema).default([]),
   attachments: z.array(attachmentRefSchema).default([]),
+  reasoning: z.string().optional(),
   run_id: z.string().optional(),
   error: z.string().optional(),
   created_at: z.string(),
@@ -82,10 +83,21 @@ export const skillSchema = z.object({
 });
 
 export const chatStreamEventSchema = z.object({
-  type: z.enum(["user_message", "tool_started", "tool_finished", "assistant_message", "done", "error"]),
+  type: z.enum([
+    "user_message",
+    "assistant_delta",
+    "reasoning_delta",
+    "tool_started",
+    "tool_finished",
+    "assistant_message",
+    "done",
+    "error",
+  ]),
   message: chatMessageSchema.optional(),
   tool_call: toolCallSchema.optional(),
   conversation: conversationSchema.optional(),
+  content: z.string().optional(),
+  reasoning: z.string().optional(),
   error: z.string().optional(),
 });
 
@@ -104,6 +116,7 @@ export interface LiveTurn {
   attachments: AttachmentRef[];
   toolCalls: ToolCall[];
   assistantContent: string;
+  reasoning: string;
   status: "running" | "failed";
   error?: string;
 }

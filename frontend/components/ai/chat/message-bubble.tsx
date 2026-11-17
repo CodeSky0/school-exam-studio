@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { FileTextIcon, ImageIcon } from "@radix-ui/react-icons";
 import {
   attachmentKindLabel,
@@ -114,7 +115,7 @@ function MessageAttachments({ message }: { message: ChatMessage }) {
   );
 }
 
-export function MessageBubble({ message, scope }: { message: ChatMessage; scope: "teacher" | "admin" }) {
+function MessageBubbleComponent({ message, scope }: { message: ChatMessage; scope: "teacher" | "admin" }) {
   const isUser = message.role === "user";
   if (isUser) {
     return (
@@ -135,7 +136,22 @@ export function MessageBubble({ message, scope }: { message: ChatMessage; scope:
       <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-accent/25 bg-accent-soft text-caption-10 font-semibold text-accent-strong" aria-hidden="true">AI</div>
       <div className="min-w-0 flex-1">
         <div className="rounded-lg border border-border bg-neutral-1 px-4 py-3 shadow-sm">
-          {message.content ? <MessageText content={message.content} /> : isRunning ? <ThinkingLine /> : null}
+          {message.reasoning ? (
+            <details open={isRunning} className="mb-2 rounded-md border border-border bg-neutral-2/60 px-2.5 py-2">
+              <summary className="cursor-pointer select-none text-caption-10 font-medium text-neutral-7">
+                {isRunning ? "思考中…" : "思考过程"}
+              </summary>
+              <p className="mt-1.5 max-h-64 overflow-y-auto whitespace-pre-wrap text-label-12 leading-5 text-neutral-7">
+                {message.reasoning}
+              </p>
+            </details>
+          ) : null}
+          {message.content ? (
+            <>
+              <MessageText content={message.content} />
+              {isRunning ? <span aria-hidden="true" className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-accent align-text-bottom" /> : null}
+            </>
+          ) : isRunning ? <ThinkingLine /> : null}
           <MessageAttachments message={message} />
           <ToolCallTimeline calls={message.tool_calls} scope={scope} />
           {message.status === "failed" ? (
@@ -152,3 +168,5 @@ export function MessageBubble({ message, scope }: { message: ChatMessage; scope:
     </article>
   );
 }
+
+export const MessageBubble = memo(MessageBubbleComponent);

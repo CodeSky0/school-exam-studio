@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   attachmentKindLabel,
   chatMessageSchema,
+  chatStreamEventSchema,
   formatBytes,
   formatToolDuration,
   messageQuestionIDs,
@@ -84,6 +85,28 @@ describe("streamMessage", () => {
       "http://localhost:8080/api/v1/ai/conversations/c1/messages/stream",
       expect.objectContaining({ method: "POST", body: JSON.stringify({ content: "找题", attachment_ids: [], model: "" }) }),
     );
+  });
+
+  it("parses token deltas before the final assistant message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sseResponse([
+      'event: reasoning_delta\ndata: {"type":"reasoning_delta","reasoning":"先检索"}\n\n',
+      'event: assistant_delta\ndata: {"type":"assistant_delta","content":"找到"}\n\n',
+      'event: assistant_delta\ndata: {"type":"assistant_delta","content":" 8 道题"}\n\n',
+      'event: assistant_message\ndata: {"type":"assistant_message","message":{"id":"m2","conversation_id":"c1","role":"assistant","content":"找到 8 道题","created_at":"2026-11-17T10:00:00Z"}}\n\n',
+      'event: done\ndata: {"type":"done"}\n\n',
+    ])));
+    const events: ChatStreamEvent[] = [];
+    await streamMessage("c1", { content: "找题" }, (event) => events.push(event));
+    expect(events.map((event) => event.type)).toEqual([
+      "reasoning_delta", "assistant_delta", "assistant_delta", "assistant_message", "done",
+    ]);
+    expect(events.filter((event) => event.content).map((event) => event.content).join("")).toBe("找到 8 道题");
+    expect(events[0].reasoning).toBe("先检索");
+  });
+
+  it("parses a token delta event schema", () => {
+    const event = chatStreamEventSchema.parse({ type: "assistant_delta", content: "函数" });
+    expect(event.content).toBe("函数");
   });
 
   it("throws the API error message for non-2xx responses", async () => {

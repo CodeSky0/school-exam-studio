@@ -58,6 +58,7 @@ function liveMessages(turn: LiveTurn | null): ChatMessage[] {
       model: "",
       tool_calls: turn.toolCalls,
       attachments: [],
+      reasoning: turn.reasoning,
       error: turn.error,
       created_at: createdAt,
     },
@@ -77,7 +78,9 @@ export function MessageList({
     if (!container) return;
     const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 240;
     if (nearBottom || messages.length <= 1) {
-      endRef.current?.scrollIntoView({ behavior: messages.length <= 1 ? "auto" : "smooth", block: "end" });
+      // Token 流期间使用即时滚动，避免高频平滑动画堆积。
+      const behavior = liveTurn?.status === "running" || messages.length <= 1 ? "auto" : "smooth";
+      endRef.current?.scrollIntoView({ behavior, block: "end" });
     }
   }, [messages.length, liveTurn]);
 

@@ -28,6 +28,23 @@ func TestWriteChatEventFramesSSE(t *testing.T) {
 	}
 }
 
+func TestWriteChatEventFramesTokenDelta(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	if err := writeChatEvent(recorder, nil, ChatStreamEvent{Type: ChatEventAssistantDelta, Content: "函数"}); err != nil {
+		t.Fatalf("writeChatEvent: %v", err)
+	}
+	frame := recorder.Body.String()
+	if !strings.HasPrefix(frame, "event: assistant_delta\n") {
+		t.Fatalf("unexpected frame: %q", frame)
+	}
+	if !strings.Contains(frame, `"content":"函数"`) {
+		t.Fatalf("frame missing delta content: %q", frame)
+	}
+	if strings.Contains(frame, `"type":"tool_started"`) {
+		t.Fatalf("frame should not include tool payload: %q", frame)
+	}
+}
+
 func TestWriteChatEventIncludesError(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	if err := writeChatEvent(recorder, nil, ChatStreamEvent{Type: ChatEventError, Error: "会话不存在或已被删除"}); err != nil {

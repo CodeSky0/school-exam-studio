@@ -145,6 +145,8 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 | 事件 | 负载 | 说明 |
 |---|---|---|
 | `user_message` | `message` | 用户消息落库后立即推送 |
+| `assistant_delta` | `content` | 模型正文 Token 增量，前端按序拼接 |
+| `reasoning_delta` | `reasoning` | 模型推理增量（模型支持时返回） |
 | `tool_started` | `tool_call` | 工具开始执行，状态为 `running` |
 | `tool_finished` | `tool_call` | 工具结束，含耗时、摘要、参数与结果 |
 | `assistant_message` | `message` + `conversation` | 本轮助手回复与更新后的会话 |
@@ -154,6 +156,12 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 示例：
 
 ```
+event: assistant_delta
+data: {"type":"assistant_delta","content":"我"}
+
+event: reasoning_delta
+data: {"type":"reasoning_delta","reasoning":"先检索题库"}
+
 event: tool_started
 data: {"type":"tool_started","tool_call":{"id":"t1","name":"search_questions","label":"检索题目","status":"running","arguments":{"keyword":"函数"}}}
 

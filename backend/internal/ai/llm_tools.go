@@ -40,6 +40,7 @@ type LLMMessage struct {
 
 type LLMReply struct {
 	Content      string
+	Reasoning    string
 	ToolCalls    []LLMToolCall
 	FinishReason string
 }
@@ -51,6 +52,7 @@ type llmToolRequest struct {
 	ToolChoice  string       `json:"tool_choice,omitempty"`
 	Temperature float64      `json:"temperature"`
 	MaxTokens   int          `json:"max_tokens,omitempty"`
+	Stream      bool         `json:"stream,omitempty"`
 }
 
 type llmToolResponse struct {

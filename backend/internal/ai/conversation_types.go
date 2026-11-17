@@ -34,6 +34,8 @@ const (
 	AttachmentStatusFailed   = "failed"
 
 	ChatEventUserMessage      = "user_message"
+	ChatEventAssistantDelta   = "assistant_delta"
+	ChatEventReasoningDelta   = "reasoning_delta"
 	ChatEventToolStarted      = "tool_started"
 	ChatEventToolFinished     = "tool_finished"
 	ChatEventAssistantMessage = "assistant_message"
@@ -47,6 +49,8 @@ type ChatStreamEvent struct {
 	Message      *ChatMessage  `json:"message,omitempty"`
 	ToolCall     *ToolCall     `json:"tool_call,omitempty"`
 	Conversation *Conversation `json:"conversation,omitempty"`
+	Content      string        `json:"content,omitempty"`
+	Reasoning    string        `json:"reasoning,omitempty"`
 	Error        string        `json:"error,omitempty"`
 }
 

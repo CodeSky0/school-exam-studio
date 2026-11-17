@@ -17,9 +17,9 @@ import (
 
 const (
 	maxMessageRunes    = 8000
-	maxLLMHistory      = 8
-	maxLLMToolRounds   = 4
-	maxLLMToolCalls    = 8
+	maxLLMHistory      = 12
+	maxLLMToolRounds   = 6
+	maxLLMToolCalls    = 12
 	maxToolResultChars = 6000
 )
 
@@ -425,7 +425,7 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 		}
 		text := textPreview(item.Content, 2000)
 		if item.Role == MessageRoleAssistant && len(item.ToolCalls) > 0 {
-			text += "\n（上一轮工具：" + strings.Join(toolNames(item.ToolCalls), "、") + "）"
+			text += "\n" + previousTurnToolContext(item.ToolCalls)
 		}
 		if text == "" {
 			continue
@@ -446,16 +446,41 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 		toolContext.AttachmentIDs = append(toolContext.AttachmentIDs, ref.ID)
 	}
 	calls := make([]ToolCall, 0, maxLLMToolCalls)
+	narration := strings.Builder{}
+	streamedThisRound := false
 	for round := 0; round < maxLLMToolRounds; round++ {
-		reply, err := s.chatTools(ctx, candidate, messages, llmTools)
+		if round > 0 && streamedThisRound {
+			// 中间轮次的说明与最终答复之间留出分段，避免不同轮次文字粘在一起。
+			emitChatEvent(sink, ChatStreamEvent{Type: ChatEventAssistantDelta, Content: "\n\n"})
+			streamedThisRound = false
+		}
+		reply, err := s.chatToolsStream(ctx, candidate, messages, llmTools, func(delta LLMDelta) {
+			if delta.Content != "" {
+				streamedThisRound = true
+				emitChatEvent(sink, ChatStreamEvent{Type: ChatEventAssistantDelta, Content: delta.Content})
+			}
+			if delta.Reasoning != "" {
+				emitChatEvent(sink, ChatStreamEvent{Type: ChatEventReasoningDelta, Reasoning: delta.Reasoning})
+			}
+		})
 		if err != nil {
+			// 已经向用户输出过 Token 时保留这部分回复，避免整段消失。
+			if strings.TrimSpace(reply.Content) != "" {
+				return composeAgentReply(narration.String(), reply.Content), calls, nil
+			}
 			return "", calls, err
 		}
 		if len(reply.ToolCalls) == 0 {
 			if strings.TrimSpace(reply.Content) == "" {
-				return summarizeToolCalls(calls), calls, nil
+				return composeAgentReply(narration.String(), summarizeToolCalls(calls)), calls, nil
 			}
-			return strings.TrimSpace(reply.Content), calls, nil
+			return composeAgentReply(narration.String(), reply.Content), calls, nil
+		}
+		if text := strings.TrimSpace(reply.Content); text != "" {
+			if narration.Len() > 0 {
+				narration.WriteString("\n\n")
+			}
+			narration.WriteString(text)
 		}
 		messages = append(messages, LLMMessage{Role: "assistant", Content: reply.Content, ToolCalls: reply.ToolCalls})
 		for _, llmCall := range reply.ToolCalls {
@@ -486,7 +511,21 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 	if reply == "" {
 		reply = "本轮工具调用达到上限，如需继续请回复“继续”。"
 	}
-	return reply, calls, nil
+	return composeAgentReply(narration.String(), reply), calls, nil
+}
+
+// composeAgentReply 保留中间轮次已经展示给用户的说明，再拼接最终答复。
+func composeAgentReply(narration, reply string) string {
+	narration = strings.TrimSpace(narration)
+	reply = strings.TrimSpace(reply)
+	switch {
+	case narration == "":
+		return reply
+	case reply == "":
+		return narration
+	default:
+		return narration + "\n\n" + reply
+	}
 }
 
 func (s *Service) executeToolCall(ctx context.Context, principal auth.Principal, toolContext ToolContext, name string, arguments map[string]any, sink ChatEventSink) ToolCall {
@@ -579,4 +618,45 @@ func toolNames(calls []ToolCall) []string {
 		names = append(names, call.Label)
 	}
 	return names
+}
+
+// previousTurnToolContext 把上一轮工具结果回填到模型上下文，支持用户说“继续”时接着完成任务。
+func previousTurnToolContext(calls []ToolCall) string {
+	builder := strings.Builder{}
+	builder.WriteString("上一轮工具结果（继续任务时参考，勿重复执行）：")
+	for _, call := range calls {
+		builder.WriteString("\n- ")
+		builder.WriteString(call.Label)
+		builder.WriteString("：")
+		builder.WriteString(firstNonEmpty(call.Summary, call.Error, call.Status))
+		if ids := toolCallQuestionIDs(call); len(ids) > 0 {
+			if len(ids) > 5 {
+				ids = ids[:5]
+			}
+			builder.WriteString("；题目ID：")
+			builder.WriteString(strings.Join(ids, "、"))
+		}
+	}
+	return truncate(builder.String(), 1500)
+}
+
+func toolCallQuestionIDs(call ToolCall) []string {
+	value, ok := call.Result["question_ids"]
+	if !ok {
+		return nil
+	}
+	switch ids := value.(type) {
+	case []string:
+		return ids
+	case []any:
+		result := make([]string, 0, len(ids))
+		for _, item := range ids {
+			if text, ok := item.(string); ok {
+				result = append(result, text)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
 }

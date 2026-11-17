@@ -205,6 +205,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
       attachments: sentAttachments,
       toolCalls: [],
       assistantContent: "",
+      reasoning: "",
       status: "running",
     });
     setDraft("");
@@ -222,6 +223,20 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
           case "user_message":
             if (event.message) appendMessageToCache(conversationID, event.message);
             break;
+          case "assistant_delta":
+            if (event.content) {
+              setLiveTurn((current) => current
+                ? { ...current, assistantContent: current.assistantContent + event.content }
+                : current);
+            }
+            break;
+          case "reasoning_delta":
+            if (event.reasoning) {
+              setLiveTurn((current) => current
+                ? { ...current, reasoning: current.reasoning + event.reasoning }
+                : current);
+            }
+            break;
           case "tool_started":
           case "tool_finished": {
             const call = event.tool_call;
@@ -237,10 +252,9 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
           }
           case "assistant_message":
             if (event.message) {
+              // 先写入缓存再替换实时气泡，保证最终消息衔接无损。
               appendMessageToCache(conversationID, event.message);
-              setLiveTurn((current) => current
-                ? { ...current, assistantContent: event.message?.content ?? current.assistantContent }
-                : current);
+              setLiveTurn(null);
             }
             break;
           case "error": {
