@@ -361,25 +361,37 @@ func questionFromEnt(entity *ent.Question) question.Question {
 	for _, option := range entity.Options {
 		options = append(options, question.Option{Key: option.Key, Content: option.Content})
 	}
+	tags := append([]string{}, entity.Tags...)
+	knowledgePoints := append([]string{}, entity.KnowledgePoints...)
+	aiMeta := make(map[string]any, len(entity.AiMeta))
+	for key, value := range entity.AiMeta {
+		aiMeta[key] = value
+	}
 	creatorName := ""
 	if entity.Edges.Creator != nil {
 		creatorName = entity.Edges.Creator.Name
 	}
 	return question.Question{
-		ID:           entity.ID,
-		CreatorID:    entity.CreatorID,
-		CreatorName:  creatorName,
-		Subject:      entity.Subject,
-		Grade:        entity.Grade,
-		QuestionType: entity.QuestionType,
-		Difficulty:   entity.Difficulty,
-		Tags:         append([]string{}, entity.Tags...),
-		Content:      entity.Content,
-		Options:      options,
-		Answer:       entity.Answer,
-		Explanation:  entity.Explanation,
-		Status:       entity.Status,
-		CreatedAt:    entity.CreatedAt,
-		UpdatedAt:    entity.UpdatedAt,
+		ID:               entity.ID,
+		CreatorID:        entity.CreatorID,
+		CreatorName:      creatorName,
+		Subject:          entity.Subject,
+		Grade:            entity.Grade,
+		QuestionType:     entity.QuestionType,
+		Difficulty:       entity.Difficulty,
+		Tags:             tags,
+		Category:         entity.Category,
+		KnowledgePoints:  knowledgePoints,
+		Content:          entity.Content,
+		Options:          options,
+		Answer:           entity.Answer,
+		Explanation:      entity.Explanation,
+		Status:           entity.Status,
+		AIGenerated:      entity.AiGenerated,
+		AIMeta:           aiMeta,
+		ContentHash:      entity.ContentHash,
+		SourceQuestionID: entity.SourceQuestionID,
+		CreatedAt:        entity.CreatedAt,
+		UpdatedAt:        entity.UpdatedAt,
 	}
 }
