@@ -545,11 +545,12 @@ func (s *Service) normalizeAnalysis(response llmAnalysisResponse, input AnalyzeI
 		knowledgePoints = fallback.KnowledgePoints
 	}
 	tags := uniqueStrings(append(append([]string{}, input.Tags...), response.Tags...))
-	if len(tags) > 10 {
-		tags = tags[:10]
-	}
 	if len(tags) == 0 {
 		tags = fallback.Tags
+	}
+	tags = dropDuplicateMetadataTags(tags, category, knowledgePoints)
+	if len(tags) > 10 {
+		tags = tags[:10]
 	}
 	answer := strings.TrimSpace(input.Answer)
 	if answer == "" {
@@ -621,7 +622,8 @@ func (s *Service) normalizeGenerated(items []llmItem, input GenerateInput) []Gen
 		if len(knowledgePoints) > 6 {
 			knowledgePoints = knowledgePoints[:6]
 		}
-		tags := uniqueStrings(append(append(append([]string{}, input.Tags...), item.Tags...), knowledgePoints...))
+		tags := uniqueStrings(append(append([]string{}, input.Tags...), item.Tags...))
+		tags = dropDuplicateMetadataTags(tags, category, knowledgePoints)
 		if len(tags) > 10 {
 			tags = tags[:10]
 		}

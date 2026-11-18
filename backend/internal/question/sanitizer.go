@@ -74,6 +74,7 @@ func (s *Sanitizer) Normalize(input Input) (Input, error) {
 	if input.KnowledgePoints, err = normalizeKnowledgePoints(input.KnowledgePoints); err != nil {
 		return Input{}, err
 	}
+	input.Tags = dropDuplicateMetadataTags(input.Tags, input.Category, input.KnowledgePoints)
 	if input.Content, err = s.normalizeRichText(input.Content, "content", true); err != nil {
 		return Input{}, err
 	}
@@ -178,13 +179,46 @@ func normalizeTags(tags []string) ([]string, error) {
 				return nil, validationError("tags", "标签不能包含控制字符")
 			}
 		}
-		if _, exists := seen[tag]; exists {
+		key := metadataKey(tag)
+		if _, exists := seen[key]; exists {
 			continue
 		}
-		seen[tag] = struct{}{}
+		seen[key] = struct{}{}
 		normalized = append(normalized, tag)
 	}
 	return normalized, nil
+}
+
+// metadataKey 用于判断标签、分类与知识点是否指向同一内容：忽略大小写与所有空白差异。
+func metadataKey(value string) string {
+	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), ""))
+}
+
+// dropDuplicateMetadataTags 去掉已经在分类或知识点字段中出现过的标签，避免同一内容在多个字段重复展示。
+func dropDuplicateMetadataTags(tags []string, category string, knowledgePoints []string) []string {
+	if len(tags) == 0 {
+		return tags
+	}
+	excluded := make(map[string]struct{}, len(knowledgePoints)+1)
+	if key := metadataKey(category); key != "" {
+		excluded[key] = struct{}{}
+	}
+	for _, point := range knowledgePoints {
+		if key := metadataKey(point); key != "" {
+			excluded[key] = struct{}{}
+		}
+	}
+	if len(excluded) == 0 {
+		return tags
+	}
+	result := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		if _, exists := excluded[metadataKey(tag)]; exists {
+			continue
+		}
+		result = append(result, tag)
+	}
+	return result
 }
 
 func normalizeCategory(value string) (string, error) {

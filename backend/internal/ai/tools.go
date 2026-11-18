@@ -465,6 +465,7 @@ func (s *Service) toolImportDocument(ctx context.Context, toolContext ToolContex
 	}
 	category := strings.TrimSpace(stringArgument(args, "category"))
 	tags := stringSliceArgument(args, "tags")
+	tags = dropDuplicateMetadataTags(uniqueStrings(tags), category, nil)
 	text := combinedAttachmentText(attachments)
 	drafts := document.SplitQuestions(text, document.Defaults{Subject: subject, Grade: grade})
 	if len(drafts) > maxToolQuestions {
@@ -548,14 +549,16 @@ func (s *Service) toolCreateQuestions(ctx context.Context, toolContext ToolConte
 		if !ok {
 			continue
 		}
+		category := stringArgument(item, "category")
+		knowledgePoints := stringSliceArgument(item, "knowledge_points")
 		input := question.Input{
 			Subject:         subject,
 			Grade:           grade,
 			QuestionType:    stringArgument(item, "question_type"),
 			Difficulty:      intArgument(item, "difficulty", 3, 1, 5),
-			Tags:            stringSliceArgument(item, "tags"),
-			Category:        stringArgument(item, "category"),
-			KnowledgePoints: stringSliceArgument(item, "knowledge_points"),
+			Tags:            dropDuplicateMetadataTags(uniqueStrings(stringSliceArgument(item, "tags")), category, knowledgePoints),
+			Category:        category,
+			KnowledgePoints: knowledgePoints,
 			Content:         stringArgument(item, "content"),
 			Options:         objectOptions(item["options"]),
 			Answer:          stringArgument(item, "answer"),

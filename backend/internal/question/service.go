@@ -112,6 +112,15 @@ func (s *Service) ApplyAI(ctx context.Context, principal auth.Principal, id uuid
 		if err != nil {
 			return Question{}, err
 		}
+		category := existing.Category
+		if patch.Category != nil {
+			category = *patch.Category
+		}
+		points := existing.KnowledgePoints
+		if patch.KnowledgePoints != nil {
+			points = *patch.KnowledgePoints
+		}
+		values = dropDuplicateMetadataTags(values, category, points)
 		patch.Tags = &values
 	}
 	if patch.Difficulty != nil && (*patch.Difficulty < 1 || *patch.Difficulty > 5) {

@@ -106,3 +106,24 @@ func validQuestionInput() question.Input {
 		Explanation:  "<p>基础加法</p>",
 	}
 }
+
+func TestSanitizerDropsTagsDuplicatingCategoryAndKnowledgePoints(t *testing.T) {
+	sanitizer := question.NewSanitizer()
+	input := validQuestionInput()
+	input.Category = "数与运算"
+	input.KnowledgePoints = []string{"有理数加法"}
+	input.Tags = []string{"数与运算", " 有理数加法 ", "加法", "加法", "ADD", "add"}
+	normalized, err := sanitizer.Normalize(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"加法", "ADD"}
+	if len(normalized.Tags) != len(want) {
+		t.Fatalf("tags = %#v, want %#v", normalized.Tags, want)
+	}
+	for index := range want {
+		if normalized.Tags[index] != want[index] {
+			t.Fatalf("tags = %#v, want %#v", normalized.Tags, want)
+		}
+	}
+}

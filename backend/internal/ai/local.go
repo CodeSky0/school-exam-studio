@@ -63,7 +63,8 @@ func (e *LocalEngine) Analyze(input AnalyzeInput) Analysis {
 	knowledgePoints := extractKnowledgePoints(input, text)
 	category := firstNonEmpty(input.Category, inferCategory(subject, knowledgePoints, text), "综合应用")
 	difficulty := inferDifficulty(input.Difficulty, text, questionType)
-	tags := buildTags(input.Tags, knowledgePoints, category, questionType, difficulty)
+	tags := buildTags(input.Tags, difficulty)
+	tags = dropDuplicateMetadataTags(tags, category, knowledgePoints)
 	warnings := []string{"本地模式未调用大模型，建议人工复核分析结果"}
 
 	answer := strings.TrimSpace(input.Answer)
@@ -116,11 +117,7 @@ func (e *LocalEngine) Generate(input GenerateInput) ([]GeneratedQuestion, []stri
 		item := generateLocalItem(subject, grade, knowledgePoint, category, questionType, difficulty, index)
 		tags := append([]string{}, input.Tags...)
 		tags = append(tags, item.Tags...)
-		tags = append(tags, subject, category, typeLabel(item.QuestionType))
-		if grade != "" {
-			tags = append(tags, grade)
-		}
-		item.Tags = uniqueStrings(tags)
+		item.Tags = dropDuplicateMetadataTags(uniqueStrings(tags), item.Category, item.KnowledgePoints)
 		if len(item.Tags) > 10 {
 			item.Tags = item.Tags[:10]
 		}
@@ -171,6 +168,7 @@ func (e *LocalEngine) Variants(source QuestionSnapshot, input VariantInput) ([]G
 			warnings = append(warnings, "原题未包含可替换数字，已生成情境改写框架")
 		}
 		tags := uniqueStrings(append(append([]string{}, source.Tags...), "变式"))
+		tags = dropDuplicateMetadataTags(tags, category, knowledgePoints)
 		if len(tags) > 10 {
 			tags = tags[:10]
 		}
@@ -494,13 +492,14 @@ func inferDifficulty(provided int, text, questionType string) int {
 	return minInt(5, maxInt(1, score))
 }
 
-func buildTags(existing, knowledgePoints []string, category, questionType string, difficulty int) []string {
+func buildTags(existing []string, difficulty int) []string {
 	tags := append([]string{}, existing...)
-	tags = append(tags, category, typeLabel(questionType), fmt.Sprintf("难度%d", difficulty))
-	for _, point := range knowledgePoints {
-		tags = append(tags, point)
+	tags = append(tags, fmt.Sprintf("难度%d", difficulty))
+	tags = uniqueStrings(tags)
+	if len(tags) > 10 {
+		tags = tags[:10]
 	}
-	return uniqueStrings(tags)[:minInt(len(uniqueStrings(tags)), 10)]
+	return tags
 }
 
 func buildExplanation(subject string, knowledgePoints []string, category, answer string) string {
@@ -599,11 +598,44 @@ func uniqueStrings(values []string) []string {
 		if value == "" {
 			continue
 		}
-		if _, exists := seen[value]; exists {
+		key := metadataKey(value)
+		if _, exists := seen[key]; exists {
 			continue
 		}
-		seen[value] = struct{}{}
+		seen[key] = struct{}{}
 		result = append(result, value)
+	}
+	return result
+}
+
+// metadataKey 忽略大小写与空白差异，用于判断标签、分类和知识点是否重复。
+func metadataKey(value string) string {
+	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), ""))
+}
+
+// dropDuplicateMetadataTags 去掉已经出现在分类或知识点字段中的标签，避免同一内容重复展示。
+func dropDuplicateMetadataTags(tags []string, category string, knowledgePoints []string) []string {
+	if len(tags) == 0 {
+		return tags
+	}
+	excluded := make(map[string]struct{}, len(knowledgePoints)+1)
+	if key := metadataKey(category); key != "" {
+		excluded[key] = struct{}{}
+	}
+	for _, point := range knowledgePoints {
+		if key := metadataKey(point); key != "" {
+			excluded[key] = struct{}{}
+		}
+	}
+	if len(excluded) == 0 {
+		return tags
+	}
+	result := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		if _, exists := excluded[metadataKey(tag)]; exists {
+			continue
+		}
+		result = append(result, tag)
 	}
 	return result
 }
