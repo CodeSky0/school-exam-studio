@@ -357,6 +357,38 @@ func (r *Repository) UpdateAttachment(ctx context.Context, principal auth.Princi
 	return attachmentFromEnt(entity), nil
 }
 
+// ListConversationAttachments 返回会话下的附件记录，供删除会话时回收磁盘文件与数据库行。
+func (r *Repository) ListConversationAttachments(ctx context.Context, schoolID, conversationID uuid.UUID) ([]Attachment, error) {
+	if r.client == nil {
+		return []Attachment{}, nil
+	}
+	entities, err := r.client.AIAttachment.Query().Where(
+		aiattachment.SchoolIDEQ(schoolID),
+		aiattachment.ConversationIDEQ(conversationID),
+		aiattachment.DeletedAtIsNil(),
+	).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]Attachment, 0, len(entities))
+	for _, entity := range entities {
+		items = append(items, attachmentFromEnt(entity))
+	}
+	return items, nil
+}
+
+// DeleteAttachmentRecord 物理删除附件记录，避免删除会话后遗留孤立的文本与元数据。
+func (r *Repository) DeleteAttachmentRecord(ctx context.Context, schoolID, id uuid.UUID) error {
+	if r.client == nil {
+		return nil
+	}
+	err := r.client.AIAttachment.DeleteOneID(id).Where(aiattachment.SchoolIDEQ(schoolID)).Exec(ctx)
+	if ent.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
 func (r *Repository) getConversationEntity(ctx context.Context, principal auth.Principal, id uuid.UUID) (*ent.AIConversation, error) {
 	if err := validatePrincipal(principal); err != nil {
 		return nil, err

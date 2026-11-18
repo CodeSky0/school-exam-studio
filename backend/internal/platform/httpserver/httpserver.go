@@ -51,6 +51,18 @@ func New(client *ent.Client, options ...Options) *echo.Echo {
 	e.Use(echomiddleware.Recover())
 	// JSON handlers apply stricter limits. Multipart OCR enforces 5 MiB per image and AI uploads enforce 20 MiB per document.
 	e.Use(echomiddleware.BodyLimit("25M"))
+	// 压缩 JSON 响应以降低带宽与内存拷贝；SSE 流式响应必须跳过，否则会被缓冲。
+	e.Use(echomiddleware.GzipWithConfig(echomiddleware.GzipConfig{
+		Level: 5,
+		Skipper: func(c echo.Context) bool {
+			path := c.Request().URL.Path
+			// SSE 与已压缩的附件下载（PDF/图片）无需再压缩。
+			if strings.HasSuffix(path, "/stream") {
+				return true
+			}
+			return strings.Contains(path, "/ai/attachments/") && strings.HasSuffix(path, "/content")
+		},
+	}))
 	e.Use(echomiddleware.CORSWithConfig(echomiddleware.CORSConfig{
 		AllowOrigins:     []string{configuration.CORSOrigin},
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete, http.MethodOptions},

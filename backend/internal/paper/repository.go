@@ -160,9 +160,6 @@ func (r *Repository) List(ctx context.Context, principal auth.Principal, filter 
 		WithSchool(func(schoolQuery *ent.SchoolQuery) {
 			schoolQuery.Where(entschool.IDEQ(principal.SchoolID))
 		}).
-		WithPaperQuestions(func(questionQuery *ent.PaperQuestionQuery) {
-			questionQuery.Where(entpaperquestion.SchoolIDEQ(principal.SchoolID))
-		}).
 		Order(
 			entpaper.ByUpdatedAt(entsql.OrderDesc()),
 			entpaper.ByID(entsql.OrderDesc()),
@@ -173,15 +170,51 @@ func (r *Repository) List(ctx context.Context, principal auth.Principal, filter 
 	if err != nil {
 		return ListResult{}, err
 	}
+	paperIDs := make([]uuid.UUID, 0, len(entities))
+	for _, entity := range entities {
+		paperIDs = append(paperIDs, entity.ID)
+	}
+	// 列表只展示题目数量，按试卷聚合计数即可，避免为每份试卷加载全部题目行。
+	counts, err := r.questionCounts(ctx, principal.SchoolID, paperIDs)
+	if err != nil {
+		return ListResult{}, err
+	}
 	items := make([]Paper, 0, len(entities))
 	for _, entity := range entities {
 		item, err := fromEnt(entity, false)
 		if err != nil {
 			return ListResult{}, err
 		}
+		item.QuestionCount = counts[entity.ID]
 		items = append(items, item)
 	}
 	return ListResult{Items: items, Total: total, Page: filter.Page, PageSize: filter.PageSize}, nil
+}
+
+func (r *Repository) questionCounts(ctx context.Context, schoolID uuid.UUID, paperIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	counts := make(map[uuid.UUID]int, len(paperIDs))
+	if len(paperIDs) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		PaperID uuid.UUID `json:"paper_id"`
+		Count   int       `json:"count"`
+	}
+	if err := r.client.PaperQuestion.Query().
+		Where(
+			entpaperquestion.SchoolIDEQ(schoolID),
+			entpaperquestion.PaperIDIn(paperIDs...),
+			entpaperquestion.DeletedAtIsNil(),
+		).
+		GroupBy(entpaperquestion.FieldPaperID).
+		Aggregate(ent.Count()).
+		Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts[row.PaperID] = row.Count
+	}
+	return counts, nil
 }
 
 func (r *Repository) Delete(ctx context.Context, principal auth.Principal, id uuid.UUID) error {

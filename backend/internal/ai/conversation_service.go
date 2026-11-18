@@ -53,7 +53,29 @@ func (s *Service) UpdateConversation(ctx context.Context, principal auth.Princip
 }
 
 func (s *Service) DeleteConversation(ctx context.Context, principal auth.Principal, id uuid.UUID) error {
-	return s.repo.DeleteConversation(ctx, principal, id)
+	if err := s.repo.DeleteConversation(ctx, principal, id); err != nil {
+		return err
+	}
+	s.purgeConversationAttachments(ctx, principal, id)
+	return nil
+}
+
+// purgeConversationAttachments 删除会话时一并回收附件文件与记录，避免长期占用磁盘与数据库。
+func (s *Service) purgeConversationAttachments(ctx context.Context, principal auth.Principal, conversationID uuid.UUID) {
+	items, err := s.repo.ListConversationAttachments(ctx, principal.SchoolID, conversationID)
+	if err != nil {
+		return
+	}
+	for _, item := range items {
+		attachmentID, parseErr := uuid.Parse(item.ID)
+		if parseErr != nil {
+			continue
+		}
+		if s.attachments != nil && item.StoragePath != "" {
+			_ = s.attachments.Remove(item.StoragePath)
+		}
+		_ = s.repo.DeleteAttachmentRecord(ctx, principal.SchoolID, attachmentID)
+	}
 }
 
 // BatchDeleteConversations 批量软删除会话；只允许删除自己创建的会话，单条失败不影响其余条目。
@@ -67,7 +89,7 @@ func (s *Service) BatchDeleteConversations(ctx context.Context, principal auth.P
 	}
 	result := BatchConversationResult{Total: len(unique), Deleted: []string{}, Failed: []BatchConversationErr{}}
 	for _, id := range unique {
-		if err := s.repo.DeleteConversation(ctx, principal, id); err != nil {
+		if err := s.DeleteConversation(ctx, principal, id); err != nil {
 			result.Failed = append(result.Failed, BatchConversationErr{ID: id.String(), Error: conversationBatchReason(err)})
 			continue
 		}

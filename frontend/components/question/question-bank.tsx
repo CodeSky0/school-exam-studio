@@ -11,11 +11,17 @@ import { Button } from "@/components/ui/button";
 import { BatchActionBar } from "@/components/ui/batch-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusMessage } from "@/components/ui/status-message";
+import dynamic from "next/dynamic";
 import { CsvImport } from "./csv-import";
 import { QuestionBankAI } from "./question-bank-ai";
-import { QuestionEditor } from "./editor";
 import { QuestionFilterBar } from "./filter-bar";
 import { QuestionTable } from "./question-table";
+
+// 富文本编辑器依赖 TipTap，仅在进入编辑态时按需加载，缩小题库列表首屏脚本体积。
+const QuestionEditor = dynamic(() => import("./editor").then((module) => module.QuestionEditor), {
+  ssr: false,
+  loading: () => <p className="text-copy-13 text-neutral-7">正在加载编辑器…</p>,
+});
 
 export function QuestionBank({ user }: { user: CurrentUser }) {
   const queryClient = useQueryClient();
