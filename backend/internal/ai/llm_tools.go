@@ -117,7 +117,6 @@ func (c *LLMClient) ChatTools(ctx context.Context, messages []LLMMessage, tools 
 		Tools:       tools,
 		ToolChoice:  "auto",
 		Temperature: 0.2,
-		MaxTokens:   4096,
 	})
 	if err != nil {
 		return LLMReply{}, err

@@ -207,6 +207,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
       content: content || "请解析这些附件",
       attachments: sentAttachments,
       toolCalls: [],
+      timeline: [],
       assistantContent: "",
       reasoning: "",
       status: "running",
@@ -240,7 +241,30 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
                 : current);
             }
             break;
-          case "tool_started":
+          case "tool_started": {
+            const call = event.tool_call;
+            if (!call) break;
+            setLiveTurn((current) => {
+              if (!current) return current;
+              const thought = current.assistantContent.trim();
+              let timeline = thought
+                ? [...current.timeline, { type: "thought" as const, content: thought, created_at: call.started_at ?? new Date().toISOString() }]
+                : current.timeline;
+              if (!timeline.some((item) => item.type === "tool" && item.tool_call_id === call.id)) {
+                timeline = [...timeline, {
+                  type: "tool" as const,
+                  content: "",
+                  tool_call_id: call.id,
+                  created_at: call.started_at ?? new Date().toISOString(),
+                }];
+              }
+              const toolCalls = current.toolCalls.some((item) => item.id === call.id)
+                ? current.toolCalls.map((item) => (item.id === call.id ? call : item))
+                : [...current.toolCalls, call];
+              return { ...current, toolCalls, timeline, assistantContent: "" };
+            });
+            break;
+          }
           case "tool_finished": {
             const call = event.tool_call;
             if (!call) break;

@@ -206,12 +206,16 @@ func init() {
 	aimessageDescToolCalls := aimessageFields[6].Descriptor()
 	// aimessage.DefaultToolCalls holds the default value on creation for the tool_calls field.
 	aimessage.DefaultToolCalls = aimessageDescToolCalls.Default.([]map[string]interface{})
+	// aimessageDescTimeline is the schema descriptor for timeline field.
+	aimessageDescTimeline := aimessageFields[7].Descriptor()
+	// aimessage.DefaultTimeline holds the default value on creation for the timeline field.
+	aimessage.DefaultTimeline = aimessageDescTimeline.Default.([]map[string]interface{})
 	// aimessageDescAttachments is the schema descriptor for attachments field.
-	aimessageDescAttachments := aimessageFields[7].Descriptor()
+	aimessageDescAttachments := aimessageFields[8].Descriptor()
 	// aimessage.DefaultAttachments holds the default value on creation for the attachments field.
 	aimessage.DefaultAttachments = aimessageDescAttachments.Default.([]map[string]interface{})
 	// aimessageDescError is the schema descriptor for error field.
-	aimessageDescError := aimessageFields[9].Descriptor()
+	aimessageDescError := aimessageFields[10].Descriptor()
 	// aimessage.DefaultError holds the default value on creation for the error field.
 	aimessage.DefaultError = aimessageDescError.Default.(string)
 	// aimessageDescID is the schema descriptor for id field.

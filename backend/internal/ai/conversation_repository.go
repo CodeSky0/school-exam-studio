@@ -169,6 +169,9 @@ func (r *Repository) AppendMessage(ctx context.Context, principal auth.Principal
 	if message.ToolCalls == nil {
 		message.ToolCalls = []ToolCall{}
 	}
+	if message.Timeline == nil {
+		message.Timeline = []TimelineEntry{}
+	}
 	if message.Attachments == nil {
 		message.Attachments = []AttachmentRef{}
 	}
@@ -191,6 +194,7 @@ func (r *Repository) AppendMessage(ctx context.Context, principal auth.Principal
 		SetProvider(message.Provider).
 		SetModel(message.Model).
 		SetToolCalls(toolCallsToMaps(message.ToolCalls)).
+		SetTimeline(timelineToMaps(message.Timeline)).
 		SetAttachments(attachmentsToMaps(message.Attachments)).
 		SetError(message.Error)
 	if message.ID != "" {
@@ -398,6 +402,7 @@ func messageFromEnt(entity *ent.AIMessage) ChatMessage {
 		Provider:       entity.Provider,
 		Model:          entity.Model,
 		ToolCalls:      mapsToToolCalls(entity.ToolCalls),
+		Timeline:       mapsToTimeline(entity.Timeline),
 		Attachments:    mapsToAttachments(entity.Attachments),
 		Error:          entity.Error,
 		CreatedAt:      entity.CreatedAt,

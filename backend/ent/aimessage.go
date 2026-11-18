@@ -41,6 +41,8 @@ type AIMessage struct {
 	Model string `json:"model,omitempty"`
 	// ToolCalls holds the value of the "tool_calls" field.
 	ToolCalls []map[string]interface{} `json:"tool_calls,omitempty"`
+	// Timeline holds the value of the "timeline" field.
+	Timeline []map[string]interface{} `json:"timeline,omitempty"`
 	// Attachments holds the value of the "attachments" field.
 	Attachments []map[string]interface{} `json:"attachments,omitempty"`
 	// RunID holds the value of the "run_id" field.
@@ -57,7 +59,7 @@ func (*AIMessage) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case aimessage.FieldRunID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case aimessage.FieldToolCalls, aimessage.FieldAttachments:
+		case aimessage.FieldToolCalls, aimessage.FieldTimeline, aimessage.FieldAttachments:
 			values[i] = new([]byte)
 		case aimessage.FieldRole, aimessage.FieldContent, aimessage.FieldStatus, aimessage.FieldProvider, aimessage.FieldModel, aimessage.FieldError:
 			values[i] = new(sql.NullString)
@@ -155,6 +157,14 @@ func (_m *AIMessage) assignValues(columns []string, values []any) error {
 					return fmt.Errorf("unmarshal field tool_calls: %w", err)
 				}
 			}
+		case aimessage.FieldTimeline:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field timeline", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Timeline); err != nil {
+					return fmt.Errorf("unmarshal field timeline: %w", err)
+				}
+			}
 		case aimessage.FieldAttachments:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field attachments", values[i])
@@ -246,6 +256,9 @@ func (_m *AIMessage) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("tool_calls=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ToolCalls))
+	builder.WriteString(", ")
+	builder.WriteString("timeline=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Timeline))
 	builder.WriteString(", ")
 	builder.WriteString("attachments=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Attachments))

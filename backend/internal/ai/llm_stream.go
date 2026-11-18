@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	maxLLMStreamBytes      = 8 << 20
-	maxLLMStreamLineBytes  = 2 << 20
+	maxLLMStreamBytes      = 128 << 20
+	maxLLMStreamLineBytes  = 16 << 20
 	maxLLMStreamErrorBytes = 64 << 10
 )
 
@@ -90,7 +90,6 @@ func (c *LLMClient) ChatToolsStream(ctx context.Context, messages []LLMMessage, 
 		Tools:       tools,
 		ToolChoice:  "auto",
 		Temperature: 0.2,
-		MaxTokens:   4096,
 		Stream:      true,
 	})
 	if err != nil {

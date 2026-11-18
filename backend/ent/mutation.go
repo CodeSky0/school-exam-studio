@@ -3073,6 +3073,8 @@ type AIMessageMutation struct {
 	model             *string
 	tool_calls        *[]map[string]interface{}
 	appendtool_calls  []map[string]interface{}
+	timeline          *[]map[string]interface{}
+	appendtimeline    []map[string]interface{}
 	attachments       *[]map[string]interface{}
 	appendattachments []map[string]interface{}
 	run_id            *uuid.UUID
@@ -3611,6 +3613,57 @@ func (m *AIMessageMutation) ResetToolCalls() {
 	m.appendtool_calls = nil
 }
 
+// SetTimeline sets the "timeline" field.
+func (m *AIMessageMutation) SetTimeline(value []map[string]interface{}) {
+	m.timeline = &value
+	m.appendtimeline = nil
+}
+
+// Timeline returns the value of the "timeline" field in the mutation.
+func (m *AIMessageMutation) Timeline() (r []map[string]interface{}, exists bool) {
+	v := m.timeline
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimeline returns the old "timeline" field's value of the AIMessage entity.
+// If the AIMessage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AIMessageMutation) OldTimeline(ctx context.Context) (v []map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimeline is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimeline requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimeline: %w", err)
+	}
+	return oldValue.Timeline, nil
+}
+
+// AppendTimeline adds value to the "timeline" field.
+func (m *AIMessageMutation) AppendTimeline(value []map[string]interface{}) {
+	m.appendtimeline = append(m.appendtimeline, value...)
+}
+
+// AppendedTimeline returns the list of values that were appended to the "timeline" field in this mutation.
+func (m *AIMessageMutation) AppendedTimeline() ([]map[string]interface{}, bool) {
+	if len(m.appendtimeline) == 0 {
+		return nil, false
+	}
+	return m.appendtimeline, true
+}
+
+// ResetTimeline resets all changes to the "timeline" field.
+func (m *AIMessageMutation) ResetTimeline() {
+	m.timeline = nil
+	m.appendtimeline = nil
+}
+
 // SetAttachments sets the "attachments" field.
 func (m *AIMessageMutation) SetAttachments(value []map[string]interface{}) {
 	m.attachments = &value
@@ -3781,7 +3834,7 @@ func (m *AIMessageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AIMessageMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.created_at != nil {
 		fields = append(fields, aimessage.FieldCreatedAt)
 	}
@@ -3814,6 +3867,9 @@ func (m *AIMessageMutation) Fields() []string {
 	}
 	if m.tool_calls != nil {
 		fields = append(fields, aimessage.FieldToolCalls)
+	}
+	if m.timeline != nil {
+		fields = append(fields, aimessage.FieldTimeline)
 	}
 	if m.attachments != nil {
 		fields = append(fields, aimessage.FieldAttachments)
@@ -3854,6 +3910,8 @@ func (m *AIMessageMutation) Field(name string) (ent.Value, bool) {
 		return m.Model()
 	case aimessage.FieldToolCalls:
 		return m.ToolCalls()
+	case aimessage.FieldTimeline:
+		return m.Timeline()
 	case aimessage.FieldAttachments:
 		return m.Attachments()
 	case aimessage.FieldRunID:
@@ -3891,6 +3949,8 @@ func (m *AIMessageMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldModel(ctx)
 	case aimessage.FieldToolCalls:
 		return m.OldToolCalls(ctx)
+	case aimessage.FieldTimeline:
+		return m.OldTimeline(ctx)
 	case aimessage.FieldAttachments:
 		return m.OldAttachments(ctx)
 	case aimessage.FieldRunID:
@@ -3982,6 +4042,13 @@ func (m *AIMessageMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetToolCalls(v)
+		return nil
+	case aimessage.FieldTimeline:
+		v, ok := value.([]map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimeline(v)
 		return nil
 	case aimessage.FieldAttachments:
 		v, ok := value.([]map[string]interface{})
@@ -4100,6 +4167,9 @@ func (m *AIMessageMutation) ResetField(name string) error {
 		return nil
 	case aimessage.FieldToolCalls:
 		m.ResetToolCalls()
+		return nil
+	case aimessage.FieldTimeline:
+		m.ResetTimeline()
 		return nil
 	case aimessage.FieldAttachments:
 		m.ResetAttachments()

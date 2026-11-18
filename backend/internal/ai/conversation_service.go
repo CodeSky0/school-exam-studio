@@ -296,7 +296,7 @@ func (s *Service) sendMessage(ctx context.Context, principal auth.Principal, con
 	}); err != nil {
 		return SendMessageResult{}, err
 	}
-	reply, toolCalls, provider, model, warnings := s.runChatTurn(ctx, principal, conversation, history, content, attachments, input.Model, runID, sink)
+	reply, toolCalls, timeline, provider, model, warnings := s.runChatTurn(ctx, principal, conversation, history, content, attachments, input.Model, runID, sink)
 	status := MessageStatusSucceeded
 	errorMessage := ""
 	if reply == "" {
@@ -315,6 +315,7 @@ func (s *Service) sendMessage(ctx context.Context, principal auth.Principal, con
 		Provider:       provider,
 		Model:          model,
 		ToolCalls:      toolCalls,
+		Timeline:       timeline,
 		RunID:          runID,
 		Error:          errorMessage,
 	})
@@ -333,14 +334,14 @@ func (s *Service) sendMessage(ctx context.Context, principal auth.Principal, con
 	}, nil
 }
 
-func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, sink ChatEventSink) (string, []ToolCall, string, string, []string) {
+func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, sink ChatEventSink) (string, []ToolCall, []TimelineEntry, string, string, []string) {
 	warnings := []string{}
 	candidates, warning, err := s.resolveCandidates(ctx, principal, model)
 	if warning != "" {
 		warnings = append(warnings, warning)
 	}
 	if err != nil {
-		return err.Error(), nil, ProviderLLM, "", warnings
+		return err.Error(), nil, []TimelineEntry{}, ProviderLLM, "", warnings
 	}
 	lastModel := ""
 	for _, candidate := range candidates {
@@ -349,9 +350,9 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 			warnings = append(warnings, candidate.Config.Model+" 暂时熔断，已跳过")
 			continue
 		}
-		reply, calls, llmErr := s.runLLMTurn(ctx, principal, conversation, history, content, attachments, candidate.Config.Model, runID, candidate, sink)
+		reply, calls, timeline, llmErr := s.runLLMTurn(ctx, principal, conversation, history, content, attachments, candidate.Config.Model, runID, candidate, sink)
 		if llmErr == nil {
-			return reply, calls, ProviderLLM, candidate.Config.Model, warnings
+			return reply, calls, timeline, ProviderLLM, candidate.Config.Model, warnings
 		}
 		if len(calls) > 0 {
 			warnings = append(warnings, "模型调用中断，本轮已执行的工具结果保留如下；请确认后决定是否继续："+llmErr.Error())
@@ -359,7 +360,7 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 			if summary == "" {
 				summary = "模型调用中断，本轮未能完成回复。"
 			}
-			return summary, calls, ProviderFallback, candidate.Config.Model, warnings
+			return summary, calls, timeline, ProviderFallback, candidate.Config.Model, warnings
 		}
 		warnings = append(warnings, fmt.Sprintf("%s 调用失败：%v", candidate.Config.Model, llmErr))
 		if kind := errorKindOf(llmErr); kind == ErrorKindConfig || kind == ErrorKindFatal {
@@ -374,7 +375,7 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 		} else if err != nil {
 			reason += "：" + err.Error()
 		}
-		return reason, []ToolCall{}, ProviderLLM, lastModel, warnings
+		return reason, []ToolCall{}, []TimelineEntry{}, ProviderLLM, lastModel, warnings
 	}
 	refs := make([]AttachmentRef, 0, len(attachments))
 	for _, item := range attachments {
@@ -382,17 +383,23 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 	}
 	plan := planChatTurn(content, refs, history, principal)
 	if len(plan.Calls) == 0 {
-		return plan.Reply, []ToolCall{}, ProviderLocal, "", warnings
+		return plan.Reply, []ToolCall{}, []TimelineEntry{}, ProviderLocal, "", warnings
 	}
 	toolContext := ToolContext{Principal: principal, ConversationID: conversation.ID, RunID: runID}
 	for _, ref := range refs {
 		toolContext.AttachmentIDs = append(toolContext.AttachmentIDs, ref.ID)
 	}
 	calls := make([]ToolCall, 0, len(plan.Calls))
+	timeline := make([]TimelineEntry, 0, len(plan.Calls))
 	for _, planned := range plan.Calls {
 		arguments := withModelArgument(planned.Name, planned.Arguments, model)
 		call := s.executeToolCall(ctx, principal, toolContext, planned.Name, arguments, sink)
 		calls = append(calls, call)
+		entryTime := time.Now()
+		if call.StartedAt != nil {
+			entryTime = *call.StartedAt
+		}
+		timeline = append(timeline, TimelineEntry{Type: TimelineTypeTool, ToolCallID: call.ID, CreatedAt: entryTime})
 		if call.Status == ToolStatusFailed {
 			break
 		}
@@ -401,7 +408,7 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 	if reply == "" || len(calls) > 0 {
 		reply = summarizeToolCalls(calls)
 	}
-	return reply, calls, ProviderLocal, "", warnings
+	return reply, calls, timeline, ProviderLocal, "", warnings
 }
 
 // attachmentImageParts 把本轮图片附件编码为 data URL，作为多模态输入直接交给模型阅读，不经过 OCR。
@@ -448,7 +455,7 @@ func (s *Service) attachmentImageParts(attachments []Attachment) ([]LLMContentPa
 	return parts, warnings
 }
 
-func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, candidate modelCandidate, sink ChatEventSink) (string, []ToolCall, error) {
+func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, candidate modelCandidate, sink ChatEventSink) (string, []ToolCall, []TimelineEntry, error) {
 	descriptors := s.ToolCatalog(principal)
 	llmTools := make([]LLMTool, 0, len(descriptors))
 	for _, item := range descriptors {
@@ -507,9 +514,10 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 		toolContext.AttachmentIDs = append(toolContext.AttachmentIDs, ref.ID)
 	}
 	calls := make([]ToolCall, 0, maxLLMToolCalls)
-	narration := strings.Builder{}
+	timeline := make([]TimelineEntry, 0, maxLLMToolCalls*2)
 	streamedThisRound := false
 	for round := 0; round < maxLLMToolRounds; round++ {
+		roundStarted := time.Now()
 		if round > 0 && streamedThisRound {
 			// 中间轮次的说明与最终答复之间留出分段，避免不同轮次文字粘在一起。
 			emitChatEvent(sink, ChatStreamEvent{Type: ChatEventAssistantDelta, Content: "\n\n"})
@@ -527,21 +535,26 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 		if err != nil {
 			// 已经向用户输出过 Token 时保留这部分回复，避免整段消失。
 			if strings.TrimSpace(reply.Content) != "" {
-				return composeAgentReply(narration.String(), reply.Content), calls, nil
+				return strings.TrimSpace(reply.Content), calls, timeline, nil
 			}
-			return "", calls, err
+			return "", calls, timeline, err
 		}
 		if len(reply.ToolCalls) == 0 {
-			if strings.TrimSpace(reply.Content) == "" {
-				return composeAgentReply(narration.String(), summarizeToolCalls(calls)), calls, nil
+			if reasoning := strings.TrimSpace(reply.Reasoning); reasoning != "" {
+				timeline = append(timeline, TimelineEntry{Type: TimelineTypeThought, Content: reasoning, CreatedAt: roundStarted})
 			}
-			return composeAgentReply(narration.String(), reply.Content), calls, nil
+			finalReply := strings.TrimSpace(reply.Content)
+			if finalReply == "" {
+				finalReply = summarizeToolCalls(calls)
+			}
+			return finalReply, calls, timeline, nil
+		}
+		// 当轮仍要调用工具，因此本轮的自然语言与推理都属于过程，按时间顺序记入时间线。
+		if reasoning := strings.TrimSpace(reply.Reasoning); reasoning != "" {
+			timeline = append(timeline, TimelineEntry{Type: TimelineTypeThought, Content: reasoning, CreatedAt: roundStarted})
 		}
 		if text := strings.TrimSpace(reply.Content); text != "" {
-			if narration.Len() > 0 {
-				narration.WriteString("\n\n")
-			}
-			narration.WriteString(text)
+			timeline = append(timeline, TimelineEntry{Type: TimelineTypeThought, Content: text, CreatedAt: roundStarted})
 		}
 		messages = append(messages, LLMMessage{Role: "assistant", Content: reply.Content, ToolCalls: reply.ToolCalls})
 		for _, llmCall := range reply.ToolCalls {
@@ -557,6 +570,11 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 			arguments = withModelArgument(llmCall.Function.Name, arguments, model)
 			call := s.executeToolCall(ctx, principal, toolContext, llmCall.Function.Name, arguments, sink)
 			calls = append(calls, call)
+			entryTime := time.Now()
+			if call.StartedAt != nil {
+				entryTime = *call.StartedAt
+			}
+			timeline = append(timeline, TimelineEntry{Type: TimelineTypeTool, ToolCallID: call.ID, CreatedAt: entryTime})
 			messages = append(messages, LLMMessage{
 				Role:       "tool",
 				ToolCallID: llmCall.ID,
@@ -572,21 +590,7 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 	if reply == "" {
 		reply = "本轮工具调用达到上限，如需继续请回复“继续”。"
 	}
-	return composeAgentReply(narration.String(), reply), calls, nil
-}
-
-// composeAgentReply 保留中间轮次已经展示给用户的说明，再拼接最终答复。
-func composeAgentReply(narration, reply string) string {
-	narration = strings.TrimSpace(narration)
-	reply = strings.TrimSpace(reply)
-	switch {
-	case narration == "":
-		return reply
-	case reply == "":
-		return narration
-	default:
-		return narration + "\n\n" + reply
-	}
+	return reply, calls, timeline, nil
 }
 
 func (s *Service) executeToolCall(ctx context.Context, principal auth.Principal, toolContext ToolContext, name string, arguments map[string]any, sink ChatEventSink) ToolCall {

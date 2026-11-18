@@ -67,7 +67,7 @@ export function ToolCallTimeline({ calls, scope }: { calls: ToolCall[]; scope: "
   );
 }
 
-function ToolCallCard({ call, last, scope }: { call: ToolCall; last: boolean; scope: "teacher" | "admin" }) {
+export function ToolCallCard({ call, last, scope }: { call: ToolCall; last: boolean; scope: "teacher" | "admin" }) {
   const style = statusStyles[call.status] ?? statusStyles.skipped;
   const duration = formatToolDuration(call.started_at, call.finished_at);
   const questionIDs = toolQuestionIDs(call);

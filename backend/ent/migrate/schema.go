@@ -119,6 +119,7 @@ var (
 		{Name: "provider", Type: field.TypeString, Size: 20, Default: "local"},
 		{Name: "model", Type: field.TypeString, Size: 80, Default: ""},
 		{Name: "tool_calls", Type: field.TypeJSON},
+		{Name: "timeline", Type: field.TypeJSON},
 		{Name: "attachments", Type: field.TypeJSON},
 		{Name: "run_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "error", Type: field.TypeString, Size: 2147483647, Default: ""},

@@ -26,6 +26,13 @@ export const toolCallSchema = z.object({
   finished_at: z.string().optional(),
 });
 
+export const timelineEntrySchema = z.object({
+  type: z.enum(["thought", "tool"]),
+  content: z.string().default(""),
+  tool_call_id: z.string().optional(),
+  created_at: z.string(),
+});
+
 export const chatMessageSchema = z.object({
   id: z.string(),
   conversation_id: z.string(),
@@ -35,6 +42,7 @@ export const chatMessageSchema = z.object({
   provider: z.string().default("local"),
   model: z.string().default(""),
   tool_calls: z.array(toolCallSchema).default([]),
+  timeline: z.array(timelineEntrySchema).default([]),
   attachments: z.array(attachmentRefSchema).default([]),
   reasoning: z.string().optional(),
   run_id: z.string().optional(),
@@ -103,6 +111,7 @@ export const chatStreamEventSchema = z.object({
 
 export type AttachmentRef = z.infer<typeof attachmentRefSchema>;
 export type ToolCall = z.infer<typeof toolCallSchema>;
+export type TimelineEntry = z.infer<typeof timelineEntrySchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type Conversation = z.infer<typeof conversationSchema>;
 export type SendMessageResult = z.infer<typeof sendMessageResultSchema>;
@@ -115,6 +124,7 @@ export interface LiveTurn {
   content: string;
   attachments: AttachmentRef[];
   toolCalls: ToolCall[];
+  timeline: TimelineEntry[];
   assistantContent: string;
   reasoning: string;
   status: "running" | "failed";

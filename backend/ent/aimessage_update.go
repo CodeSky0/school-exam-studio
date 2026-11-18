@@ -166,6 +166,18 @@ func (_u *AIMessageUpdate) AppendToolCalls(v []map[string]interface{}) *AIMessag
 	return _u
 }
 
+// SetTimeline sets the "timeline" field.
+func (_u *AIMessageUpdate) SetTimeline(v []map[string]interface{}) *AIMessageUpdate {
+	_u.mutation.SetTimeline(v)
+	return _u
+}
+
+// AppendTimeline appends value to the "timeline" field.
+func (_u *AIMessageUpdate) AppendTimeline(v []map[string]interface{}) *AIMessageUpdate {
+	_u.mutation.AppendTimeline(v)
+	return _u
+}
+
 // SetAttachments sets the "attachments" field.
 func (_u *AIMessageUpdate) SetAttachments(v []map[string]interface{}) *AIMessageUpdate {
 	_u.mutation.SetAttachments(v)
@@ -326,6 +338,14 @@ func (_u *AIMessageUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AppendedToolCalls(); ok {
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, aimessage.FieldToolCalls, value)
+		})
+	}
+	if value, ok := _u.mutation.Timeline(); ok {
+		_spec.SetField(aimessage.FieldTimeline, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTimeline(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, aimessage.FieldTimeline, value)
 		})
 	}
 	if value, ok := _u.mutation.Attachments(); ok {
@@ -498,6 +518,18 @@ func (_u *AIMessageUpdateOne) SetToolCalls(v []map[string]interface{}) *AIMessag
 // AppendToolCalls appends value to the "tool_calls" field.
 func (_u *AIMessageUpdateOne) AppendToolCalls(v []map[string]interface{}) *AIMessageUpdateOne {
 	_u.mutation.AppendToolCalls(v)
+	return _u
+}
+
+// SetTimeline sets the "timeline" field.
+func (_u *AIMessageUpdateOne) SetTimeline(v []map[string]interface{}) *AIMessageUpdateOne {
+	_u.mutation.SetTimeline(v)
+	return _u
+}
+
+// AppendTimeline appends value to the "timeline" field.
+func (_u *AIMessageUpdateOne) AppendTimeline(v []map[string]interface{}) *AIMessageUpdateOne {
+	_u.mutation.AppendTimeline(v)
 	return _u
 }
 
@@ -691,6 +723,14 @@ func (_u *AIMessageUpdateOne) sqlSave(ctx context.Context) (_node *AIMessage, er
 	if value, ok := _u.mutation.AppendedToolCalls(); ok {
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, aimessage.FieldToolCalls, value)
+		})
+	}
+	if value, ok := _u.mutation.Timeline(); ok {
+		_spec.SetField(aimessage.FieldTimeline, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTimeline(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, aimessage.FieldTimeline, value)
 		})
 	}
 	if value, ok := _u.mutation.Attachments(); ok {

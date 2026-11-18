@@ -53,7 +53,11 @@
 }
 ```
 
-消息中的工具记录额外包含 `name`、`label`、`status`、`arguments`、`started_at`、`finished_at`。前端据此渲染可展开的时间线。
+消息中的工具记录额外包含 `name`、`label`、`status`、`arguments`、`started_at`、`finished_at`。
+
+助手消息还包含 `timeline` 数组，按时间顺序记录 `thought`（思考或中间说明）与 `tool`（工具调用，`tool_call_id` 指向 `tool_calls` 中的记录）两类条目。`content` 只保存最终答复；前端将 `timeline` 折叠为一行摘要，展开后按时间顺序展示思考与工具调用，最终答复显示在折叠区之后。
+
+模型请求不发送 `max_tokens`，输出长度不设业务上限；仅保留防止异常响应耗尽内存的读取保护。
 
 ### 1.2 执行策略
 

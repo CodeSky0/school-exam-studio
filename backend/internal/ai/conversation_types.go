@@ -24,6 +24,9 @@ const (
 	ToolStatusFailed    = "failed"
 	ToolStatusSkipped   = "skipped"
 
+	TimelineTypeThought = "thought"
+	TimelineTypeTool    = "tool"
+
 	AttachmentKindImage = "image"
 	AttachmentKindPDF   = "pdf"
 	AttachmentKindDocx  = "docx"
@@ -104,6 +107,14 @@ type AttachmentRef struct {
 	Error       string `json:"error,omitempty"`
 }
 
+// TimelineEntry 记录助手回复中按时间顺序发生的一件事：一段思考/中间叙述，或一次工具调用。
+type TimelineEntry struct {
+	Type       string    `json:"type"`
+	Content    string    `json:"content,omitempty"`
+	ToolCallID string    `json:"tool_call_id,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 type ChatMessage struct {
 	ID             string          `json:"id"`
 	ConversationID string          `json:"conversation_id"`
@@ -113,6 +124,7 @@ type ChatMessage struct {
 	Provider       string          `json:"provider"`
 	Model          string          `json:"model"`
 	ToolCalls      []ToolCall      `json:"tool_calls"`
+	Timeline       []TimelineEntry `json:"timeline"`
 	Attachments    []AttachmentRef `json:"attachments"`
 	RunID          string          `json:"run_id,omitempty"`
 	Error          string          `json:"error,omitempty"`
@@ -214,6 +226,36 @@ func attachmentsToMaps(refs []AttachmentRef) []map[string]any {
 	result := make([]map[string]any, 0, len(refs))
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return []map[string]any{}
+	}
+	return result
+}
+
+func timelineToMaps(entries []TimelineEntry) []map[string]any {
+	if len(entries) == 0 {
+		return []map[string]any{}
+	}
+	raw, err := json.Marshal(entries)
+	if err != nil {
+		return []map[string]any{}
+	}
+	result := make([]map[string]any, 0, len(entries))
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return []map[string]any{}
+	}
+	return result
+}
+
+func mapsToTimeline(values []map[string]any) []TimelineEntry {
+	if len(values) == 0 {
+		return []TimelineEntry{}
+	}
+	raw, err := json.Marshal(values)
+	if err != nil {
+		return []TimelineEntry{}
+	}
+	result := make([]TimelineEntry, 0, len(values))
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return []TimelineEntry{}
 	}
 	return result
 }

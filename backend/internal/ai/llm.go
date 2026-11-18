@@ -11,7 +11,8 @@ import (
 	"time"
 )
 
-const maxLLMResponseBytes = 2 << 20
+// 输出长度不设业务上限；这里仅保留防止异常响应耗尽内存的硬保护。
+const maxLLMResponseBytes = 64 << 20
 
 type LLMClient struct {
 	baseURL string
@@ -136,7 +137,6 @@ func (c *LLMClient) CompleteJSON(ctx context.Context, system, user string) (stri
 			{Role: "user", Content: user},
 		},
 		Temperature: 0.2,
-		MaxTokens:   4096,
 	})
 	if err != nil {
 		return "", err

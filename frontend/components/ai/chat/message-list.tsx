@@ -47,6 +47,7 @@ function liveMessages(turn: LiveTurn | null): ChatMessage[] {
       provider: "user",
       model: "",
       tool_calls: [],
+      timeline: [],
       attachments: turn.attachments,
       created_at: createdAt,
     },
@@ -59,6 +60,9 @@ function liveMessages(turn: LiveTurn | null): ChatMessage[] {
       provider: "llm",
       model: "",
       tool_calls: turn.toolCalls,
+      timeline: turn.reasoning.trim()
+        ? [{ type: "thought" as const, content: turn.reasoning.trim(), created_at: createdAt }, ...turn.timeline]
+        : turn.timeline,
       attachments: [],
       reasoning: turn.reasoning,
       error: turn.error,

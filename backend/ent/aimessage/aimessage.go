@@ -36,6 +36,8 @@ const (
 	FieldModel = "model"
 	// FieldToolCalls holds the string denoting the tool_calls field in the database.
 	FieldToolCalls = "tool_calls"
+	// FieldTimeline holds the string denoting the timeline field in the database.
+	FieldTimeline = "timeline"
 	// FieldAttachments holds the string denoting the attachments field in the database.
 	FieldAttachments = "attachments"
 	// FieldRunID holds the string denoting the run_id field in the database.
@@ -60,6 +62,7 @@ var Columns = []string{
 	FieldProvider,
 	FieldModel,
 	FieldToolCalls,
+	FieldTimeline,
 	FieldAttachments,
 	FieldRunID,
 	FieldError,
@@ -102,6 +105,8 @@ var (
 	ModelValidator func(string) error
 	// DefaultToolCalls holds the default value on creation for the "tool_calls" field.
 	DefaultToolCalls []map[string]interface{}
+	// DefaultTimeline holds the default value on creation for the "timeline" field.
+	DefaultTimeline []map[string]interface{}
 	// DefaultAttachments holds the default value on creation for the "attachments" field.
 	DefaultAttachments []map[string]interface{}
 	// DefaultError holds the default value on creation for the "error" field.

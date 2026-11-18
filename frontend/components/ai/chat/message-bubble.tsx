@@ -1,16 +1,18 @@
 "use client";
 
 import { memo } from "react";
-import { FileTextIcon, ImageIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon, FileTextIcon, ImageIcon } from "@radix-ui/react-icons";
 import {
   attachmentKindLabel,
   formatBytes,
   formatChatTime,
   isImageAttachment,
   type ChatMessage,
+  type TimelineEntry,
+  type ToolCall,
 } from "@/lib/ai-chat";
 import { AttachmentImage } from "./attachment-image";
-import { ToolCallTimeline } from "./tool-call-timeline";
+import { ToolCallCard } from "./tool-call-timeline";
 
 function ThinkingLine() {
   return (
@@ -115,6 +117,66 @@ function MessageAttachments({ message }: { message: ChatMessage }) {
   );
 }
 
+function timelineForMessage(message: ChatMessage): TimelineEntry[] {
+  if (message.timeline.length > 0) return message.timeline;
+  const items: TimelineEntry[] = [];
+  if (message.reasoning?.trim()) {
+    items.push({ type: "thought", content: message.reasoning.trim(), created_at: message.created_at });
+  }
+  for (const call of message.tool_calls) {
+    items.push({ type: "tool", content: "", tool_call_id: call.id, created_at: call.started_at ?? message.created_at });
+  }
+  return items;
+}
+
+function processLabel(calls: ToolCall[], isRunning: boolean) {
+  if (isRunning) {
+    return calls.length > 0 ? `正在运行，已调用 ${calls.length} 次工具` : "正在思考";
+  }
+  if (calls.length === 0) return "思考过程";
+  const duration = calls.reduce((total, call) => {
+    if (!call.started_at || !call.finished_at) return total;
+    const start = Date.parse(call.started_at);
+    const end = Date.parse(call.finished_at);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return total;
+    return total + Math.max(0, end - start);
+  }, 0);
+  const seconds = Math.max(1, Math.round(duration / 1000));
+  return `运行了 ${seconds} 秒，调用 ${calls.length} 次工具`;
+}
+
+function AssistantProcess({ message, scope, isRunning }: { message: ChatMessage; scope: "teacher" | "admin"; isRunning: boolean }) {
+  const timeline = timelineForMessage(message);
+  if (timeline.length === 0) return null;
+  const callByID = new Map(message.tool_calls.map((call) => [call.id, call]));
+  return (
+    <details open={isRunning} className="group mb-2 rounded-md border border-border bg-neutral-2/60">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2.5 py-2 text-caption-10 font-medium text-neutral-7 [&::-webkit-details-marker]:hidden">
+        <ChevronDownIcon className="size-3 shrink-0 transition-transform group-open:rotate-180" />
+        <span>{processLabel(message.tool_calls, isRunning)}</span>
+      </summary>
+      <ol className="grid gap-2 border-t border-border px-2.5 py-2">
+        {timeline.map((entry, index) => {
+          if (entry.type === "thought") {
+            return (
+              <li key={`thought-${index}`} className="whitespace-pre-wrap border-l-2 border-accent/30 pl-2 text-label-12 leading-5 text-neutral-7">
+                {entry.content}
+              </li>
+            );
+          }
+          const call = entry.tool_call_id ? callByID.get(entry.tool_call_id) : undefined;
+          if (!call) return null;
+          return (
+            <li key={call.id}>
+              <ToolCallCard call={call} last={index === timeline.length - 1} scope={scope} />
+            </li>
+          );
+        })}
+      </ol>
+    </details>
+  );
+}
+
 function MessageBubbleComponent({ message, scope }: { message: ChatMessage; scope: "teacher" | "admin" }) {
   const isUser = message.role === "user";
   if (isUser) {
@@ -136,16 +198,7 @@ function MessageBubbleComponent({ message, scope }: { message: ChatMessage; scop
       <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-accent/25 bg-accent-soft text-caption-10 font-semibold text-accent-strong" aria-hidden="true">AI</div>
       <div className="min-w-0 flex-1">
         <div className="rounded-lg border border-border bg-neutral-1 px-4 py-3 shadow-sm">
-          {message.reasoning ? (
-            <details open={isRunning} className="mb-2 rounded-md border border-border bg-neutral-2/60 px-2.5 py-2">
-              <summary className="cursor-pointer select-none text-caption-10 font-medium text-neutral-7">
-                {isRunning ? "思考中…" : "思考过程"}
-              </summary>
-              <p className="mt-1.5 max-h-64 overflow-y-auto whitespace-pre-wrap text-label-12 leading-5 text-neutral-7">
-                {message.reasoning}
-              </p>
-            </details>
-          ) : null}
+          <AssistantProcess message={message} scope={scope} isRunning={isRunning} />
           {message.content ? (
             <>
               <MessageText content={message.content} />
@@ -153,7 +206,6 @@ function MessageBubbleComponent({ message, scope }: { message: ChatMessage; scop
             </>
           ) : isRunning ? <ThinkingLine /> : null}
           <MessageAttachments message={message} />
-          <ToolCallTimeline calls={message.tool_calls} scope={scope} />
           {message.status === "failed" ? (
             <p role="alert" className="mt-2 rounded-md border border-error-soft-strong bg-error-soft px-2.5 py-2 text-label-12 leading-5 text-error">
               {message.error ?? "本轮处理失败，请重试。"}
@@ -162,7 +214,6 @@ function MessageBubbleComponent({ message, scope }: { message: ChatMessage; scop
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-caption-10 text-neutral-6">
           <span>{formatChatTime(message.created_at)}</span>
-          {message.tool_calls.length > 0 ? <span>· {message.tool_calls.length} 个工具</span> : null}
         </div>
       </div>
     </article>

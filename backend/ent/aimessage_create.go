@@ -151,6 +151,12 @@ func (_c *AIMessageCreate) SetToolCalls(v []map[string]interface{}) *AIMessageCr
 	return _c
 }
 
+// SetTimeline sets the "timeline" field.
+func (_c *AIMessageCreate) SetTimeline(v []map[string]interface{}) *AIMessageCreate {
+	_c.mutation.SetTimeline(v)
+	return _c
+}
+
 // SetAttachments sets the "attachments" field.
 func (_c *AIMessageCreate) SetAttachments(v []map[string]interface{}) *AIMessageCreate {
 	_c.mutation.SetAttachments(v)
@@ -266,6 +272,10 @@ func (_c *AIMessageCreate) defaults() {
 		v := aimessage.DefaultToolCalls
 		_c.mutation.SetToolCalls(v)
 	}
+	if _, ok := _c.mutation.Timeline(); !ok {
+		v := aimessage.DefaultTimeline
+		_c.mutation.SetTimeline(v)
+	}
 	if _, ok := _c.mutation.Attachments(); !ok {
 		v := aimessage.DefaultAttachments
 		_c.mutation.SetAttachments(v)
@@ -331,6 +341,9 @@ func (_c *AIMessageCreate) check() error {
 	}
 	if _, ok := _c.mutation.ToolCalls(); !ok {
 		return &ValidationError{Name: "tool_calls", err: errors.New(`ent: missing required field "AIMessage.tool_calls"`)}
+	}
+	if _, ok := _c.mutation.Timeline(); !ok {
+		return &ValidationError{Name: "timeline", err: errors.New(`ent: missing required field "AIMessage.timeline"`)}
 	}
 	if _, ok := _c.mutation.Attachments(); !ok {
 		return &ValidationError{Name: "attachments", err: errors.New(`ent: missing required field "AIMessage.attachments"`)}
@@ -416,6 +429,10 @@ func (_c *AIMessageCreate) createSpec() (*AIMessage, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ToolCalls(); ok {
 		_spec.SetField(aimessage.FieldToolCalls, field.TypeJSON, value)
 		_node.ToolCalls = value
+	}
+	if value, ok := _c.mutation.Timeline(); ok {
+		_spec.SetField(aimessage.FieldTimeline, field.TypeJSON, value)
+		_node.Timeline = value
 	}
 	if value, ok := _c.mutation.Attachments(); ok {
 		_spec.SetField(aimessage.FieldAttachments, field.TypeJSON, value)

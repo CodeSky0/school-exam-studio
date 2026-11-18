@@ -25,6 +25,7 @@ func (AIMessage) Fields() []ent.Field {
 		field.String("provider").MaxLen(20).Default("local"),
 		field.String("model").MaxLen(80).Default(""),
 		field.JSON("tool_calls", []map[string]any{}).Default([]map[string]any{}),
+		field.JSON("timeline", []map[string]any{}).Default([]map[string]any{}),
 		field.JSON("attachments", []map[string]any{}).Default([]map[string]any{}),
 		field.UUID("run_id", uuid.UUID{}).Optional().Nillable(),
 		field.Text("error").Default(""),
