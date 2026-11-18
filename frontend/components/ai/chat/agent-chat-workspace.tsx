@@ -371,13 +371,13 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
           <Button type="button" size="icon" variant="ghost" aria-label="新建对话" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
             <PlusIcon />
           </Button>
-          <Button type="button" size="icon" variant="ghost" className="xl:hidden" aria-label="技能与工具" onClick={() => setPanelOpen(true)}>
+          <Button type="button" size="icon" variant="ghost" aria-label="技能与工具" onClick={() => setPanelOpen(true)}>
             <LayersIcon />
           </Button>
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)_19rem]">
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[16rem_minmax(0,1fr)]">
         {sidebarOpen ? (
           <button type="button" aria-label="关闭会话历史" className="fixed inset-0 z-30 bg-neutral-10/25 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />
         ) : null}
@@ -439,17 +439,17 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         </section>
 
         {panelOpen ? (
-          <button type="button" aria-label="关闭技能与工具" className="fixed inset-0 z-30 bg-neutral-10/25 backdrop-blur-sm xl:hidden" onClick={() => setPanelOpen(false)} />
+          <button type="button" aria-label="关闭技能与工具" className="fixed inset-0 z-30 bg-neutral-10/25 backdrop-blur-sm" onClick={() => setPanelOpen(false)} />
         ) : null}
         <aside
           className={cn(
-            "fixed inset-y-0 right-0 z-40 w-80 border-l border-border bg-neutral-1 transition-transform duration-200 ease-out xl:static xl:z-auto xl:block xl:w-auto xl:translate-x-0",
+            "fixed inset-y-0 right-0 z-40 w-80 max-w-[85vw] border-l border-border bg-neutral-1 shadow-xl transition-transform duration-200 ease-out",
             panelOpen ? "block translate-x-0" : "hidden translate-x-full",
           )}
           aria-label="技能与工具"
         >
           <div className="flex h-full flex-col">
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 xl:hidden">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
               <span className="text-copy-13 font-medium text-neutral-9">技能与工具</span>
               <Button type="button" size="icon" variant="ghost" aria-label="关闭技能与工具" onClick={() => setPanelOpen(false)}><Cross2Icon /></Button>
             </div>

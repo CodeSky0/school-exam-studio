@@ -87,7 +87,7 @@ export function MessageList({
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6" role="log" aria-live="polite" aria-relevant="additions">
       {isEmpty ? (
-        <div className="mx-auto flex max-w-2xl flex-col items-center py-10 text-center">
+        <div className="mx-auto flex max-w-3xl flex-col items-center py-10 text-center">
           <span className="flex size-12 items-center justify-center rounded-full border border-accent/25 bg-accent-soft text-accent-strong">
             <ChatBubbleIcon className="size-6" />
           </span>
@@ -112,7 +112,7 @@ export function MessageList({
         </div>
       ) : null}
 
-      <div className="mx-auto grid max-w-3xl gap-5">
+      <div className="mx-auto grid max-w-4xl gap-5">
         {messages.map((message) => <MessageBubble key={message.id} message={message} scope={scope} />)}
         {live.map((message) => <MessageBubble key={message.id} message={message} scope={scope} />)}
         {error ? (
