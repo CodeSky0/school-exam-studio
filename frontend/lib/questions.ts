@@ -50,6 +50,41 @@ export function serializeQuestionFilters(filters: QuestionFilters): URLSearchPar
   return query;
 }
 
+export const batchFailureSchema = z.object({
+  id: z.string(),
+  error: z.string(),
+});
+
+export const batchStatusResultSchema = z.object({
+  status: z.string(),
+  total: z.number().int().default(0),
+  succeeded: z.array(z.string()).default([]),
+  failed: z.array(batchFailureSchema).default([]),
+});
+
+export const batchDeleteResultSchema = z.object({
+  total: z.number().int().default(0),
+  deleted: z.array(z.string()).default([]),
+  failed: z.array(batchFailureSchema).default([]),
+});
+
+export type BatchStatusResult = z.infer<typeof batchStatusResultSchema>;
+export type BatchDeleteResult = z.infer<typeof batchDeleteResultSchema>;
+
+export function batchUpdateQuestionStatus(ids: string[], status: "published" | "archived") {
+  return apiRequest("/api/v1/admin/questions/batch/status", batchStatusResultSchema, {
+    method: "PATCH",
+    body: JSON.stringify({ ids, status }),
+  });
+}
+
+export function batchDeleteQuestions(ids: string[]) {
+  return apiRequest("/api/v1/questions/batch/delete", batchDeleteResultSchema, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
 export function listQuestions(filters: QuestionFilters) {
   const query = serializeQuestionFilters(filters);
   return apiRequest(`/api/v1/questions?${query.toString()}`, questionListSchema);

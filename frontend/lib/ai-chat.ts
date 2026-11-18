@@ -159,6 +159,21 @@ export function updateConversation(id: string, input: { title?: string; pinned?:
   });
 }
 
+export const batchConversationResultSchema = z.object({
+  total: z.number().int().default(0),
+  deleted: z.array(z.string()).default([]),
+  failed: z.array(z.object({ id: z.string(), error: z.string() })).default([]),
+});
+
+export type BatchConversationResult = z.infer<typeof batchConversationResultSchema>;
+
+export function batchDeleteConversations(ids: string[]) {
+  return apiRequest("/api/v1/ai/conversations/batch/delete", batchConversationResultSchema, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
 export function deleteConversation(id: string) {
   return apiRequest(`/api/v1/ai/conversations/${encodeURIComponent(id)}`, emptySchema, {
     method: "DELETE",

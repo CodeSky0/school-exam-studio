@@ -135,7 +135,7 @@ function QuestionActions({ canEdit, isDeleting, onEdit, onDelete, renderActions,
   );
 }
 
-export function QuestionTable({ user, data, isPending, isFetching, error, deletingId, onRetry, onEdit, onDelete, onPageChange, onPageSizeChange, renderActions, emptyDescription }: {
+export function QuestionTable({ user, data, isPending, isFetching, error, deletingId, onRetry, onEdit, onDelete, onPageChange, onPageSizeChange, renderActions, emptyDescription, selectedIds, onToggleSelect, onToggleSelectAll }: {
   user: CurrentUser;
   data?: QuestionList;
   isPending: boolean;
@@ -149,12 +149,17 @@ export function QuestionTable({ user, data, isPending, isFetching, error, deleti
   onPageSizeChange: (pageSize: number) => void;
   renderActions?: (question: Question) => React.ReactNode;
   emptyDescription?: string;
+  selectedIds?: string[];
+  onToggleSelect?: (id: string) => void;
+  onToggleSelectAll?: (ids: string[]) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   if (isPending) return <TableSkeleton />;
   if (error) return <div className="border-b border-border bg-neutral-1 p-5"><FormError error={error} /><Button variant="outline" size="sm" className="mt-3" onClick={onRetry}>重新读取</Button></div>;
   if (!data || data.items.length === 0) return <div className="border-b border-border bg-neutral-1 px-5 py-14 text-center"><h2 className="text-copy-13 font-medium text-neutral-10">当前筛选下没有题目</h2><p className="mt-2 text-copy-13 text-neutral-7">{emptyDescription ?? "调整筛选条件，或新建一道草稿。"}</p></div>;
 
+  const selectable = Boolean(onToggleSelect);
+  const allSelected = selectable && data.items.length > 0 && data.items.every((question) => selectedIds?.includes(question.id));
   const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
   return (
     <div aria-busy={isFetching}>
@@ -166,7 +171,20 @@ export function QuestionTable({ user, data, isPending, isFetching, error, deleti
         <table className="w-full min-w-[1120px] border-collapse bg-neutral-1 text-left text-copy-13">
           <thead className="bg-neutral-2 text-label-12 font-medium text-neutral-7">
             <tr className="border-b border-border">
-              <th scope="col" className="w-[31%] px-4 py-3">题目</th><th scope="col" className="px-3 py-3">学科 / 年级</th><th scope="col" className="px-3 py-3">题型</th><th scope="col" className="px-3 py-3">难度</th><th scope="col" className="px-3 py-3">标签</th><th scope="col" className="px-3 py-3">创建人</th><th scope="col" className="px-3 py-3">状态</th><th scope="col" className="px-3 py-3">更新时间</th><th scope="col" className="px-4 py-3 text-right">操作</th>
+              <th scope="col" className="w-[31%] px-4 py-3">
+                <span className="flex items-center gap-2">
+                  {selectable ? (
+                    <input
+                      type="checkbox"
+                      aria-label="全选当前页题目"
+                      checked={allSelected}
+                      onChange={() => onToggleSelectAll?.(data.items.map((question) => question.id))}
+                      className="size-3.5"
+                    />
+                  ) : null}
+                  题目
+                </span>
+              </th><th scope="col" className="px-3 py-3">学科 / 年级</th><th scope="col" className="px-3 py-3">题型</th><th scope="col" className="px-3 py-3">难度</th><th scope="col" className="px-3 py-3">标签</th><th scope="col" className="px-3 py-3">创建人</th><th scope="col" className="px-3 py-3">状态</th><th scope="col" className="px-3 py-3">更新时间</th><th scope="col" className="px-4 py-3 text-right">操作</th>
             </tr>
           </thead>
           <motion.tbody className="divide-y divide-border" variants={listVariants} initial="hidden" animate="visible">
@@ -183,6 +201,9 @@ export function QuestionTable({ user, data, isPending, isFetching, error, deleti
                   onEdit={() => onEdit?.(question)}
                   onDelete={() => onDelete?.(question)}
                   renderActions={renderActions ? () => renderActions(question) : undefined}
+                  selectable={selectable}
+                  selected={Boolean(selectedIds?.includes(question.id))}
+                  onSelect={() => onToggleSelect?.(question.id)}
                 />
               );
             })}
@@ -204,6 +225,9 @@ export function QuestionTable({ user, data, isPending, isFetching, error, deleti
                 onEdit={() => onEdit?.(question)}
                 onDelete={() => onDelete?.(question)}
                 renderActions={renderActions ? () => renderActions(question) : undefined}
+                selectable={selectable}
+                selected={Boolean(selectedIds?.includes(question.id))}
+                onSelect={() => onToggleSelect?.(question.id)}
               />
             );
           })}
@@ -233,15 +257,29 @@ interface QuestionItemProps {
   onEdit: () => void;
   onDelete: () => void;
   renderActions?: () => React.ReactNode;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
-function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit, onDelete, renderActions }: QuestionItemProps) {
+function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit, onDelete, renderActions, selectable, selected, onSelect }: QuestionItemProps) {
   const detailsId = `desktop-question-details-${question.id}`;
   return (
     <>
       <motion.tr layout="position" variants={itemVariants} className={cn("align-top transition-colors", expanded ? "bg-accent-soft/40" : "hover:bg-neutral-2/70")}>
         <td className="px-4 py-4">
-          <Button type="button" variant="ghost" size="sm" className="mb-2 -ml-2 h-7 px-2 text-label-12" aria-expanded={expanded} aria-controls={detailsId} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起" : "查看"}</Button>
+          <div className="mb-2 flex items-center gap-2">
+            {selectable ? (
+              <input
+                type="checkbox"
+                aria-label={`选择题目 ${question.id}`}
+                checked={Boolean(selected)}
+                onChange={onSelect}
+                className="size-3.5"
+              />
+            ) : null}
+            <Button type="button" variant="ghost" size="sm" className="-ml-2 h-7 px-2 text-label-12" aria-expanded={expanded} aria-controls={detailsId} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起" : "查看"}</Button>
+          </div>
           <RichTextView content={question.content} className="max-h-20 overflow-hidden text-copy-13 leading-5" />
         </td>
         <td className="px-3 py-4 text-copy-13 leading-5 text-neutral-8">{question.subject}<br /><span className="text-neutral-7">{question.grade}</span>{question.category ? <span className="mt-1 block text-label-12 text-neutral-6">{question.category}</span> : null}</td>
@@ -260,12 +298,23 @@ function QuestionRow({ question, canEdit, expanded, isDeleting, onToggle, onEdit
   );
 }
 
-function QuestionMobileCard({ question, canEdit, expanded, isDeleting, onToggle, onEdit, onDelete, renderActions }: QuestionItemProps) {
+function QuestionMobileCard({ question, canEdit, expanded, isDeleting, onToggle, onEdit, onDelete, renderActions, selectable, selected, onSelect }: QuestionItemProps) {
   const detailsId = `mobile-question-details-${question.id}`;
   return (
     <motion.article layout="position" variants={itemVariants} exit="exit" className="border-b border-border p-4 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
-        <Button type="button" variant="ghost" size="sm" className="-ml-2 h-8 px-2 text-label-12" aria-expanded={expanded} aria-controls={detailsId} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起详情" : "查看详情"}</Button>
+        <div className="flex items-center gap-2">
+          {selectable ? (
+            <input
+              type="checkbox"
+              aria-label={`选择题目 ${question.id}`}
+              checked={Boolean(selected)}
+              onChange={onSelect}
+              className="size-3.5"
+            />
+          ) : null}
+          <Button type="button" variant="ghost" size="sm" className="-ml-2 h-8 px-2 text-label-12" aria-expanded={expanded} aria-controls={detailsId} onClick={onToggle}>{expanded ? <CaretDownIcon /> : <CaretRightIcon />}{expanded ? "收起详情" : "查看详情"}</Button>
+        </div>
         <div className="flex flex-wrap justify-end gap-1"><QuestionStatus question={question} /><AIQuestionBadge question={question} /></div>
       </div>
       <RichTextView content={question.content} className="mt-2 max-h-24 overflow-hidden text-copy-14 leading-6" />

@@ -25,11 +25,34 @@ var (
 	ErrForbidden         = errors.New("question operation forbidden")
 	ErrSubjectMismatch   = errors.New("teacher subject does not match question subject")
 	ErrInvalidTransition = errors.New("invalid question status transition")
+
+	MaxBatchQuestions = 100
 )
 
 type Option struct {
 	Key     string `json:"key"`
 	Content string `json:"content"`
+}
+
+// BatchFailure 描述批量操作中某一条目的失败原因，其余条目仍会继续执行。
+type BatchFailure struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
+}
+
+// BatchStatusResult 是批量发布/归档的结果，成功与失败条目都会返回。
+type BatchStatusResult struct {
+	Status    string         `json:"status"`
+	Total     int            `json:"total"`
+	Succeeded []string       `json:"succeeded"`
+	Failed    []BatchFailure `json:"failed"`
+}
+
+// BatchDeleteResult 是批量删除的结果，成功与失败条目都会返回。
+type BatchDeleteResult struct {
+	Total   int            `json:"total"`
+	Deleted []string       `json:"deleted"`
+	Failed  []BatchFailure `json:"failed"`
 }
 
 type Question struct {

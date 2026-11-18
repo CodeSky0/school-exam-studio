@@ -44,6 +44,8 @@
 | PATCH | `/questions/:id` | 教师（本人草稿） | 更新草稿 |
 | DELETE | `/questions/:id` | 教师（本人草稿） | 软删除 |
 | PATCH | `/admin/questions/:id/status` | 管理员 | 仅允许 draft→published、draft/published→archived |
+| PATCH | `/admin/questions/batch/status` | 管理员 | 批量发布/归档，body `{"ids":[...],"status":"published\|archived"}`；单次最多 100 个，逐条返回 `succeeded` 与 `failed` |
+| POST | `/questions/batch/delete` | 教师（本人草稿）/管理员（本校草稿） | 批量软删除，body `{"ids":[...]}`；单次最多 100 个，逐条返回 `deleted` 与 `failed` |
 
 题型：`single_choice`、`multiple_choice`、`true_false`、`fill_blank`、`essay`。状态：`draft`、`published`、`archived`。
 
@@ -121,6 +123,7 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 | GET | `/ai/conversations/:id` | 教师/管理员 | 返回 `{"conversation":..., "messages":[...]}`；管理员可读本校会话，教师仅限本人 |
 | PATCH | `/ai/conversations/:id` | 创建者 | 更新 `title` 与/或 `pinned`；管理员也不能修改他人会话 |
 | DELETE | `/ai/conversations/:id` | 创建者 | 软删除会话，题库中已生成的草稿不受影响 |
+| POST | `/ai/conversations/batch/delete` | 创建者 | 批量软删除本人会话，body `{"ids":[...]}`；单次最多 100 个，逐条返回 `deleted` 与 `failed` |
 | GET | `/ai/conversations/:id/messages?limit=100` | 教师/管理员 | 消息历史，按时间升序，单页最多 200 条 |
 | POST | `/ai/conversations/:id/messages` | 创建者 | 发送消息并同步执行 Agent，返回用户消息、助手消息与更新后的会话 |
 | POST | `/ai/conversations/:id/messages/stream` | 创建者 | 同一条消息以 SSE 推送：用户消息、工具开始/结束、助手消息与完成事件 |

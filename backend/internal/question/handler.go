@@ -31,6 +31,8 @@ func (h *Handler) Register(group *echo.Group) {
 	group.PATCH("/questions/:id", h.Update)
 	group.DELETE("/questions/:id", h.Delete)
 	group.PATCH("/admin/questions/:id/status", h.UpdateStatus)
+	group.PATCH("/admin/questions/batch/status", h.BatchUpdateStatus)
+	group.POST("/questions/batch/delete", h.BatchDelete)
 }
 
 func (h *Handler) Create(c echo.Context) error {
@@ -137,6 +139,43 @@ func (h *Handler) UpdateStatus(c echo.Context) error {
 		return err
 	}
 	result, err := h.service.UpdateStatus(c.Request().Context(), principal, id, request.Status)
+	if err != nil {
+		return questionError(err)
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) BatchUpdateStatus(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	var request struct {
+		IDs    []uuid.UUID `json:"ids"`
+		Status string      `json:"status"`
+	}
+	if err := decodeQuestionJSON(c, &request); err != nil {
+		return err
+	}
+	result, err := h.service.BatchUpdateStatus(c.Request().Context(), principal, request.IDs, request.Status)
+	if err != nil {
+		return questionError(err)
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) BatchDelete(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	var request struct {
+		IDs []uuid.UUID `json:"ids"`
+	}
+	if err := decodeQuestionJSON(c, &request); err != nil {
+		return err
+	}
+	result, err := h.service.BatchDelete(c.Request().Context(), principal, request.IDs)
 	if err != nil {
 		return questionError(err)
 	}

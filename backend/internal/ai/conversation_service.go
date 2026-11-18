@@ -56,6 +56,59 @@ func (s *Service) DeleteConversation(ctx context.Context, principal auth.Princip
 	return s.repo.DeleteConversation(ctx, principal, id)
 }
 
+// BatchDeleteConversations 批量软删除会话；只允许删除自己创建的会话，单条失败不影响其余条目。
+func (s *Service) BatchDeleteConversations(ctx context.Context, principal auth.Principal, ids []uuid.UUID) (BatchConversationResult, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return BatchConversationResult{}, err
+	}
+	unique, err := normalizeConversationIDs(ids)
+	if err != nil {
+		return BatchConversationResult{}, err
+	}
+	result := BatchConversationResult{Total: len(unique), Deleted: []string{}, Failed: []BatchConversationErr{}}
+	for _, id := range unique {
+		if err := s.repo.DeleteConversation(ctx, principal, id); err != nil {
+			result.Failed = append(result.Failed, BatchConversationErr{ID: id.String(), Error: conversationBatchReason(err)})
+			continue
+		}
+		result.Deleted = append(result.Deleted, id.String())
+	}
+	return result, nil
+}
+
+func normalizeConversationIDs(ids []uuid.UUID) ([]uuid.UUID, error) {
+	unique := make([]uuid.UUID, 0, len(ids))
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		if id == uuid.Nil {
+			return nil, validationError("ids", "会话ID格式不正确")
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return nil, validationError("ids", "请至少选择一个会话")
+	}
+	if len(unique) > MaxBatchConversations {
+		return nil, validationError("ids", fmt.Sprintf("单次最多删除 %d 个会话", MaxBatchConversations))
+	}
+	return unique, nil
+}
+
+func conversationBatchReason(err error) string {
+	switch {
+	case errors.Is(err, ErrForbidden):
+		return "只能删除自己创建的会话"
+	case errors.Is(err, ErrNotFound):
+		return "会话不存在或已被删除"
+	default:
+		return err.Error()
+	}
+}
+
 func (s *Service) ListMessages(ctx context.Context, principal auth.Principal, conversationID uuid.UUID, limit int) ([]ChatMessage, error) {
 	return s.repo.ListMessages(ctx, principal, conversationID, limit)
 }

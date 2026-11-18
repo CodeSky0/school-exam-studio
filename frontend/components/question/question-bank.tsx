@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PlusIcon } from "@radix-ui/react-icons";
+import { PlusIcon, TrashIcon } from "@radix-ui/react-icons";
 import type { CurrentUser } from "@/lib/schemas";
-import { deleteQuestion, listQuestions, questionQueryKeys, type QuestionFilters } from "@/lib/questions";
+import { batchDeleteQuestions, deleteQuestion, listQuestions, questionQueryKeys, type QuestionFilters } from "@/lib/questions";
 import type { Question } from "@/lib/question-schemas";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { BatchActionBar } from "@/components/ui/batch-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusMessage } from "@/components/ui/status-message";
 import { CsvImport } from "./csv-import";
@@ -21,6 +22,8 @@ export function QuestionBank({ user }: { user: CurrentUser }) {
   const [filters, setFilters] = useState<QuestionFilters>({ page: 1, page_size: 10 });
   const [editor, setEditor] = useState<{ mode: "create" } | { mode: "edit"; question: Question } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Question | null>(null);
+  const [selectedIDs, setSelectedIDs] = useState<string[]>([]);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const listQuery = useQuery({
@@ -28,6 +31,28 @@ export function QuestionBank({ user }: { user: CurrentUser }) {
     queryFn: () => listQuestions(filters),
     placeholderData: keepPreviousData,
   });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => batchDeleteQuestions(ids),
+    onSuccess: async (result) => {
+      setBatchDeleteOpen(false);
+      setSelectedIDs([]);
+      setMessage(result.failed.length > 0
+        ? `已删除 ${result.deleted.length} 道草稿，${result.failed.length} 道未能删除`
+        : `已删除 ${result.deleted.length} 道草稿`);
+      await queryClient.invalidateQueries({ queryKey: questionQueryKeys.all });
+    },
+  });
+
+  function toggleSelected(id: string) {
+    setMessage(null);
+    setSelectedIDs((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  function toggleSelectAll(ids: string[]) {
+    setMessage(null);
+    setSelectedIDs((current) => ids.every((id) => current.includes(id)) ? current.filter((id) => !ids.includes(id)) : [...new Set([...current, ...ids])]);
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteQuestion(id),
@@ -52,6 +77,7 @@ export function QuestionBank({ user }: { user: CurrentUser }) {
 
       <StatusMessage message={message} tone="success" className="mb-5" />
       <StatusMessage message={deleteMutation.isError ? deleteMutation.error.message : null} tone="error" className="mb-5" />
+      <StatusMessage message={batchDeleteMutation.isError ? batchDeleteMutation.error.message : null} tone="error" className="mb-5" />
 
       {!editor ? <QuestionBankAI onEdit={(question) => { setMessage(null); setEditor({ mode: "edit", question }); }} /> : null}
 
@@ -67,7 +93,12 @@ export function QuestionBank({ user }: { user: CurrentUser }) {
         </div>
       ) : (
         <section aria-label="题目检索与列表" className="overflow-hidden rounded-lg border border-border bg-neutral-1 shadow-sm">
-          <QuestionFilterBar user={user} filters={filters} onApply={(nextFilters) => { setFilters(nextFilters); setMessage(null); }} />
+          <QuestionFilterBar user={user} filters={filters} onApply={(nextFilters) => { setFilters(nextFilters); setSelectedIDs([]); setMessage(null); }} />
+          <BatchActionBar count={selectedIDs.length} onClear={() => setSelectedIDs([])}>
+            <Button type="button" size="sm" variant="destructive" disabled={batchDeleteMutation.isPending} onClick={() => setBatchDeleteOpen(true)}>
+              <TrashIcon />{batchDeleteMutation.isPending ? "删除中…" : "批量删除"}
+            </Button>
+          </BatchActionBar>
           <QuestionTable
             user={user}
             data={listQuery.data}
@@ -78,11 +109,25 @@ export function QuestionBank({ user }: { user: CurrentUser }) {
             onRetry={() => { void listQuery.refetch(); }}
             onEdit={(question) => { setMessage(null); setEditor({ mode: "edit", question }); }}
             onDelete={setDeleteTarget}
-            onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
-            onPageSizeChange={(pageSize) => setFilters((current) => ({ ...current, page: 1, page_size: pageSize }))}
+            onPageChange={(page) => { setSelectedIDs([]); setFilters((current) => ({ ...current, page })); }}
+            onPageSizeChange={(pageSize) => { setSelectedIDs([]); setFilters((current) => ({ ...current, page: 1, page_size: pageSize })); }}
+            selectedIds={selectedIDs}
+            onToggleSelect={toggleSelected}
+            onToggleSelectAll={toggleSelectAll}
           />
         </section>
       )}
+
+      <ConfirmDialog
+        open={batchDeleteOpen}
+        title={`删除选中的 ${selectedIDs.length} 道草稿？`}
+        description="只会软删除你本人创建且仍为草稿的题目；已发布、已归档或他人的题目会被跳过。此操作不会影响试卷中的已发布题目快照。"
+        confirmLabel={`删除 ${selectedIDs.length} 道`}
+        isPending={batchDeleteMutation.isPending}
+        error={batchDeleteMutation.isError ? batchDeleteMutation.error.message : undefined}
+        onCancel={() => { if (!batchDeleteMutation.isPending) { batchDeleteMutation.reset(); setBatchDeleteOpen(false); } }}
+        onConfirm={() => batchDeleteMutation.mutate(selectedIDs)}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

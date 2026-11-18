@@ -43,6 +43,7 @@ func (h *Handler) Register(group *echo.Group) {
 
 	group.GET("/ai/conversations", h.ListConversations)
 	group.POST("/ai/conversations", h.CreateConversation)
+	group.POST("/ai/conversations/batch/delete", h.BatchDeleteConversations)
 	group.GET("/ai/conversations/:id", h.GetConversation)
 	group.PATCH("/ai/conversations/:id", h.UpdateConversation)
 	group.DELETE("/ai/conversations/:id", h.DeleteConversation)

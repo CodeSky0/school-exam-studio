@@ -14,6 +14,7 @@ import type { CurrentUser } from "@/lib/schemas";
 import { aiQueryKeys, getAIStatus } from "@/lib/ai";
 import {
   aiChatQueryKeys,
+  batchDeleteConversations,
   createConversation,
   deleteConversation,
   listConversations,
@@ -140,6 +141,27 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         setActiveID("");
         setDraft("");
         setAttachments([]);
+      }
+      void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
+    },
+    onError: (error) => setActionError(errorMessage(error)),
+  });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => batchDeleteConversations(ids),
+    onSuccess: (result) => {
+      const removed = new Set(result.deleted);
+      queryClient.setQueryData<{ items: Conversation[] }>(aiChatQueryKeys.conversations, (current) => current
+        ? { ...current, items: current.items.filter((item) => !removed.has(item.id)) }
+        : current);
+      if (removed.has(effectiveActiveID)) {
+        setActiveID("");
+        setDraft("");
+        setAttachments([]);
+        setLiveTurn(null);
+      }
+      if (result.failed.length > 0) {
+        setActionError(`已删除 ${result.deleted.length} 个会话，${result.failed.length} 个未能删除`);
       }
       void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
     },
@@ -431,6 +453,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
                 onRename={(id, title) => updateMutation.mutate({ id, title })}
                 onTogglePin={togglePin}
                 onDelete={(id) => deleteMutation.mutate(id)}
+                onDeleteMany={async (ids) => { await batchDeleteMutation.mutateAsync(ids); }}
               />
             </div>
           </div>

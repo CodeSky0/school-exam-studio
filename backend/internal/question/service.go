@@ -2,6 +2,8 @@ package question
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
 	"strings"
 
@@ -81,6 +83,83 @@ func (s *Service) List(ctx context.Context, principal auth.Principal, filter Que
 
 func (s *Service) Delete(ctx context.Context, principal auth.Principal, id uuid.UUID) error {
 	return s.repository.Delete(ctx, principal, id)
+}
+
+// BatchUpdateStatus 批量发布或归档题目：单条失败不会中断整批，返回逐条结果。
+func (s *Service) BatchUpdateStatus(ctx context.Context, principal auth.Principal, ids []uuid.UUID, status string) (BatchStatusResult, error) {
+	if status != StatusPublished && status != StatusArchived {
+		return BatchStatusResult{}, validationError("status", "审核状态只能为published或archived")
+	}
+	unique, err := normalizeBatchIDs(ids)
+	if err != nil {
+		return BatchStatusResult{}, err
+	}
+	result := BatchStatusResult{
+		Status: status, Total: len(unique),
+		Succeeded: []string{}, Failed: []BatchFailure{},
+	}
+	for _, id := range unique {
+		if _, err := s.repository.UpdateStatus(ctx, principal, id, status); err != nil {
+			result.Failed = append(result.Failed, BatchFailure{ID: id.String(), Error: batchFailureReason(err)})
+			continue
+		}
+		result.Succeeded = append(result.Succeeded, id.String())
+	}
+	return result, nil
+}
+
+// BatchDelete 批量软删除草稿题目；教师只能删除自己的草稿，管理员可删除本校草稿。
+func (s *Service) BatchDelete(ctx context.Context, principal auth.Principal, ids []uuid.UUID) (BatchDeleteResult, error) {
+	unique, err := normalizeBatchIDs(ids)
+	if err != nil {
+		return BatchDeleteResult{}, err
+	}
+	result := BatchDeleteResult{Total: len(unique), Deleted: []string{}, Failed: []BatchFailure{}}
+	for _, id := range unique {
+		if err := s.repository.Delete(ctx, principal, id); err != nil {
+			result.Failed = append(result.Failed, BatchFailure{ID: id.String(), Error: batchFailureReason(err)})
+			continue
+		}
+		result.Deleted = append(result.Deleted, id.String())
+	}
+	return result, nil
+}
+
+func normalizeBatchIDs(ids []uuid.UUID) ([]uuid.UUID, error) {
+	unique := make([]uuid.UUID, 0, len(ids))
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		if id == uuid.Nil {
+			return nil, validationError("ids", "题目ID格式不正确")
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return nil, validationError("ids", "请至少选择一道题目")
+	}
+	if len(unique) > MaxBatchQuestions {
+		return nil, validationError("ids", fmt.Sprintf("单次最多操作 %d 道题目", MaxBatchQuestions))
+	}
+	return unique, nil
+}
+
+func batchFailureReason(err error) string {
+	switch {
+	case errors.Is(err, ErrForbidden):
+		return "无权操作，或题目不是可操作的草稿"
+	case errors.Is(err, ErrInvalidTransition):
+		return "当前状态不允许该状态流转"
+	case errors.Is(err, ErrNotFound):
+		return "题目不存在或已被删除"
+	case errors.Is(err, ErrValidation):
+		return "参数校验失败"
+	default:
+		return err.Error()
+	}
 }
 
 func (s *Service) Snapshot(ctx context.Context, principal auth.Principal, limit int) ([]Question, error) {

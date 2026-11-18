@@ -27,6 +27,8 @@ const (
 	TimelineTypeThought = "thought"
 	TimelineTypeTool    = "tool"
 
+	MaxBatchConversations = 100
+
 	AttachmentKindImage = "image"
 	AttachmentKindPDF   = "pdf"
 	AttachmentKindDocx  = "docx"
@@ -113,6 +115,18 @@ type TimelineEntry struct {
 	Content    string    `json:"content,omitempty"`
 	ToolCallID string    `json:"tool_call_id,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+// BatchConversationResult 是批量删除对话的结果。
+type BatchConversationResult struct {
+	Total   int                    `json:"total"`
+	Deleted []string               `json:"deleted"`
+	Failed  []BatchConversationErr `json:"failed"`
+}
+
+type BatchConversationErr struct {
+	ID    string `json:"id"`
+	Error string `json:"error"`
 }
 
 type ChatMessage struct {

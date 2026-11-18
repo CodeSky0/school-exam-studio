@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"school-exam-studio/backend/internal/auth"
 	platformmiddleware "school-exam-studio/backend/internal/platform/middleware"
@@ -107,6 +108,24 @@ func (h *Handler) DeleteConversation(c echo.Context) error {
 		return aiError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handler) BatchDeleteConversations(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	var input struct {
+		IDs []uuid.UUID `json:"ids"`
+	}
+	if err := decodeAIJSON(c, &input); err != nil {
+		return err
+	}
+	result, err := h.service.BatchDeleteConversations(c.Request().Context(), principal, input.IDs)
+	if err != nil {
+		return aiError(err)
+	}
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *Handler) ListConversationMessages(c echo.Context) error {

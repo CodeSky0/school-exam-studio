@@ -26,15 +26,21 @@ interface ConversationSidebarProps {
   onRename: (id: string, title: string) => void;
   onTogglePin: (conversation: Conversation) => void;
   onDelete: (id: string) => void;
+  onDeleteMany: (ids: string[]) => Promise<void>;
 }
 
 export function ConversationSidebar({
-  conversations, activeID, isLoading, error, onSelect, onCreate, onRename, onTogglePin, onDelete,
+  conversations, activeID, isLoading, error, onSelect, onCreate, onRename, onTogglePin, onDelete, onDeleteMany,
 }: ConversationSidebarProps) {
   const [search, setSearch] = useState("");
   const [renamingID, setRenamingID] = useState("");
   const [renameValue, setRenameValue] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
+  const [managing, setManaging] = useState(false);
+  const [selectedIDs, setSelectedIDs] = useState<string[]>([]);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
+  const [batchError, setBatchError] = useState("");
 
   const filtered = search.trim()
     ? conversations.filter((item) => item.title.toLowerCase().includes(search.trim().toLowerCase()))
@@ -43,6 +49,30 @@ export function ConversationSidebar({
   function startRename(conversation: Conversation) {
     setRenamingID(conversation.id);
     setRenameValue(conversation.title);
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIDs((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  function toggleSelectAll() {
+    const allSelected = filtered.length > 0 && filtered.every((item) => selectedIDs.includes(item.id));
+    setSelectedIDs(allSelected ? [] : filtered.map((item) => item.id));
+  }
+
+  async function confirmBatchDelete() {
+    setBatchDeleting(true);
+    setBatchError("");
+    try {
+      await onDeleteMany(selectedIDs);
+      setSelectedIDs([]);
+      setManaging(false);
+      setBatchDeleteOpen(false);
+    } catch (caught) {
+      setBatchError(caught instanceof Error ? caught.message : "删除失败，请稍后重试");
+    } finally {
+      setBatchDeleting(false);
+    }
   }
 
   function commitRename() {
@@ -59,15 +89,35 @@ export function ConversationSidebar({
           <p className="text-caption-10 font-medium tracking-[0.14em] text-neutral-6">
             对话历史<span className="ml-1.5 font-normal text-neutral-5">{conversations.length}</span>
           </p>
-          <Button type="button" size="icon" variant="secondary" aria-label="新建对话" onClick={onCreate}>
-            <PlusIcon />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant={managing ? "secondary" : "ghost"}
+              aria-label={managing ? "退出批量管理" : "批量管理对话"}
+              title={managing ? "退出批量管理" : "批量管理对话"}
+              onClick={() => { setManaging(!managing); setSelectedIDs([]); setBatchError(""); }}
+            >
+              <TrashIcon />
+            </Button>
+            <Button type="button" size="icon" variant="secondary" aria-label="新建对话" onClick={onCreate}>
+              <PlusIcon />
+            </Button>
+          </div>
         </div>
+        {managing ? (
+          <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-accent/25 bg-accent-soft/40 px-2 py-1.5">
+            <span className="text-caption-10 font-medium text-accent-strong">已选 {selectedIDs.length} 个</span>
+            <button type="button" className="text-caption-10 font-medium text-accent-strong hover:underline" onClick={toggleSelectAll}>
+              {filtered.length > 0 && filtered.every((item) => selectedIDs.includes(item.id)) ? "取消全选" : "全选当前列表"}
+            </button>
+          </div>
+        ) : null}
         <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-neutral-1 px-2">
           <MagnifyingGlassIcon className="size-3.5 text-neutral-6" />
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => { setSearch(event.target.value); setSelectedIDs([]); }}
             placeholder="搜索会话"
             aria-label="搜索会话"
             className="h-8 min-w-0 flex-1 bg-transparent text-label-12 text-neutral-9 outline-none placeholder:text-neutral-6"
@@ -93,7 +143,9 @@ export function ConversationSidebar({
                 <div
                   className={cn(
                     "group relative rounded-md border transition-colors",
-                    active ? "border-accent/30 bg-neutral-1 shadow-sm" : "border-transparent hover:border-border hover:bg-neutral-1/70",
+                    managing && selectedIDs.includes(conversation.id)
+                      ? "border-accent/40 bg-accent-soft/35"
+                      : active ? "border-accent/30 bg-neutral-1 shadow-sm" : "border-transparent hover:border-border hover:bg-neutral-1/70",
                   )}
                 >
                   {renaming ? (
@@ -115,11 +167,22 @@ export function ConversationSidebar({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => onSelect(conversation.id)}
-                      className="block w-full px-3 py-2.5 pr-16 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                      aria-current={active ? "true" : undefined}
+                      onClick={() => managing ? toggleSelected(conversation.id) : onSelect(conversation.id)}
+                      className={cn("block w-full px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35", managing ? "pr-3" : "pr-16")}
+                      aria-current={active && !managing ? "true" : undefined}
+                      aria-pressed={managing ? selectedIDs.includes(conversation.id) : undefined}
                     >
                       <span className="flex items-center gap-1.5">
+                        {managing ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedIDs.includes(conversation.id)}
+                            onChange={() => toggleSelected(conversation.id)}
+                            onClick={(event) => event.stopPropagation()}
+                            aria-label={`选择会话 ${conversation.title}`}
+                            className="size-3.5 shrink-0"
+                          />
+                        ) : null}
                         {conversation.pinned ? <StarFilledIcon className="size-3 shrink-0 text-warning" aria-label="已置顶" /> : null}
                         <span className={cn("truncate text-label-12 font-medium", active ? "text-accent-strong" : "text-neutral-9")}>{conversation.title}</span>
                       </span>
@@ -130,7 +193,7 @@ export function ConversationSidebar({
                       </span>
                     </button>
                   )}
-                  {!renaming ? (
+                  {!renaming && !managing ? (
                     <div className="absolute right-1 top-1.5 flex opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                       <button type="button" aria-label={conversation.pinned ? "取消置顶" : "置顶会话"} onClick={() => onTogglePin(conversation)} className="rounded p-1 text-neutral-6 hover:bg-neutral-3 hover:text-warning">
                         {conversation.pinned ? <StarFilledIcon className="size-3" /> : <StarIcon className="size-3" />}
@@ -149,6 +212,36 @@ export function ConversationSidebar({
           })}
         </ul>
       </div>
+
+      {managing ? (
+        <div className="border-t border-border p-3">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1"
+              disabled={selectedIDs.length === 0 || batchDeleting}
+              onClick={() => { setBatchError(""); setBatchDeleteOpen(true); }}
+            >
+              <TrashIcon />删除选中（{selectedIDs.length}）
+            </Button>
+            <Button type="button" variant="outline" disabled={batchDeleting} onClick={() => { setManaging(false); setSelectedIDs([]); }}>
+              取消
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <ConfirmDialog
+        open={batchDeleteOpen}
+        title={`删除选中的 ${selectedIDs.length} 个会话？`}
+        description="对话记录会从列表中移除，题库中已生成的草稿不受影响。只能删除你自己创建的会话。"
+        confirmLabel={`删除 ${selectedIDs.length} 个会话`}
+        isPending={batchDeleting}
+        error={batchError || undefined}
+        onCancel={() => { if (!batchDeleting) { setBatchDeleteOpen(false); setBatchError(""); } }}
+        onConfirm={() => { void confirmBatchDelete(); }}
+      />
 
       <ConfirmDialog
         open={deleteTarget !== null}
