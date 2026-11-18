@@ -83,7 +83,10 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
     queryFn: () => listConversations(40),
   });
   const conversations = conversationsQuery.data?.items ?? [];
-  const activeConversation = activeID ? conversations.find((item) => item.id === activeID) : conversations[0];
+  // 管理员能看到全校会话，默认只落在自己创建的会话上，避免一进来就是别人的只读对话。
+  const activeConversation = activeID
+    ? conversations.find((item) => item.id === activeID)
+    : conversations.find((item) => item.creator_id === user.id);
   const effectiveActiveID = activeConversation?.id ?? "";
   const messagesQuery = useQuery({
     queryKey: aiChatQueryKeys.messages(effectiveActiveID),
