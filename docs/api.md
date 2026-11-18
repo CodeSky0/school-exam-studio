@@ -192,7 +192,7 @@ data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","
 }
 ```
 
-附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。解析状态为 `uploaded`、`parsed`、`failed`；失败原因在 `error` 中返回。扫描版 PDF 无法抽取足够文本时返回 `failed` 并提示改用图片 OCR。
+附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。解析状态为 `uploaded`、`parsed`、`failed`；失败原因在 `error` 中返回。图片不做 OCR，上传后直接标记 `parsed`，发送消息时以多模态输入交给模型。扫描版 PDF 没有文本层时仍为 `parsed`（`text_chars=0`），可改传页面图片由模型直接阅读。
 
 Agent 运行策略：
 

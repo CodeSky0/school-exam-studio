@@ -49,6 +49,15 @@ func (s *Service) ListSkills() []Skill {
 			RequiredTools: []string{"extract_questions", "import_document_questions"},
 		},
 		{
+			ID: "document_reader", Title: "文档阅读", Category: "document",
+			Description: "直接阅读 PDF、Word 或图片，提取正文、公式与表格，输出结构化摘要或按需回答；图片由视觉模型直接识别，不依赖 OCR。",
+			Icon:        "book", AcceptsAttachments: true,
+			Prompt: "请阅读我上传的资料：先说明文档类型与结构，再给出结构化摘要，包括标题、章节要点、关键公式与表格、结论。" +
+				"内容较长时用 read_attachment 分段读取后汇总；图片直接按你看到的内容描述，不要要求我做 OCR，也不要臆造原文。",
+			Steps:         []string{"识别附件类型", "直接阅读正文与图片", "输出结构化摘要"},
+			RequiredTools: []string{"list_attachments", "read_attachment"},
+		},
+		{
 			ID: "paper_split", Title: "整卷拆题", Category: "document",
 			Description: "把整份试卷拆成独立题目，保留题号、选项、答案与解析，便于逐题校对。",
 			Icon:        "split", AcceptsAttachments: true,

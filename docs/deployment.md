@@ -20,7 +20,7 @@
 | `HTTP_ADDR` | 默认 `:8080` |
 | `DATABASE_URL` | 指向生产 PostgreSQL 业务库，建议独立低权限账号 |
 | `REDIS_URL` | 指向 Redis，不保存业务数据 |
-| `OCR_URL` | 指向内网 OCR sidecar，例如 `http://127.0.0.1:8001` |
+| `OCR_URL` | 可选。指向内网 OCR sidecar，例如 `http://127.0.0.1:8001`；留空时不注册 OCR 接口，AI 工作台不受影响 |
 | `JWT_SECRET` | 至少 32 字节的高强度随机值，使用密钥管理系统注入 |
 | `CORS_ORIGIN` | 前端完整源，例如 `https://exam.school.edu.cn` |
 | `TRUST_PROXY` | 默认 `false`。仅当 API 位于可信反向代理之后时设为 `true`，限流将使用 `X-Forwarded-For` / `X-Real-IP`；直接暴露 API 时必须保持 `false`，否则限流身份可被伪造 |

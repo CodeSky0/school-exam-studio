@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,10 @@ const (
 	maxLLMToolRounds   = 6
 	maxLLMToolCalls    = 12
 	maxToolResultChars = 6000
+
+	// 视觉输入上限：单张图片沿用 10 MiB，整轮原图总大小控制在 16 MiB，避免请求体过大。
+	maxVisionImageBytes = 10 << 20
+	maxVisionTotalBytes = 16 << 20
 )
 
 func (s *Service) CreateConversation(ctx context.Context, principal auth.Principal, title string) (Conversation, error) {
@@ -125,6 +130,14 @@ func (s *Service) parseAttachment(ctx context.Context, principal auth.Principal,
 	if s.attachments == nil {
 		return attachment, nil
 	}
+	if attachment.Kind == AttachmentKindImage {
+		// 图片不再预处理：保留原始文件，在本轮对话中作为多模态输入直接交给模型阅读。
+		attachment.ExtractedText = ""
+		attachment.TextChars = 0
+		attachment.Status = AttachmentStatusParsed
+		attachment.Error = ""
+		return s.persistAttachment(ctx, principal, attachment)
+	}
 	file, err := s.attachments.Open(attachment.StoragePath)
 	if err != nil {
 		return s.failAttachment(ctx, principal, attachment, "附件文件已丢失")
@@ -136,14 +149,6 @@ func (s *Service) parseAttachment(ctx context.Context, principal auth.Principal,
 	}
 	var text string
 	switch attachment.Kind {
-	case AttachmentKindImage:
-		if s.ocr == nil {
-			return s.failAttachment(ctx, principal, attachment, "OCR 服务未配置，暂时无法解析图片")
-		}
-		text, err = s.ocr.Recognize(ctx, data, attachment.Name, attachment.MIME)
-		if err != nil {
-			return s.failAttachment(ctx, principal, attachment, "图片 OCR 失败："+err.Error())
-		}
 	case AttachmentKindPDF, AttachmentKindDocx, AttachmentKindText:
 		result, extractErr := document.Extract(attachment.Name, attachment.MIME, data)
 		if extractErr != nil {
@@ -162,9 +167,11 @@ func (s *Service) parseAttachment(ctx context.Context, principal auth.Principal,
 	attachment.TextChars = utf8.RuneCountInString(text)
 	attachment.Status = AttachmentStatusParsed
 	attachment.Error = ""
-	if text == "" {
-		return s.failAttachment(ctx, principal, attachment, "未从附件中提取到文本")
-	}
+	// 扫描版 PDF 或空文档不会直接失败：Agent 可以提示用户改为上传页面图片，由视觉模型读取。
+	return s.persistAttachment(ctx, principal, attachment)
+}
+
+func (s *Service) persistAttachment(ctx context.Context, principal auth.Principal, attachment Attachment) (Attachment, error) {
 	attachmentID, parseErr := uuid.Parse(attachment.ID)
 	if parseErr != nil {
 		return attachment, parseErr
@@ -397,6 +404,50 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 	return reply, calls, ProviderLocal, "", warnings
 }
 
+// attachmentImageParts 把本轮图片附件编码为 data URL，作为多模态输入直接交给模型阅读，不经过 OCR。
+func (s *Service) attachmentImageParts(attachments []Attachment) ([]LLMContentPart, []string) {
+	if s.attachments == nil {
+		return nil, nil
+	}
+	parts := make([]LLMContentPart, 0, len(attachments))
+	warnings := make([]string, 0)
+	total := 0
+	for _, item := range attachments {
+		if item.Kind != AttachmentKindImage {
+			continue
+		}
+		if item.Status != AttachmentStatusParsed {
+			warnings = append(warnings, fmt.Sprintf("图片《%s》未解析成功，已跳过视觉输入", item.Name))
+			continue
+		}
+		if item.SizeBytes > maxVisionImageBytes {
+			warnings = append(warnings, fmt.Sprintf("图片《%s》超过 %d MiB，已跳过视觉输入", item.Name, maxVisionImageBytes>>20))
+			continue
+		}
+		if total+int(item.SizeBytes) > maxVisionTotalBytes {
+			warnings = append(warnings, fmt.Sprintf("本轮图片总大小超过 %d MiB，后续图片已跳过视觉输入", maxVisionTotalBytes>>20))
+			break
+		}
+		file, err := s.attachments.Open(item.StoragePath)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("图片《%s》读取失败，已跳过视觉输入", item.Name))
+			continue
+		}
+		data, readErr := io.ReadAll(io.LimitReader(file, maxVisionImageBytes+1))
+		_ = file.Close()
+		if readErr != nil || len(data) == 0 || len(data) > maxVisionImageBytes {
+			warnings = append(warnings, fmt.Sprintf("图片《%s》读取失败或超过大小限制，已跳过视觉输入", item.Name))
+			continue
+		}
+		total += len(data)
+		parts = append(parts, LLMContentPart{
+			Type:     "image_url",
+			ImageURL: &LLMImageURL{URL: "data:" + item.MIME + ";base64," + base64.StdEncoding.EncodeToString(data)},
+		})
+	}
+	return parts, warnings
+}
+
 func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, candidate modelCandidate, sink ChatEventSink) (string, []ToolCall, error) {
 	descriptors := s.ToolCatalog(principal)
 	llmTools := make([]LLMTool, 0, len(descriptors))
@@ -411,9 +462,11 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 	messages := []LLMMessage{{
 		Role: "system",
 		Content: "你是 School Exam Studio 的题库 AI Agent。你可以通过工具检索、分析、整理、生成题目并组卷；" +
-			"通过文档工具把 PDF/Word/图片中的题目导入题库。所有自动写入只作用于草稿，必须提醒用户人工复核；" +
+			"通过文档工具阅读 PDF/Word/图片，并把其中的题目导入题库。所有自动写入只作用于草稿，必须提醒用户人工复核；" +
 			"已发布题目只读。不要编造题目 ID、文件内容或执行结果。回答使用简体中文，先给结论，再列出关键题目 ID 或文件。" +
-			"如果缺少学科、年级、题目 ID 或附件，先向用户澄清，不要猜测。",
+			"如果缺少学科、年级、题目 ID 或附件，先向用户澄清，不要猜测。" +
+			"本轮附带的图片已经以视觉输入直接提供给你，请直接阅读图片中的文字、公式与表格，不要要求用户先做 OCR；" +
+			"需要 PDF/Word 全文时调用 read_attachment 分段读取。",
 	}}
 	start := len(history) - maxLLMHistory
 	if start < 0 {
@@ -440,7 +493,15 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 	if strings.TrimSpace(userContent) == "" {
 		userContent = "请查看本轮附件。"
 	}
-	messages = append(messages, LLMMessage{Role: "user", Content: userContent})
+	imageParts, imageWarnings := s.attachmentImageParts(attachments)
+	if len(imageWarnings) > 0 {
+		userContent += "\n\n视觉输入提示：" + strings.Join(imageWarnings, "；")
+	}
+	userMessage := LLMMessage{Role: "user", Content: userContent}
+	if len(imageParts) > 0 {
+		userMessage.Parts = append([]LLMContentPart{{Type: "text", Text: userContent}}, imageParts...)
+	}
+	messages = append(messages, userMessage)
 	toolContext := ToolContext{Principal: principal, ConversationID: conversation.ID, RunID: runID}
 	for _, ref := range refs {
 		toolContext.AttachmentIDs = append(toolContext.AttachmentIDs, ref.ID)

@@ -8,6 +8,7 @@ import {
   LockClosedIcon,
   LoopIcon,
   MagicWandIcon,
+  ReaderIcon,
   GearIcon,
 } from "@radix-ui/react-icons";
 import type { AIStatus } from "@/lib/ai";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 function skillIcon(icon: string) {
   switch (icon) {
     case "file": return <FileTextIcon className="size-4" />;
+    case "book": return <ReaderIcon className="size-4" />;
     case "split": return <MagicWandIcon className="size-4" />;
     case "shield": return <LockClosedIcon className="size-4" />;
     case "repeat": return <LoopIcon className="size-4" />;

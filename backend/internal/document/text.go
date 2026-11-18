@@ -48,7 +48,7 @@ type DraftQuestion struct {
 	SourceExcerpt string   `json:"source_excerpt,omitempty"`
 }
 
-// Extract 根据文件名与 MIME 抽取文本。图片不在此处理，调用方应先走 OCR。
+// Extract 根据文件名与 MIME 抽取文本层。图片由多模态模型直接阅读，不在此处理。
 func Extract(name, mime string, data []byte) (Result, error) {
 	if len(data) == 0 {
 		return Result{}, ErrEmpty

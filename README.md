@@ -1,13 +1,13 @@
 # School Exam Studio
 
-单学校部署的中小学智能题库与组卷系统。提供学校初始化、JWT 认证、题目管理、富文本公式、本地数学 OCR、组卷、A4 打印、教师管理、题目审核、CSV 全量事务导入，以及可替代教师重复操作的 AI Agent 工作台。
+单学校部署的中小学智能题库与组卷系统。提供学校初始化、JWT 认证、题目管理、富文本公式、组卷、A4 打印、教师管理、题目审核、CSV 全量事务导入，以及可替代教师重复操作的 AI Agent 工作台。PDF、Word 与图片资料直接交给 AI Agent 阅读，图片由多模态模型识别，不依赖 OCR。
 
 ## 技术架构
 
 - 前端：Next.js 16 App Router、React 19、TypeScript、Tailwind CSS v4、shadcn/ui、TanStack Query、Zustand、Zod、TipTap、KaTeX。
 - 核心后端：Go、Echo、Ent，按 Handler、Service、Repository 分层；PostgreSQL 是唯一业务持久化存储。
-- AI：OpenAI 兼容 Chat Completions（function calling）+ 内置确定性本地引擎；三栏对话工作台提供持久化会话、图片/文件附件与工具调用时间线，支持 PDF/Word/图片文档智能录题，所有写入受草稿权限约束并记录审计日志。
-- OCR：独立 Python FastAPI sidecar，调用本地 Pix2Text，仅在内存中处理图片，不写题库。
+- AI：OpenAI 兼容 Chat Completions（function calling）+ 内置确定性本地引擎；三栏对话工作台提供持久化会话、图片/文件附件与工具调用时间线，支持 PDF/Word/图片文档阅读与智能录题。图片以多模态输入直接交给模型，不经过 OCR；所有写入受草稿权限约束并记录审计日志。
+- OCR：可选的独立 Python FastAPI sidecar，调用本地 Pix2Text，仅在内存中处理图片，不写题库；AI 工作台不依赖它。
 - Redis：仅用于登录/注册限流与短期缓存，不保存业务事实数据。
 - 测试：Go testing（真实 PostgreSQL）、Vitest、Playwright、OCR 适配层 pytest。
 
@@ -36,7 +36,7 @@ docs/       设计规格、实施计划、部署、API 与 AI Agent 工具契约
 docker compose up -d
 ```
 
-Compose 启动 PostgreSQL 16、Redis 7 和 OCR sidecar。OCR 仅绑定 `127.0.0.1:8001`，模型缓存使用独立命名卷。
+Compose 启动 PostgreSQL 16、Redis 7 和可选 OCR sidecar。OCR 仅绑定 `127.0.0.1:8001`，模型缓存使用独立命名卷；AI 工作台的图片阅读不依赖它。
 
 没有 Docker 时，请自行安装 PostgreSQL 16 与 Redis 7，并执行：
 
@@ -60,7 +60,8 @@ cd backend
 go mod tidy
 export DATABASE_URL='postgres://user:password@localhost:5432/school_db?sslmode=disable'
 export REDIS_URL='redis://localhost:6379'
-export OCR_URL='http://localhost:8001'
+# OCR 可选：留空时不注册 OCR 接口，AI 文档阅读不受影响
+# export OCR_URL='http://localhost:8001'
 export JWT_SECRET='替换为至少32字节的随机字符串'
 # AI 可选：不设置 AI_API_KEY 时使用内置本地引擎
 export AI_BASE_URL='https://api.openai.com/v1'
@@ -104,7 +105,7 @@ pnpm dev
 
 - 会话、消息与工具调用全部写入 PostgreSQL，刷新或换设备后继续。
 - 支持一次发送最多 5 个附件：PNG/JPEG/WebP（≤10 MiB）、PDF、DOCX、TXT、Markdown、CSV（≤20 MiB），支持粘贴与拖拽。
-- 图片自动调用 OCR sidecar；PDF/DOCX 在后端抽取文本（扫描版 PDF 会提示改为图片 OCR）。
+- 图片不再走 OCR：原始图片在本轮消息中以多模态输入直接发送给模型阅读；PDF/DOCX 在后端抽取文本层，扫描版 PDF 可改传页面图片由模型直接识别。
 - 发送后模型逐 Token 流式输出；Agent 在模型与工具之间多轮循环，每个工具的开始与结束实时显示，可随时停止。
 - 每条助手消息内嵌完整工具时间线：工具名、参数、状态、耗时、返回摘要、涉及题目 ID 与可展开的原始 JSON，并可直接跳转题库或试卷。
 - 题目编辑器、题库 AI 面板与试卷质检结果可带着上下文跳转到 `/ai?prompt=...`，继续同一任务。
@@ -113,20 +114,24 @@ pnpm dev
 
 **内置工具**（`GET /api/v1/ai/tools` 可供外部 Agent 发现，`POST /api/v1/ai/tools/:name` 可直接执行）
 
-`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`extract_questions`、`import_document_questions`、`create_questions`、`update_draft`、`list_papers`、`get_paper`、`paper_audit`、`update_paper_draft`、`bank_stats`、`find_duplicates`、`review_queue`、`search_similar_questions`。
+`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`read_attachment`、`extract_questions`、`import_document_questions`、`create_questions`、`update_draft`、`list_papers`、`get_paper`、`paper_audit`、`update_paper_draft`、`bank_stats`、`find_duplicates`、`review_queue`、`search_similar_questions`。
 
 **内置技能**（`GET /api/v1/ai/skills`，`POST /api/v1/ai/skills/:id/run` 一键执行）
 
-文档智能录题、整卷拆题、题库体检与整理、课时练习生成、期末复习卷、错题变式包、题库覆盖度分析、重复题排查、试卷质检、AI 产出复核、双向细目表组卷、相似题练习包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
+文档阅读、文档智能录题、整卷拆题、题库体检与整理、课时练习生成、期末复习卷、错题变式包、题库覆盖度分析、重复题排查、试卷质检、AI 产出复核、双向细目表组卷、相似题练习包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
 
 **业务入口**
 
 - 题目列表提供“AI 待复核”和“题库体检”，可直接打开待复核草稿进入编辑。
 - 试卷列表每份试卷提供“AI 质检”，展示总分、难度分布、知识点覆盖与缺答案/解析题。
 
+**文档阅读**
+
+上传 PDF、Word 或图片后点击“文档阅读”，Agent 会先确认附件类型，再用 `read_attachment` 分段读取正文；图片作为视觉输入直接提供给多模态模型，模型直接阅读其中的文字、公式与表格，不需要 OCR。适合快速摘要试卷、教案、教材章节，或按原文回答问题。
+
 **文档智能录题**
 
-上传 PDF/Word/图片后说“把这份试卷按八年级数学导入题库”，Agent 会先 `extract_questions` 预览切分结果，再调用 `import_document_questions` 写入草稿题库；缺少答案的题会被跳过并在工具结果中列出。单次最多导入 20 道题。
+上传 PDF/Word/图片后说“把这份试卷按八年级数学导入题库”，Agent 会先 `extract_questions` 预览切分结果，再调用 `import_document_questions` 写入草稿题库；缺少答案的题会被跳过并在工具结果中列出。单次最多导入 20 道题。扫描版 PDF 没有文本层时，可上传页面图片，让模型直接读取后再切题。
 
 **安全边界**
 
@@ -144,7 +149,7 @@ pnpm dev
 
 密钥只从环境变量或学校加密配置读取，不写入数据库明文、日志、前端响应或 Git。
 
-### 7. 启动 OCR（可选）
+### 7. 启动 OCR（可选，AI 工作台不需要）
 
 ```bash
 cd ocr
@@ -154,7 +159,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-首次识别会自动下载 Pix2Text 模型，需预留约 2 GB 磁盘与至少 4 GB 可用内存，CPU 识别单题通常需要数秒到数十秒。模型未加载完成时 `/readyz` 返回 503，识别接口不会返回模拟结果。OCR 结果必须由教师校对并显式保存后才进入题库，原图不持久化。
+首次识别会自动下载 Pix2Text 模型，需预留约 2 GB 磁盘与至少 4 GB 可用内存，CPU 识别单题通常需要数秒到数十秒。模型未加载完成时 `/readyz` 返回 503，识别接口不会返回模拟结果。OCR 结果必须由教师校对并显式保存后才进入题库，原图不持久化。`OCR_URL` 留空时后端不会注册 OCR 接口，AI 工作台的文档阅读与录题仍可正常工作。
 
 ## 测试与验证
 

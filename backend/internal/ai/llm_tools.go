@@ -30,12 +30,49 @@ type LLMToolCall struct {
 	} `json:"function"`
 }
 
+// LLMImageURL 是多模态消息中的图片地址，支持 data: URL 直接内联原始图片。
+type LLMImageURL struct {
+	URL    string `json:"url"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// LLMContentPart 是 OpenAI 兼容的多模态内容片段：text 或 image_url。
+type LLMContentPart struct {
+	Type     string       `json:"type"`
+	Text     string       `json:"text,omitempty"`
+	ImageURL *LLMImageURL `json:"image_url,omitempty"`
+}
+
 type LLMMessage struct {
-	Role       string        `json:"role"`
-	Content    string        `json:"content"`
-	ToolCalls  []LLMToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string        `json:"tool_call_id,omitempty"`
-	Name       string        `json:"name,omitempty"`
+	Role       string           `json:"role"`
+	Content    string           `json:"content"`
+	Parts      []LLMContentPart `json:"-"`
+	ToolCalls  []LLMToolCall    `json:"tool_calls,omitempty"`
+	ToolCallID string           `json:"tool_call_id,omitempty"`
+	Name       string           `json:"name,omitempty"`
+}
+
+// MarshalJSON 在没有多模态片段时保持 content 为字符串，有图片时输出分段数组。
+func (m LLMMessage) MarshalJSON() ([]byte, error) {
+	type messagePayload struct {
+		Role       string        `json:"role"`
+		Content    any           `json:"content"`
+		ToolCalls  []LLMToolCall `json:"tool_calls,omitempty"`
+		ToolCallID string        `json:"tool_call_id,omitempty"`
+		Name       string        `json:"name,omitempty"`
+	}
+	payload := messagePayload{
+		Role:       m.Role,
+		ToolCalls:  m.ToolCalls,
+		ToolCallID: m.ToolCallID,
+		Name:       m.Name,
+	}
+	if len(m.Parts) > 0 {
+		payload.Content = m.Parts
+	} else {
+		payload.Content = m.Content
+	}
+	return json.Marshal(payload)
 }
 
 type LLMReply struct {

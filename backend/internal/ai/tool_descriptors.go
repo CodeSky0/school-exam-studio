@@ -53,6 +53,11 @@ var (
 		Description: "列出本轮附件的类型、解析状态与文本预览。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
 	}
+	toolReadAttachment = ToolDescriptor{
+		Name: "read_attachment", Label: "阅读附件", Writes: false,
+		Description: "读取本轮附件正文：PDF/Word/文本返回抽取文本并支持分段，图片已作为视觉输入直接提供给模型。不会写入题库。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"attachment_ids":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0,"maximum":200000},"limit":{"type":"integer","minimum":500,"maximum":6000}},"additionalProperties":false}`),
+	}
 	toolExtractQuestions = ToolDescriptor{
 		Name: "extract_questions", Label: "文档切题", Writes: false,
 		Description: "从本轮 PDF、Word、文本附件中抽取文本并切分为题目草稿，只预览不入库。",

@@ -49,8 +49,8 @@ func Load() (Config, error) {
 	if cfg.AITimeout < 5 || cfg.AITimeout > 180 {
 		cfg.AITimeout = 45
 	}
-	if cfg.DatabaseURL == "" || cfg.RedisURL == "" || cfg.OCRURL == "" {
-		return Config{}, errors.New("DATABASE_URL, REDIS_URL and OCR_URL are required")
+	if cfg.DatabaseURL == "" || cfg.RedisURL == "" {
+		return Config{}, errors.New("DATABASE_URL and REDIS_URL are required")
 	}
 	if len(cfg.JWTSecret) < 32 {
 		return Config{}, errors.New("JWT_SECRET must contain at least 32 bytes")

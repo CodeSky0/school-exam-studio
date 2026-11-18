@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -63,9 +64,13 @@ func main() {
 	paperService := paper.NewService(paper.NewRepository(client))
 	adminService := admin.NewService(admin.NewRepository(client), passwordHasher)
 	importService := importer.NewService(importer.NewRepository(client), sanitizer)
-	ocrClient, err := ocr.NewClient(cfg.OCRURL, ocr.DefaultTimeout, ocr.DefaultMaxConcurrent)
-	if err != nil {
-		log.Fatal(err)
+	// OCR sidecar 是可选的独立能力；AI 工作台的图片阅读由多模态模型完成，不依赖 OCR。
+	var ocrClient *ocr.Client
+	if strings.TrimSpace(cfg.OCRURL) != "" {
+		ocrClient, err = ocr.NewClient(cfg.OCRURL, ocr.DefaultTimeout, ocr.DefaultMaxConcurrent)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	aiService := ai.NewService(ai.Options{
 		QuestionService: questionService,
@@ -76,7 +81,6 @@ func main() {
 		LLMModel:        cfg.AIModel,
 		LLMTimeout:      time.Duration(cfg.AITimeout) * time.Second,
 		SettingsSecret:  cfg.AIEncryptKey,
-		OCR:             ocrClient,
 		UploadDir:       cfg.AIUploadDir,
 	})
 	e := httpserver.New(client, httpserver.Options{

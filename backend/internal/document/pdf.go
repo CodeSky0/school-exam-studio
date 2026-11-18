@@ -90,7 +90,7 @@ func extractPDF(data []byte) (Result, error) {
 		Warnings: warnings,
 	}
 	if utf8.RuneCountInString(strings.TrimSpace(result.Text)) < 20 {
-		result.Warnings = append(result.Warnings, "未提取到足够的可读文本，可能是扫描版 PDF，请将页面转为图片后使用图片 OCR")
+		result.Warnings = append(result.Warnings, "未提取到足够的可读文本，可能是扫描版 PDF，请将页面转为图片后交给 AI 直接阅读")
 	}
 	return result, nil
 }

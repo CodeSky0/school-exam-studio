@@ -61,6 +61,7 @@ func (s *Service) toolRegistry() map[string]registeredTool {
 		{descriptor: toolGenerateVariants, run: s.toolGenerateVariants},
 		{descriptor: toolComposePaper, run: s.toolComposePaper},
 		{descriptor: toolListAttachments, run: s.toolListAttachments},
+		{descriptor: toolReadAttachment, run: s.toolReadAttachment},
 		{descriptor: toolExtractQuestions, run: s.toolExtractQuestions},
 		{descriptor: toolImportDocument, run: s.toolImportDocument},
 		{descriptor: toolCreateQuestions, run: s.toolCreateQuestions},
@@ -90,7 +91,7 @@ func toolCategory(name string) string {
 		return "paper"
 	case "bank_stats", "bank_audit", "find_duplicates", "review_queue", "search_similar_questions":
 		return "analytics"
-	case "list_attachments", "extract_questions", "import_document_questions":
+	case "list_attachments", "read_attachment", "extract_questions", "import_document_questions":
 		return "document"
 	default:
 		return "question"
@@ -340,16 +341,80 @@ func (s *Service) toolListAttachments(ctx context.Context, toolContext ToolConte
 	}
 	items := make([]map[string]any, 0, len(attachments))
 	for _, item := range attachments {
-		items = append(items, map[string]any{
+		entry := map[string]any{
 			"id": item.ID, "name": item.Name, "kind": item.Kind,
 			"status": item.Status, "text_chars": item.TextChars,
 			"preview": textPreview(item.ExtractedText, 300),
-		})
+		}
+		if item.Kind == AttachmentKindImage {
+			entry["mode"] = "vision"
+			entry["note"] = "图片已作为视觉输入随本轮消息发送，可直接阅读。"
+		} else {
+			entry["mode"] = "text"
+		}
+		items = append(items, entry)
 	}
 	return ToolResult{
 		Summary: fmt.Sprintf("本轮共有 %d 个附件", len(attachments)),
 		Data:    map[string]any{"items": items, "combined_text_chars": combinedTextLength(attachments)},
 	}, nil
+}
+
+func (s *Service) toolReadAttachment(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
+	ids := stringSliceArgument(args, "attachment_ids")
+	if len(ids) == 0 {
+		ids = toolContext.AttachmentIDs
+	}
+	attachments, err := s.loadAttachments(ctx, toolContext.Principal, ids)
+	if err != nil {
+		return ToolResult{}, err
+	}
+	if len(attachments) == 0 {
+		return ToolResult{}, validationError("attachment_ids", "请先上传 PDF、Word、文本或图片附件")
+	}
+	offset := intArgument(args, "offset", 0, 0, document.MaxTextChars)
+	limit := intArgument(args, "limit", 4000, 500, 6000)
+	items := make([]map[string]any, 0, len(attachments))
+	visionCount := 0
+	for _, item := range attachments {
+		if item.Kind == AttachmentKindImage {
+			visionCount++
+			items = append(items, map[string]any{
+				"id": item.ID, "name": item.Name, "kind": item.Kind, "mode": "vision",
+				"chars": 0, "text": "",
+				"note": "图片已作为视觉输入随本轮消息发送，请直接阅读图片中的文字、公式与表格；本工具不返回图片文本。",
+			})
+			continue
+		}
+		runes := []rune(strings.TrimSpace(item.ExtractedText))
+		start := offset
+		if start > len(runes) {
+			start = len(runes)
+		}
+		end := start + limit
+		hasMore := false
+		if end < len(runes) {
+			hasMore = true
+		} else {
+			end = len(runes)
+		}
+		entry := map[string]any{
+			"id": item.ID, "name": item.Name, "kind": item.Kind, "mode": "text",
+			"chars": len(runes), "offset": start, "text": string(runes[start:end]), "has_more": hasMore,
+		}
+		if hasMore {
+			entry["next_offset"] = end
+		}
+		if len(runes) == 0 {
+			entry["note"] = "未抽取到文本层，可能是扫描版 PDF；请提示用户上传页面图片，由视觉模型直接阅读。"
+		}
+		items = append(items, entry)
+	}
+	summary := fmt.Sprintf("已读取 %d 个附件", len(attachments))
+	if visionCount > 0 {
+		summary += fmt.Sprintf("，其中 %d 张图片已作为视觉输入直接提供", visionCount)
+	}
+	return ToolResult{Summary: summary, Data: map[string]any{"items": items}}, nil
 }
 
 func (s *Service) toolExtractQuestions(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
@@ -362,7 +427,7 @@ func (s *Service) toolExtractQuestions(ctx context.Context, toolContext ToolCont
 	}
 	text := combinedAttachmentText(attachments)
 	if strings.TrimSpace(text) == "" {
-		return ToolResult{}, validationError("attachment_ids", "附件没有可用的文本内容，图片请先完成 OCR")
+		return ToolResult{}, validationError("attachment_ids", "附件没有可提取的文本。图片和扫描版 PDF 可直接交给模型阅读；含文本层的 PDF/Word 请重新上传")
 	}
 	subject := stringArgument(args, "subject")
 	grade := stringArgument(args, "grade")
@@ -776,6 +841,7 @@ func validateToolArguments(name string, args map[string]any) error {
 		"generate_variants":         {"question_id": true, "count": true, "model": true},
 		"compose_paper":             {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "question_id": true, "count": true, "model": true},
 		"list_attachments":          {},
+		"read_attachment":           {"attachment_ids": true, "offset": true, "limit": true},
 		"extract_questions":         {"subject": true, "grade": true, "attachment_ids": true},
 		"import_document_questions": {"subject": true, "grade": true, "category": true, "tags": true, "attachment_ids": true},
 		"create_questions":          {"subject": true, "grade": true, "items": true},
@@ -822,7 +888,7 @@ func validateToolArguments(name string, args map[string]any) error {
 		if _, err := uuidArgument(args, "question_id"); err != nil {
 			return err
 		}
-	case "extract_questions", "import_document_questions":
+	case "extract_questions", "import_document_questions", "read_attachment":
 		ids := stringSliceArgument(args, "attachment_ids")
 		if len(ids) > MaxAttachments {
 			return validationError("attachment_ids", "每轮最多使用 5 个附件")

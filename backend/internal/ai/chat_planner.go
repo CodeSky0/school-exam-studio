@@ -54,6 +54,9 @@ func planChatTurn(content string, attachments []AttachmentRef, prior []ChatMessa
 	knowledgePoint := firstNonEmpty(extractQuoted(goal), matchKnowledgePoint(goal))
 
 	if len(attachments) > 0 {
+		if hasImage && !hasDocument {
+			return ChatTurnPlan{Reply: "内置本地引擎无法直接识别图片。请在 /admin/settings 配置支持图片输入的多模态模型后重试，或上传含文本层的 PDF/Word 文档。"}
+		}
 		importIntent := containsAny(lower, "导入", "入库", "录题", "加入题库", "存到题库", "保存到题库", "录入题库")
 		if importIntent {
 			if subject == "" || grade == "" {
@@ -224,8 +227,15 @@ func previewAttachmentContext(attachments []AttachmentRef, limit int) string {
 		builder.WriteString(item.Name)
 		builder.WriteString("（")
 		builder.WriteString(item.Kind)
-		builder.WriteString("，")
-		builder.WriteString(fmt.Sprintf("%d 字符", item.TextChars))
+		if item.Kind == AttachmentKindImage {
+			builder.WriteString("，图片已作为视觉输入提供，可直接阅读")
+		} else {
+			builder.WriteString("，")
+			builder.WriteString(fmt.Sprintf("%d 字符", item.TextChars))
+			if item.TextChars == 0 && item.Status == AttachmentStatusParsed {
+				builder.WriteString("，未抽取到文本层")
+			}
+		}
 		if item.Status != AttachmentStatusParsed {
 			builder.WriteString("，解析失败")
 		}

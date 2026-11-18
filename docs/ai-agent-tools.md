@@ -24,6 +24,7 @@
 | `generate_variants` | 是 | `question_id`、`count`、`model` | `agent_tool_generate_variants` | 原题变式，保存为草稿 |
 | `compose_paper` | 是 | `subject`、`grade`、`category`、`knowledge_point`、`tag`、`count`、`model` | `agent_tool_compose_paper` | 从已发布题目组 100 分试卷草稿 |
 | `list_attachments` | 否 | — | — | 列出本轮附件的类型、状态与文本预览 |
+| `read_attachment` | 否 | `attachment_ids`、`offset`、`limit` | — | 读取 PDF/Word/文本正文并分段；图片标记为视觉输入，不返回图片文本 |
 | `extract_questions` | 否 | `attachment_ids`、`subject`、`grade` | — | PDF/Word/文本切题，仅预览，最多 20 道 |
 | `import_document_questions` | 是 | `attachment_ids`、`subject`、`grade`、`category`、`tags` | `agent_tool_import_document_questions`、每题 `agent_import_question` | 文档切题并写入草稿，缺少答案的题跳过 |
 | `create_questions` | 是 | `subject`、`grade`、`items` | `agent_tool_create_questions` | 结构化题目批量创建草稿，单次 ≤10 道 |
@@ -72,6 +73,7 @@
 
 | 技能 ID | 名称 | 接受附件 | 工具组合 |
 |---|---|---|---|
+| `document_reader` | 文档阅读 | 是 | `list_attachments` → `read_attachment` |
 | `document_import` | 文档智能录题 | 是 | `extract_questions` → `import_document_questions` |
 | `paper_split` | 整卷拆题 | 是 | `extract_questions` |
 | `bank_cleanup` | 题库体检与整理 | 否 | `bank_audit` → `organize_drafts` |
@@ -101,15 +103,18 @@
 
 - 每轮最多 5 个附件；图片 ≤10 MiB，文档 ≤20 MiB。
 - 支持 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、Markdown、CSV。
-- 图片走 OCR sidecar；PDF 内置文本流与 ToUnicode 映射抽取；DOCX 解压读取 `word/document.xml`。
-- 扫描版 PDF 无法抽取足够文本时返回 `failed`，提示改用图片 OCR。
-- 抽取文本上限 200,000 字符；单题题干 6,000 字符、解析 4,000 字符、选项 1,000 字符。
+- 图片不走 OCR：上传后保留原始文件，状态直接为 `parsed`，发送消息时以 base64 data URL 作为多模态输入交给模型直接阅读。
+- PDF 内置文本流与 ToUnicode 映射抽取；DOCX 解压读取 `word/document.xml`；纯文本直接读取。
+- 扫描版 PDF 无文本层时状态仍为 `parsed`，`text_chars=0`；Agent 会提示改为上传页面图片，由视觉模型直接识别。
+- 视觉输入上限：单张图片 10 MiB，整轮原图合计 16 MiB；超限图片会跳过并在回复中提示。
+- 抽取文本上限 200,000 字符；`read_attachment` 默认每次返回 4,000 字符，可按 `offset` 继续读取。
+- 单题题干 6,000 字符、解析 4,000 字符、选项 1,000 字符。
 - 文件落在 `AI_UPLOAD_DIR`，数据库只存元数据与抽取文本；权限目录 `0750`、文件 `0640`。
 
 ## 5. 安全边界
 
 - 教师只能读写自己的会话与草稿；管理员可读本校会话，但只能写入自己的会话。
 - 已发布题目永不自动修改；发布、归档、删除、改密码等操作不暴露给 Agent。
-- 工具执行不读取环境密钥，不访问网络，不执行任意命令。
+- 工具执行不读取环境密钥，不访问网络，不执行任意命令；图片仅在本轮消息中作为视觉输入发送，不写入题库。
 - 上传以 magic bytes 判定类型，不信任客户端 MIME；路径经过清洗，拒绝目录穿越。
 - 最大 20 MiB 上传与 200,000 字符抽取文本限制防止资源滥用。
