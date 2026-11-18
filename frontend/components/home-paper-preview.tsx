@@ -15,7 +15,7 @@ export function HomePaperPreview() {
       <div className="motion-fade absolute inset-x-5 bottom-7 top-7 -rotate-3 rounded-lg border border-border bg-neutral-2 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] [--motion-delay:280ms] group-hover:-rotate-[4deg] sm:inset-x-10" />
       <div className="motion-rise [--motion-delay:140ms]">
         <div className="animate-float [--motion-delay:1.4s]">
-          <div className="relative ml-auto w-[94%] -rotate-1 rounded-md border border-border-strong/70 bg-[#fffdf8] px-6 py-7 shadow-[0_28px_70px_-42px_rgba(77,47,48,0.45)] transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:rotate-0 sm:px-9 sm:py-9">
+          <div className="relative ml-auto w-[94%] -rotate-1 rounded-md border border-border-strong/70 bg-neutral-1 px-6 py-7 shadow-[0_4px_24px_rgba(20,19,18,0.05)] transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:rotate-0 sm:px-9 sm:py-9">
             <div className="flex items-start justify-between gap-5 border-b border-border pb-6">
               <div>
                 <p className="text-caption-10 font-medium tracking-[0.24em] text-accent">校本题库</p>
@@ -51,8 +51,8 @@ export function HomePaperPreview() {
           </div>
         </div>
       </div>
-      <div className="motion-pop absolute bottom-0 left-0 flex items-center gap-3 rounded-md bg-accent px-4 py-3 text-accent-foreground shadow-[0_16px_35px_-24px_rgba(77,47,48,0.65)] [--motion-delay:960ms] sm:left-2">
-        <span className="h-px w-6 bg-accent-foreground/60" />
+      <div className="motion-pop absolute bottom-0 left-0 flex items-center gap-3 rounded-md border border-border bg-paper px-4 py-3 text-neutral-7 shadow-[0_4px_24px_rgba(20,19,18,0.05)] [--motion-delay:960ms] sm:left-2">
+        <span className="h-px w-6 bg-accent" />
         <span className="text-label-12 font-medium tracking-[0.12em]">规范编排</span>
       </div>
     </div>

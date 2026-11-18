@@ -24,11 +24,11 @@ function GuestHome({ error, retry }: { error: unknown; retry: () => void }) {
       </header>
       <main className="mx-auto grid w-full max-w-[1440px] gap-12 px-5 py-12 sm:px-8 sm:py-16 lg:min-h-[calc(100dvh-5rem)] lg:grid-cols-[minmax(0,0.92fr)_minmax(26rem,1.08fr)] lg:items-center lg:gap-14 lg:px-12 lg:py-14 xl:gap-20">
         <section className="max-w-2xl lg:py-10">
-          <div className="motion-fade flex items-center gap-4">
-            <span className="motion-line block h-px w-12 bg-accent" aria-hidden="true" />
-            <p className="text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">学校专属题库与组卷系统</p>
+          <div className="motion-fade flex items-center gap-3">
+            <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />
+            <p className="text-caption-10 font-medium uppercase tracking-[0.2em] text-neutral-7">学校专属题库与组卷系统</p>
           </div>
-          <h1 className="motion-rise mt-7 max-w-xl text-display-36 font-medium leading-[1.14] tracking-[0.01em] text-neutral-10 [--motion-delay:90ms] sm:text-display-48">从真实题目开始，<br />完成每一份校本试卷。</h1>
+          <h1 className="motion-rise mt-7 max-w-xl font-serif text-display-36 font-medium leading-[1.14] tracking-[0.01em] text-neutral-10 [--motion-delay:90ms] sm:text-display-48">从真实题目开始，<br />完成每一份校本试卷。</h1>
           <p className="motion-rise mt-7 max-w-xl text-copy-15 leading-8 text-neutral-7 [--motion-delay:180ms]">管理员初始化学校，教师凭学校代码注册。登录后，页面仅展示当前账号与所属学校的真实信息。</p>
           <nav aria-label="账户入口" className="motion-rise mt-9 [--motion-delay:270ms]">
             <div className="flex flex-col gap-3 sm:flex-row">

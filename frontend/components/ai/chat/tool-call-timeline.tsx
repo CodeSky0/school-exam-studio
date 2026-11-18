@@ -96,7 +96,7 @@ export function ToolCallCard({ call, last, scope }: { call: ToolCall; last: bool
           <span className="text-copy-13 font-medium text-neutral-9">{call.label}</span>
           <span className={cn("rounded-full border px-2 py-0.5 text-caption-10 font-medium", style.tone)}>{toolStatusLabel(call.status)}</span>
           {duration ? <span className="text-caption-10 text-neutral-6">{duration}</span> : null}
-          <span className="font-mono text-caption-10 text-neutral-5">{call.name}</span>
+          <span className="font-mono text-caption-10 text-neutral-6">{call.name}</span>
         </div>
         {call.summary ? <p className="mt-1 text-copy-13 leading-6 text-neutral-7">{call.summary}</p> : null}
         {call.error ? <p className="mt-1 text-label-12 leading-5 text-error">{call.error}</p> : null}

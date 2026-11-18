@@ -105,7 +105,7 @@ export function PaperCart() {
       </div>
       {items.length === 0 ? (
         <div className="px-5 py-12 text-center">
-          <DragHandleDots2Icon className="mx-auto size-6 text-neutral-5" />
+          <DragHandleDots2Icon className="mx-auto size-6 text-neutral-6" />
           <h3 className="mt-3 text-copy-13 font-medium text-neutral-10">试卷还是空的</h3>
           <p className="mt-2 text-label-12 leading-5 text-neutral-7">从左侧已发布题目中加入至少一道题，再设置卷面信息。</p>
         </div>

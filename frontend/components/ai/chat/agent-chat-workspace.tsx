@@ -493,7 +493,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         ) : null}
         <aside
           className={cn(
-            "fixed inset-y-0 right-0 z-40 w-80 max-w-[85vw] border-l border-border bg-neutral-1 shadow-xl transition-transform duration-200 ease-out",
+            "fixed inset-y-0 right-0 z-40 w-80 max-w-[85vw] border-l border-border bg-neutral-1 shadow-[0_4px_24px_rgba(20,19,18,0.06)] transition-transform duration-200 ease-out",
             panelOpen ? "block translate-x-0" : "hidden translate-x-full",
           )}
           aria-label="技能与工具"

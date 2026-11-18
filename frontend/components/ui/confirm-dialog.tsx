@@ -27,7 +27,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel, isPendin
       describedBy={descriptionId}
       onClose={onCancel}
       isPending={isPending}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-paper p-0 text-neutral-9 shadow-xl backdrop:bg-neutral-10/25 backdrop:backdrop-blur-sm"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-paper p-0 text-neutral-9 shadow-[0_4px_24px_rgba(20,19,18,0.06)] backdrop:bg-neutral-10/25 backdrop:backdrop-blur-sm"
     >
       <div className="p-6">
         <h2 id={titleId} className="text-title-20 font-medium tracking-[0.01em] text-neutral-10">{title}</h2>

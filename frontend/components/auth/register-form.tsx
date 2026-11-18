@@ -23,8 +23,11 @@ export function RegisterForm() {
       {mutation.isSuccess ? (
         <motion.div key="success" aria-live="polite" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.24 }}>
           <span className="grid size-12 place-items-center rounded-full border border-success/25 bg-success-soft text-success"><CheckCircledIcon className="size-6" /></span>
-          <p className="mb-3 mt-7 text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">注册完成</p>
-          <h1 className="text-display-36 font-medium tracking-[0.01em] text-neutral-10">教师账号已创建</h1>
+          <p className="mb-3 mt-7 flex items-center gap-2.5 text-caption-10 font-medium uppercase tracking-[0.2em] text-neutral-7">
+            <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />
+            注册完成
+          </p>
+          <h1 className="font-serif text-display-36 font-medium tracking-[0.01em] text-neutral-10">教师账号已创建</h1>
           <p className="mt-4 text-copy-14 leading-7 text-neutral-7">现在可以使用注册邮箱和密码登录，进入当前学校的工作区。</p>
           <Link href="/login" className={buttonVariants({ size: "lg", className: "mt-8 w-full justify-between" })}>前往登录<ArrowRightIcon /></Link>
         </motion.div>

@@ -26,7 +26,7 @@ export function Dialog({ open, title, description, children, footer, onClose, is
       describedBy={description ? descriptionId : undefined}
       onClose={onClose}
       isPending={isPending}
-      className={cn("m-auto flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-paper p-0 text-neutral-9 shadow-xl backdrop:bg-neutral-10/25 backdrop:backdrop-blur-sm", className)}
+      className={cn("m-auto flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-paper p-0 text-neutral-9 shadow-[0_4px_24px_rgba(20,19,18,0.06)] backdrop:bg-neutral-10/25 backdrop:backdrop-blur-sm", className)}
     >
       <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div>

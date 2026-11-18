@@ -113,7 +113,7 @@ export function SkillsPanel({ status, isStatusPending, statusError, skills, tool
                         <span className="text-label-12 font-medium text-neutral-9">{tool.label}</span>
                         {tool.writes ? <span className="rounded bg-warning-soft px-1 py-0.5 text-caption-10 text-warning">写入</span> : null}
                       </span>
-                      <span className="mt-0.5 block font-mono text-caption-10 text-neutral-5">{tool.name}</span>
+                      <span className="mt-0.5 block font-mono text-caption-10 text-neutral-6">{tool.name}</span>
                       <span className="mt-1 block text-caption-10 leading-4 text-neutral-6">{tool.description}</span>
                     </span>
                     <ChevronDownIcon className="mt-0.5 size-3 shrink-0 text-neutral-6 transition-transform group-open:rotate-180" />

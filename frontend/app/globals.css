@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
 /*
  * Yohaku Design System
  * One accent, three neutral tiers, the rest is whitespace.
@@ -9,10 +11,14 @@
 :root {
   color-scheme: light;
 
-  --surface-paper: #f7f5f2;
-  --surface-desk: #eeeae5;
+  /* Paper — warm off-white, like real writing paper. */
+  --surface-paper: #fefefb;
+  --surface-desk: #f5f3ee;
 
-  --n1: #fdfcf9;
+  /* Neutral · 素 Pure — 3 tiers:
+     1–4 surface / fill, 5–7 border / icon / secondary text, 8–10 body / heading.
+     n-5 is never a text color. */
+  --n1: #f9f8f5;
   --n2: #f0efeb;
   --n3: #e3e1db;
   --n4: #d0cec6;
@@ -20,31 +26,34 @@
   --n6: #787670;
   --n7: #5c5a55;
   --n8: #403f3a;
-  --n9: #292624;
+  --n9: #24231f;
   --n10: #141312;
 
-  --a: #9f4256;
-  --a-strong: #87384a;
-  --a-soft: #f5e9eb;
-  --a-soft-strong: #efd9dd;
+  /* Accent · 梅 ume — CTA, focus, brand mark. ≤ 5% of any surface. */
+  --a: #c56473;
+  --a-strong: #a84e5e;
+  --a-soft: #f8ecee;
+  --a-soft-strong: #f1dce0;
   --a-foreground: #ffffff;
 
-  --line: rgb(20 19 18 / 0.1);
+  --line: rgb(24 24 27 / 0.1);
   --line-strong: #d0cec6;
 
+  /* Semantic · 和色 — state only, never decoration. */
   --info: #3d6896;
   --info-soft: #edf1f6;
-  --success: #3f6b54;
+  --success: #5e9f7e;
   --success-soft: #edf4f0;
-  --warning: #80551f;
+  --warning: #a87a3d;
   --warning-soft: #f7f1e7;
-  --error: #963f4d;
+  --error: #a64953;
   --error-soft: #f8edef;
   --error-soft-strong: #eccfd3;
 }
 
+/* Dark theme: pure neutral gray, warmth carried only by the paper. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
 
     --surface-paper: #1c1c1e;
@@ -80,6 +89,48 @@
     --error-soft: #332225;
     --error-soft-strong: #4a2e33;
   }
+}
+
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-paper: #1c1c1e;
+  --surface-desk: #141414;
+
+  --n1: #141414;
+  --n2: #242424;
+  --n3: #404040;
+  --n4: #5c5c5c;
+  --n5: #787878;
+  --n6: #a8a8a8;
+  --n7: #d0d0d0;
+  --n8: #e3e3e3;
+  --n9: #f0f0f0;
+  --n10: #f8f8f8;
+
+  --a: #e095a4;
+  --a-strong: #eab0bc;
+  --a-soft: #35262a;
+  --a-soft-strong: #4a3238;
+  --a-foreground: #1c1c1e;
+
+  --line: rgb(255 255 255 / 0.12);
+  --line-strong: #5c5c5c;
+
+  --info: #7090b3;
+  --info-soft: #212a34;
+  --success: #8cbea3;
+  --success-soft: #1e2b25;
+  --warning: #c8a06b;
+  --warning-soft: #30291f;
+  --error: #c8767f;
+  --error-soft: #332225;
+  --error-soft-strong: #4a2e33;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
 }
 
 @theme inline {
@@ -304,8 +355,32 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, transparent 20%, rgb(253 252 249 / 0.65) 50%, transparent 80%);
+  background: linear-gradient(100deg, transparent 20%, rgb(254 254 251 / 0.65) 50%, transparent 80%);
   animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.dark .paper-texture::before,
+[data-theme="dark"] .paper-texture::before {
+  background-image:
+    radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    radial-gradient(rgb(255 255 255 / 0.02) 1px, transparent 1px);
+}
+
+.dark .skeleton::after,
+[data-theme="dark"] .skeleton::after {
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.06) 50%, transparent 80%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .paper-texture::before {
+    background-image:
+      radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
+      radial-gradient(rgb(255 255 255 / 0.02) 1px, transparent 1px);
+  }
+
+  :root:not([data-theme="light"]) .skeleton::after {
+    background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.06) 50%, transparent 80%);
+  }
 }
 
 @layer base {
@@ -334,7 +409,7 @@
   h2,
   h3,
   h4 {
-    font-family: var(--font-sans);
+    font-family: var(--font-serif);
     font-weight: 500;
     letter-spacing: 0.01em;
   }

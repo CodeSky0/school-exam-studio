@@ -87,7 +87,7 @@ export function ConversationSidebar({
       <div className="border-b border-border px-3 py-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-caption-10 font-medium tracking-[0.14em] text-neutral-6">
-            对话历史<span className="ml-1.5 font-normal text-neutral-5">{conversations.length}</span>
+            对话历史<span className="ml-1.5 font-normal text-neutral-6">{conversations.length}</span>
           </p>
           <div className="flex items-center gap-1">
             <Button
@@ -130,7 +130,7 @@ export function ConversationSidebar({
         {error ? <p className="px-2 py-3 text-label-12 leading-5 text-error">{error}</p> : null}
         {!isLoading && !error && filtered.length === 0 ? (
           <div className="px-2 py-6 text-center">
-            <ChatBubbleIcon className="mx-auto size-6 text-neutral-5" />
+            <ChatBubbleIcon className="mx-auto size-6 text-neutral-6" />
             <p className="mt-2 text-label-12 leading-5 text-neutral-6">{search ? "没有匹配的会话" : "暂无对话"}</p>
           </div>
         ) : null}

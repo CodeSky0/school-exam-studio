@@ -59,7 +59,7 @@ function SchoolForm({ school }: { school: School }) {
         <div className="grid gap-2 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
           <Label htmlFor="school-name" className="pt-2.5">学校名称</Label>
           <div className="grid gap-2">
-            <Input id="school-name" value={name} aria-invalid={Boolean(localError)} aria-describedby="school-name-message" className="h-11 bg-[#fffdf8]" onChange={(event) => { setName(event.target.value); setMessage(null); }} />
+            <Input id="school-name" value={name} aria-invalid={Boolean(localError)} aria-describedby="school-name-message" className="h-11 bg-neutral-1" onChange={(event) => { setName(event.target.value); setMessage(null); }} />
             {localError ? <p id="school-name-message" role="alert" className="text-copy-13 text-error">{localError}</p> : <p id="school-name-message" className="text-label-12 text-neutral-7">2 至 200 个字符，保存时仅提交学校名称。</p>}
           </div>
         </div>
@@ -293,7 +293,7 @@ function AISettingsForm({ settings }: { settings: SchoolAISettings }) {
         <div className="grid gap-2 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6">
           <Label htmlFor="ai-base-url" className="pt-2.5">接口地址</Label>
           <div className="grid gap-2">
-            <Input id="ai-base-url" value={form.baseURL} placeholder="https://api.example.com/v1" className="h-11 bg-[#fffdf8] font-mono text-copy-13" onChange={(event) => { setForm((prev) => ({ ...prev, baseURL: event.target.value })); setMessage(null); }} />
+            <Input id="ai-base-url" value={form.baseURL} placeholder="https://api.example.com/v1" className="h-11 bg-neutral-1 font-mono text-copy-13" onChange={(event) => { setForm((prev) => ({ ...prev, baseURL: event.target.value })); setMessage(null); }} />
             <p className="text-label-12 leading-5 text-neutral-7">需兼容 OpenAI Chat Completions，例如 https://api.deepseek.com/v1。</p>
           </div>
         </div>
@@ -307,7 +307,7 @@ function AISettingsForm({ settings }: { settings: SchoolAISettings }) {
               autoComplete="new-password"
               value={form.apiKey}
               placeholder={settings.has_api_key ? `已保存 ${settings.api_key_hint || "密钥"}，留空保持不变` : "输入厂商 API Key"}
-              className="h-11 bg-[#fffdf8] font-mono text-copy-13"
+              className="h-11 bg-neutral-1 font-mono text-copy-13"
               onChange={(event) => { setForm((prev) => ({ ...prev, apiKey: event.target.value })); setMessage(null); }}
             />
             <div className="flex flex-wrap items-center gap-3 text-label-12 text-neutral-7">
@@ -346,7 +346,7 @@ function AISettingsForm({ settings }: { settings: SchoolAISettings }) {
               <Input
                 value={customModel}
                 placeholder="添加其他模型名称"
-                className="h-10 max-w-xs bg-[#fffdf8] font-mono text-copy-13"
+                className="h-10 max-w-xs bg-neutral-1 font-mono text-copy-13"
                 onChange={(event) => setCustomModel(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {

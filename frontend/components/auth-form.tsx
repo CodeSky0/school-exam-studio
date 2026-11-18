@@ -25,7 +25,7 @@ export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
           ref={ref}
           aria-invalid={Boolean(error)}
           aria-describedby={error || hint ? messageId : undefined}
-          className="h-11 bg-[#fffdf8] px-3.5"
+          className="h-11 bg-neutral-1 px-3.5"
           {...props}
         />
         {error ? <p id={messageId} className="text-copy-13 text-error">{error}</p> : null}
@@ -43,9 +43,12 @@ export function FormError({ error }: { error: unknown }) {
 
 export function AuthHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return (
-    <header className="mb-8 border-l-2 border-accent pl-5">
-      <p className="mb-3 text-caption-10 font-medium uppercase tracking-[0.2em] text-accent">{eyebrow}</p>
-      <h1 className="text-display-36 font-medium leading-tight tracking-[0.01em] text-neutral-10">{title}</h1>
+    <header className="mb-8">
+      <p className="mb-3 flex items-center gap-2.5 text-caption-10 font-medium uppercase tracking-[0.2em] text-neutral-7">
+        <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />
+        {eyebrow}
+      </p>
+      <h1 className="font-serif text-display-36 font-medium leading-tight tracking-[0.01em] text-neutral-10">{title}</h1>
       <p className="mt-3 text-copy-14 leading-7 text-neutral-7">{description}</p>
     </header>
   );
