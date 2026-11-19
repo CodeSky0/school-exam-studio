@@ -30,6 +30,7 @@ import {
   type Conversation,
   type LiveTurn,
   type Skill,
+  type TimelineEntry,
 } from "@/lib/ai-chat";
 import { paperQueryKeys } from "@/lib/papers";
 import { questionQueryKeys } from "@/lib/questions";
@@ -227,6 +228,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
     const sentAttachments = attachments;
     setLiveTurn({
       content: content || "请解析这些附件",
+      startedAt: new Date().toISOString(),
       attachments: sentAttachments,
       toolCalls: [],
       timeline: [],
@@ -253,13 +255,18 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
               setLiveTurn((current) => current ? { ...current, userMessagePersisted: true } : current);
             }
             break;
-          case "assistant_delta":
-            if (event.content) {
-              setLiveTurn((current) => current
-                ? { ...current, assistantContent: current.assistantContent + event.content }
-                : current);
+          case "assistant_delta": {
+            const delta = event.content ?? "";
+            if (delta) {
+              setLiveTurn((current) => {
+                if (!current) return current;
+                // 轮次之间的分段换行不单独渲染，避免回复开头出现空白。
+                if (!delta.trim() && !current.assistantContent) return current;
+                return { ...current, assistantContent: current.assistantContent + delta };
+              });
             }
             break;
+          }
           case "reasoning_delta":
             if (event.reasoning) {
               setLiveTurn((current) => current
@@ -272,22 +279,28 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
             if (!call) break;
             setLiveTurn((current) => {
               if (!current) return current;
-              const thought = current.assistantContent.trim();
-              let timeline = thought
-                ? [...current.timeline, { type: "thought" as const, content: thought, created_at: call.started_at ?? new Date().toISOString() }]
-                : current.timeline;
+              const entryTime = call.started_at ?? new Date().toISOString();
+              // 工具开始前，把当前轮的推理与叙述按发生顺序归档进 timeline。
+              const pending: TimelineEntry[] = [];
+              if (current.reasoning.trim()) {
+                pending.push({ type: "thought", content: current.reasoning.trim(), created_at: entryTime });
+              }
+              if (current.assistantContent.trim()) {
+                pending.push({ type: "thought", content: current.assistantContent.trim(), created_at: entryTime });
+              }
+              let timeline = pending.length > 0 ? [...current.timeline, ...pending] : current.timeline;
               if (!timeline.some((item) => item.type === "tool" && item.tool_call_id === call.id)) {
                 timeline = [...timeline, {
                   type: "tool" as const,
                   content: "",
                   tool_call_id: call.id,
-                  created_at: call.started_at ?? new Date().toISOString(),
+                  created_at: entryTime,
                 }];
               }
               const toolCalls = current.toolCalls.some((item) => item.id === call.id)
                 ? current.toolCalls.map((item) => (item.id === call.id ? call : item))
                 : [...current.toolCalls, call];
-              return { ...current, toolCalls, timeline, assistantContent: "" };
+              return { ...current, toolCalls, timeline, assistantContent: "", reasoning: "" };
             });
             break;
           }

@@ -6,6 +6,7 @@ import {
   formatBytes,
   formatToolDuration,
   messageQuestionIDs,
+  processSummary,
   streamMessage,
   toolCallSchema,
   toolStatusLabel,
@@ -129,6 +130,30 @@ describe("ai chat helpers", () => {
     expect(formatToolDuration("2026-11-17T10:00:00Z", "2026-11-17T10:00:00.250Z")).toBe("250 ms");
     expect(formatToolDuration("2026-11-17T10:00:00Z", "2026-11-17T10:00:02Z")).toBe("2.0 s");
     expect(formatToolDuration(undefined, undefined)).toBe("");
+  });
+
+  it("summarizes process duration and tool count", () => {
+    const message = chatMessageSchema.parse({
+      id: "m1", conversation_id: "c1", role: "assistant", content: "完成",
+      created_at: "2026-11-17T10:00:08Z",
+      timeline: [{ type: "thought", content: "先检索题库", created_at: "2026-11-17T10:00:00Z" }],
+      tool_calls: [{
+        id: "t1", name: "search_questions", label: "检索题目", status: "succeeded", summary: "",
+        arguments: {}, started_at: "2026-11-17T10:00:01Z", finished_at: "2026-11-17T10:00:05Z",
+      }],
+    });
+    expect(processSummary(message, false)).toBe("运行了 8 秒，调用 1 次工具");
+    expect(processSummary(message, true)).toBe("正在运行 · 已调用 1 次工具");
+  });
+
+  it("summarizes thought-only processes", () => {
+    const message = chatMessageSchema.parse({
+      id: "m1", conversation_id: "c1", role: "assistant", content: "完成",
+      created_at: "2026-11-17T10:00:03Z",
+      timeline: [{ type: "thought", content: "先分析", created_at: "2026-11-17T10:00:00Z" }],
+    });
+    expect(processSummary(message, false)).toBe("运行了 3 秒，完成思考");
+    expect(processSummary(message, true)).toBe("正在思考…");
   });
 
   it("labels tool status and attachment kind", () => {

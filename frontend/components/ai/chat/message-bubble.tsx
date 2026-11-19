@@ -7,9 +7,9 @@ import {
   formatBytes,
   formatChatTime,
   isImageAttachment,
+  processSummary,
   type ChatMessage,
   type TimelineEntry,
-  type ToolCall,
 } from "@/lib/ai-chat";
 import { AttachmentImage } from "./attachment-image";
 import { MessageMath } from "./message-math";
@@ -173,37 +173,30 @@ function timelineForMessage(message: ChatMessage): TimelineEntry[] {
   return items;
 }
 
-function processLabel(calls: ToolCall[], isRunning: boolean) {
-  if (isRunning) {
-    return calls.length > 0 ? `正在运行，已调用 ${calls.length} 次工具` : "正在思考";
-  }
-  if (calls.length === 0) return "思考过程";
-  const duration = calls.reduce((total, call) => {
-    if (!call.started_at || !call.finished_at) return total;
-    const start = Date.parse(call.started_at);
-    const end = Date.parse(call.finished_at);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return total;
-    return total + Math.max(0, end - start);
-  }, 0);
-  const seconds = Math.max(1, Math.round(duration / 1000));
-  return `运行了 ${seconds} 秒，调用 ${calls.length} 次工具`;
-}
-
 function AssistantProcess({ message, scope, isRunning }: { message: ChatMessage; scope: "teacher" | "admin"; isRunning: boolean }) {
   const timeline = timelineForMessage(message);
   if (timeline.length === 0) return null;
   const callByID = new Map(message.tool_calls.map((call) => [call.id, call]));
   return (
-    <details open={isRunning} className="group mb-2 rounded-md border border-border bg-neutral-2/60">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2.5 py-2 text-caption-10 font-medium text-neutral-7 [&::-webkit-details-marker]:hidden">
+    <details
+      open={isRunning}
+      className="group mb-2 overflow-hidden rounded-lg border border-border bg-neutral-2/40"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2.5 py-1.5 text-caption-10 text-neutral-7 transition-colors hover:text-neutral-9 [&::-webkit-details-marker]:hidden">
         <ChevronDownIcon className="size-3 shrink-0 transition-transform group-open:rotate-180" />
-        <span>{processLabel(message.tool_calls, isRunning)}</span>
+        <span className="min-w-0 truncate font-medium">{processSummary(message, isRunning)}</span>
+        <span className="ml-auto hidden shrink-0 text-neutral-6 sm:inline">
+          {isRunning ? "过程实时更新" : "展开查看"}
+        </span>
       </summary>
-      <ol className="grid gap-2 border-t border-border px-2.5 py-2">
+      <ol className="grid max-h-80 gap-1.5 overflow-y-auto border-t border-border/70 px-2.5 py-2">
         {timeline.map((entry, index) => {
           if (entry.type === "thought") {
             return (
-              <li key={`thought-${index}`} className="whitespace-pre-wrap border-l-2 border-accent/30 pl-2 text-label-12 leading-5 text-neutral-7">
+              <li
+                key={`thought-${index}`}
+                className="whitespace-pre-wrap rounded-r border-l-2 border-accent/25 px-2 py-0.5 text-label-12 leading-5 text-neutral-7"
+              >
                 {entry.content}
               </li>
             );
@@ -211,9 +204,7 @@ function AssistantProcess({ message, scope, isRunning }: { message: ChatMessage;
           const call = entry.tool_call_id ? callByID.get(entry.tool_call_id) : undefined;
           if (!call) return null;
           return (
-            <li key={call.id}>
-              <ToolCallCard call={call} last={index === timeline.length - 1} scope={scope} />
-            </li>
+            <ToolCallCard key={call.id} call={call} last={index === timeline.length - 1} scope={scope} />
           );
         })}
       </ol>
@@ -237,6 +228,7 @@ function MessageBubbleComponent({ message, scope }: { message: ChatMessage; scop
     );
   }
   const isRunning = message.status === "running";
+  const hasProcess = timelineForMessage(message).length > 0;
   return (
     <article className="motion-rise flex gap-3">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-accent/25 bg-accent-soft text-caption-10 font-semibold text-accent-strong" aria-hidden="true">AI</div>
@@ -244,11 +236,11 @@ function MessageBubbleComponent({ message, scope }: { message: ChatMessage; scop
         <div className="rounded-lg border border-border bg-neutral-1 px-4 py-3 shadow-sm">
           <AssistantProcess message={message} scope={scope} isRunning={isRunning} />
           {message.content ? (
-            <>
+            <div className={hasProcess ? "mt-2 border-t border-border/60 pt-2" : undefined}>
               <MessageText content={message.content} />
               {isRunning ? <span aria-hidden="true" className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-accent align-text-bottom" /> : null}
-            </>
-          ) : isRunning ? <ThinkingLine /> : null}
+            </div>
+          ) : isRunning && !hasProcess ? <ThinkingLine /> : null}
           <MessageAttachments message={message} />
           {message.status === "failed" ? (
             <p role="alert" className="mt-2 rounded-md border border-error-soft-strong bg-error-soft px-2.5 py-2 text-label-12 leading-5 text-error">

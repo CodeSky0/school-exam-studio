@@ -124,13 +124,45 @@ export interface LiveTurn {
   content: string;
   // 后端已落库并回传用户消息时置为 true，避免实时气泡与持久化消息同时显示。
   userMessagePersisted?: boolean;
+  startedAt: string;
   attachments: AttachmentRef[];
   toolCalls: ToolCall[];
+  // timeline 按真实输出顺序记录已完成的思考/中间叙述与工具调用。
   timeline: TimelineEntry[];
+  // assistantContent 是当前尚未归类为最终回复的流式文字。
   assistantContent: string;
+  // reasoning 是当前轮尚未写入 timeline 的模型推理。
   reasoning: string;
   status: "running" | "failed";
   error?: string;
+}
+
+// processSummary 生成思考与工具调用区域的单行摘要：运行时长 + 工具次数。
+export function processSummary(
+  message: Pick<ChatMessage, "created_at" | "tool_calls" | "timeline">,
+  isRunning: boolean,
+) {
+  const toolCount = message.tool_calls.length;
+  if (isRunning) {
+    return toolCount > 0 ? `正在运行 · 已调用 ${toolCount} 次工具` : "正在思考…";
+  }
+  const startTimes = [
+    ...message.timeline.map((entry) => Date.parse(entry.created_at)),
+    ...message.tool_calls.map((call) => (call.started_at ? Date.parse(call.started_at) : Number.NaN)),
+  ].filter(Number.isFinite);
+  if (startTimes.length === 0) {
+    return toolCount > 0 ? `调用 ${toolCount} 次工具` : "思考过程";
+  }
+  const endTimes = [
+    ...message.tool_calls.map((call) => (call.finished_at ? Date.parse(call.finished_at) : Number.NaN)),
+    Date.parse(message.created_at),
+  ].filter(Number.isFinite);
+  const start = Math.min(...startTimes);
+  const end = endTimes.length > 0 ? Math.max(start, ...endTimes) : start;
+  const seconds = Math.max(1, Math.round((end - start) / 1000));
+  return toolCount > 0
+    ? `运行了 ${seconds} 秒，调用 ${toolCount} 次工具`
+    : `运行了 ${seconds} 秒，完成思考`;
 }
 
 export const ATTACHMENT_ACCEPT = "image/png,image/jpeg,image/webp,image/gif,.pdf,.docx,.txt,.md,.csv";
