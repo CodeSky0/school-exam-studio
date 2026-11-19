@@ -122,6 +122,8 @@ export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
 // LiveTurn 表示尚未落库的一轮对话，用于流式渲染用户消息、工具链与最终回复。
 export interface LiveTurn {
   content: string;
+  // 后端已落库并回传用户消息时置为 true，避免实时气泡与持久化消息同时显示。
+  userMessagePersisted?: boolean;
   attachments: AttachmentRef[];
   toolCalls: ToolCall[];
   timeline: TimelineEntry[];

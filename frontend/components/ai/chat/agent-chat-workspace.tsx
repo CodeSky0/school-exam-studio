@@ -247,7 +247,11 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
       }, (event) => {
         switch (event.type) {
           case "user_message":
-            if (event.message) appendMessageToCache(conversationID, event.message);
+            if (event.message) {
+              appendMessageToCache(conversationID, event.message);
+              // 用户消息已落库并进入消息列表，隐藏本地实时气泡避免重复显示。
+              setLiveTurn((current) => current ? { ...current, userMessagePersisted: true } : current);
+            }
             break;
           case "assistant_delta":
             if (event.content) {

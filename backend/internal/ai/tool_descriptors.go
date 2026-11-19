@@ -70,8 +70,8 @@ var (
 	}
 	toolCreateQuestions = ToolDescriptor{
 		Name: "create_questions", Label: "创建题目", Writes: true,
-		Description: "把结构化题目批量创建为草稿，用于模型直接生成的题目。",
-		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"items":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"answer":{"type":"string"},"explanation":{"type":"string"},"question_type":{"type":"string"},"difficulty":{"type":"integer","minimum":1,"maximum":5},"category":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}},"knowledge_points":{"type":"array","items":{"type":"string"}},"options":{"type":"array","items":{"type":"object","properties":{"key":{"type":"string"},"content":{"type":"string"}},"required":["key","content"]}}},"required":["content","answer","question_type"]}}},"required":["subject","grade","items"],"additionalProperties":false}`),
+		Description: "把结构化题目批量创建为草稿，用于模型直接生成的题目。question_type 必须使用英文枚举值：single_choice（单选题）、multiple_choice（多选题）、true_false（判断题）、fill_blank（填空题）、essay（解答题/主观题），不要填写中文题型名或其他别名。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"items":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"answer":{"type":"string"},"explanation":{"type":"string"},"question_type":{"type":"string","enum":["single_choice","multiple_choice","true_false","fill_blank","essay"],"description":"single_choice=单选题，multiple_choice=多选题，true_false=判断题，fill_blank=填空题，essay=解答题"},"difficulty":{"type":"integer","minimum":1,"maximum":5},"category":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}},"knowledge_points":{"type":"array","items":{"type":"string"}},"options":{"type":"array","items":{"type":"object","properties":{"key":{"type":"string"},"content":{"type":"string"}},"required":["key","content"]}}},"required":["content","answer","question_type"]}}},"required":["subject","grade","items"],"additionalProperties":false}`),
 	}
 	toolUpdateDraft = ToolDescriptor{
 		Name: "update_draft", Label: "修改草稿", Writes: true,

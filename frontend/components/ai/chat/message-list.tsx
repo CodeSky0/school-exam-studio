@@ -37,8 +37,10 @@ interface MessageListProps {
 function liveMessages(turn: LiveTurn | null): ChatMessage[] {
   if (!turn) return [];
   const createdAt = new Date().toISOString();
-  return [
-    {
+  const messages: ChatMessage[] = [];
+  // 用户消息一旦由后端落库回传，就不再渲染本地实时气泡，防止同一条消息显示两次。
+  if (!turn.userMessagePersisted) {
+    messages.push({
       id: "live-user",
       conversation_id: "",
       role: "user",
@@ -50,25 +52,26 @@ function liveMessages(turn: LiveTurn | null): ChatMessage[] {
       timeline: [],
       attachments: turn.attachments,
       created_at: createdAt,
-    },
-    {
-      id: "live-assistant",
-      conversation_id: "",
-      role: "assistant",
-      content: turn.assistantContent,
-      status: turn.status,
-      provider: "llm",
-      model: "",
-      tool_calls: turn.toolCalls,
-      timeline: turn.reasoning.trim()
-        ? [{ type: "thought" as const, content: turn.reasoning.trim(), created_at: createdAt }, ...turn.timeline]
-        : turn.timeline,
-      attachments: [],
-      reasoning: turn.reasoning,
-      error: turn.error,
-      created_at: createdAt,
-    },
-  ];
+    });
+  }
+  messages.push({
+    id: "live-assistant",
+    conversation_id: "",
+    role: "assistant",
+    content: turn.assistantContent,
+    status: turn.status,
+    provider: "llm",
+    model: "",
+    tool_calls: turn.toolCalls,
+    timeline: turn.reasoning.trim()
+      ? [{ type: "thought" as const, content: turn.reasoning.trim(), created_at: createdAt }, ...turn.timeline]
+      : turn.timeline,
+    attachments: [],
+    reasoning: turn.reasoning,
+    error: turn.error,
+    created_at: createdAt,
+  });
+  return messages;
 }
 
 export function MessageList({
