@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -119,6 +120,102 @@ func TestConversationFlowWithDocumentImport(t *testing.T) {
 	}
 	if _, _, err := service.GetConversation(ctx, teacher, mustUUID(t, conversation.ID)); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted conversation read = %v", err)
+	}
+}
+
+func TestConversationMessageWindowReturnsLatestMessages(t *testing.T) {
+	client := platformtest.Open(t)
+	platformtest.EnsureFixtures(t, client)
+	ctx := context.Background()
+	t.Cleanup(func() {
+		_, _ = client.AIAttachment.Delete().Exec(ctx)
+		_, _ = client.AIMessage.Delete().Exec(ctx)
+		_, _ = client.AIConversation.Delete().Exec(ctx)
+		_, _ = client.AIRun.Delete().Exec(ctx)
+	})
+	teacher := platformtest.TeacherPrincipal(client)
+	repo := NewRepository(client)
+	conversation, err := repo.CreateConversation(ctx, teacher, Conversation{Title: "消息窗口测试"})
+	if err != nil {
+		t.Fatalf("CreateConversation: %v", err)
+	}
+	conversationID := mustUUID(t, conversation.ID)
+	for index := 0; index < 5; index++ {
+		_, err := repo.AppendMessage(ctx, teacher, ChatMessage{
+			ConversationID: conversation.ID,
+			Role:           MessageRoleUser,
+			Content:        fmt.Sprintf("第 %d 条", index),
+			Status:         MessageStatusSucceeded,
+			Provider:       "user",
+		})
+		if err != nil {
+			t.Fatalf("AppendMessage %d: %v", index, err)
+		}
+		// 保证每条消息的 created_at 有可区分的先后顺序。
+		time.Sleep(2 * time.Millisecond)
+	}
+	messages, err := repo.ListMessages(ctx, teacher, conversationID, 2)
+	if err != nil {
+		t.Fatalf("ListMessages: %v", err)
+	}
+	if len(messages) != 2 {
+		t.Fatalf("messages = %d, want 2", len(messages))
+	}
+	if messages[0].Content != "第 3 条" || messages[1].Content != "第 4 条" {
+		t.Fatalf("latest window = %q, %q", messages[0].Content, messages[1].Content)
+	}
+}
+
+func TestFirstTurnAttachmentIsBoundToConversation(t *testing.T) {
+	client := platformtest.Open(t)
+	platformtest.EnsureFixtures(t, client)
+	ctx := context.Background()
+	t.Cleanup(func() {
+		_, _ = client.AIAuditLog.Delete().Exec(ctx)
+		_, _ = client.AIAttachment.Delete().Exec(ctx)
+		_, _ = client.AIMessage.Delete().Exec(ctx)
+		_, _ = client.AIConversation.Delete().Exec(ctx)
+		_, _ = client.AIRun.Delete().Exec(ctx)
+		_, _ = client.Question.Delete().Where(entquestion.SchoolIDEQ(platformtest.SchoolA)).Exec(ctx)
+	})
+	service := NewService(Options{
+		QuestionService: question.NewService(question.NewRepository(client)),
+		Repository:      NewRepository(client),
+		UploadDir:       t.TempDir(),
+		SettingsSecret:  "integration-settings-secret",
+		LLMTimeout:      time.Second,
+	})
+	teacher := platformtest.TeacherPrincipal(client)
+	conversation, err := service.CreateConversation(ctx, teacher, "首轮附件测试")
+	if err != nil {
+		t.Fatalf("CreateConversation: %v", err)
+	}
+	// 模拟前端在还没有会话时先上传附件。
+	attachment, err := service.UploadAttachment(ctx, teacher, "", "notes.txt", "text/plain", []byte("函数与方程复习提纲"))
+	if err != nil {
+		t.Fatalf("UploadAttachment: %v", err)
+	}
+	if attachment.ConversationID != "" {
+		t.Fatalf("attachment conversation = %q, want empty", attachment.ConversationID)
+	}
+	if _, err := service.SendMessage(ctx, teacher, mustUUID(t, conversation.ID), SendMessageInput{
+		Content:       "你好",
+		AttachmentIDs: []string{attachment.ID},
+	}); err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	loaded, err := service.GetAttachment(ctx, teacher, mustUUID(t, attachment.ID))
+	if err != nil {
+		t.Fatalf("GetAttachment: %v", err)
+	}
+	if loaded.ConversationID != conversation.ID {
+		t.Fatalf("attachment conversation = %q, want %q", loaded.ConversationID, conversation.ID)
+	}
+	if err := service.DeleteConversation(ctx, teacher, mustUUID(t, conversation.ID)); err != nil {
+		t.Fatalf("DeleteConversation: %v", err)
+	}
+	if _, err := service.GetAttachment(ctx, teacher, mustUUID(t, attachment.ID)); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("attachment after delete = %v, want not found", err)
 	}
 }
 

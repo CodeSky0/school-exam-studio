@@ -323,6 +323,17 @@ func (s *Service) sendMessage(ctx context.Context, principal auth.Principal, con
 		}
 		attachments = append(attachments, attachment)
 	}
+	// 上传时未选择会话的附件在首次使用时补绑到当前会话，保证删除会话时能回收文件。
+	for _, attachment := range attachments {
+		if attachment.ConversationID != "" {
+			continue
+		}
+		attachmentID, parseErr := uuid.Parse(attachment.ID)
+		if parseErr != nil {
+			continue
+		}
+		_ = s.repo.BindAttachmentToConversation(ctx, principal.SchoolID, attachmentID, conversationID)
+	}
 	if content == "" && len(attachments) == 0 {
 		return SendMessageResult{}, validationError("content", "消息内容或附件至少需要一项")
 	}
@@ -450,7 +461,8 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 		} else if err != nil {
 			reason += "：" + err.Error()
 		}
-		return reason, []ToolCall{}, []TimelineEntry{}, ProviderLLM, lastModel, warnings
+		// reason 已经拼接了全部失败原因，这里不再返回 warnings，避免回复里重复出现同一段信息。
+		return reason, []ToolCall{}, []TimelineEntry{}, ProviderLLM, lastModel, nil
 	}
 	refs := make([]AttachmentRef, 0, len(attachments))
 	for _, item := range attachments {

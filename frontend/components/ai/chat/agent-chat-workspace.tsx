@@ -55,13 +55,18 @@ function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+const DOCUMENT_EXTS = [".pdf", ".docx", ".txt", ".md", ".csv"];
+
 function uploadValidation(file: File) {
-  const isImage = file.type.startsWith("image/");
+  const lower = file.name.toLowerCase();
+  // 与服务端分类保持一致：只有 png/jpeg/webp/gif 按图片处理，SVG 等其他图片类型会在服务端被拒绝。
+  const isImage = IMAGE_TYPES.includes(file.type) || (file.type === "" && IMAGE_EXTS.some((ext) => lower.endsWith(ext)));
   if (isImage && file.size > 10 * 1024 * 1024) return "图片不能超过 10 MiB";
   if (!isImage && file.size > 20 * 1024 * 1024) return "文档不能超过 20 MiB";
-  const lower = file.name.toLowerCase();
-  const allowed = isImage || [".pdf", ".docx", ".txt", ".md", ".csv"].some((ext) => lower.endsWith(ext));
-  if (!allowed) return "仅支持图片、PDF、DOCX、TXT、Markdown、CSV";
+  const allowed = isImage || DOCUMENT_EXTS.some((ext) => lower.endsWith(ext));
+  if (!allowed) return "仅支持 PNG/JPEG/WebP/GIF 图片，以及 PDF、DOCX、TXT、Markdown、CSV";
   return "";
 }
 
@@ -69,6 +74,8 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
   const scope: "teacher" | "admin" = user.role === "admin" ? "admin" : "teacher";
   const queryClient = useQueryClient();
   const abortRef = useRef<AbortController | null>(null);
+  // 附件上传期间切换/清空会话时递增，用于丢弃已失效的上传回调，避免附件串到别的会话。
+  const uploadEpochRef = useRef(0);
   const [activeID, setActiveID] = useState("");
   const [draft, setDraft] = useState(initialPrompt);
   const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
@@ -111,6 +118,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
   const createMutation = useMutation({
     mutationFn: () => createConversation(),
     onSuccess: (conversation) => {
+      uploadEpochRef.current += 1;
       setActiveID(conversation.id);
       setDraft("");
       setAttachments([]);
@@ -139,9 +147,11 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         ? { ...current, items: current.items.filter((item) => item.id !== id) }
         : current);
       if (id === effectiveActiveID) {
+        uploadEpochRef.current += 1;
         setActiveID("");
         setDraft("");
         setAttachments([]);
+        setUploads([]);
       }
       void queryClient.invalidateQueries({ queryKey: aiChatQueryKeys.conversations });
     },
@@ -156,9 +166,11 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         ? { ...current, items: current.items.filter((item) => !removed.has(item.id)) }
         : current);
       if (removed.has(effectiveActiveID)) {
+        uploadEpochRef.current += 1;
         setActiveID("");
         setDraft("");
         setAttachments([]);
+        setUploads([]);
         setLiveTurn(null);
       }
       if (result.failed.length > 0) {
@@ -180,6 +192,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
     if (id === effectiveActiveID) return;
     abortRef.current?.abort();
     abortRef.current = null;
+    uploadEpochRef.current += 1;
     setActiveID(id);
     setDraft("");
     setAttachments([]);
@@ -239,6 +252,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
     setDraft("");
     setAttachments([]);
     setUploads([]);
+    uploadEpochRef.current += 1;
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -375,9 +389,12 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
       }
     }
     if (tasks.length > 0) setUploads((current) => [...current, ...tasks]);
+    const epoch = uploadEpochRef.current;
     valid.forEach((file, index) => {
       const task = tasks.filter((item) => item.status === "uploading")[index];
       uploadAttachment(file, effectiveActiveID || undefined).then((attachment) => {
+        // 上传期间已切换或清空会话，丢弃结果，避免把附件加到错误的会话输入框。
+        if (uploadEpochRef.current !== epoch) return;
         if (attachment.status === "failed") {
           setUploads((current) => current.map((item) => item.id === task.id
             ? { ...item, status: "failed", error: attachment.error ?? "解析失败" }
@@ -387,6 +404,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         setUploads((current) => current.filter((item) => item.id !== task.id));
         setAttachments((current) => current.some((item) => item.id === attachment.id) ? current : [...current, attachment]);
       }).catch((error: unknown) => {
+        if (uploadEpochRef.current !== epoch) return;
         setUploads((current) => current.map((item) => item.id === task.id
           ? { ...item, status: "failed", error: errorMessage(error) }
           : item));
@@ -396,7 +414,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
 
   function useSkill(skill: Skill) {
     setDraft(skill.prompt);
-    setActionError(skill.accepts_attachments ? "请先添加图片或文档" : "");
+    setActionError("");
     setPanelOpen(false);
   }
 

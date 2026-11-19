@@ -245,6 +245,7 @@ func (r *Repository) ListMessages(ctx context.Context, principal auth.Principal,
 	if limit > 200 {
 		limit = 200
 	}
+	// 先按时间倒序取最近 limit 条，再翻转回升序返回，避免长会话只返回最早的若干条。
 	entities, err := r.client.AIMessage.Query().
 		Where(
 			aimessage.SchoolIDEQ(principal.SchoolID),
@@ -252,8 +253,8 @@ func (r *Repository) ListMessages(ctx context.Context, principal auth.Principal,
 			aimessage.DeletedAtIsNil(),
 		).
 		Order(
-			aimessage.ByCreatedAt(entsql.OrderAsc()),
-			aimessage.ByID(entsql.OrderAsc()),
+			aimessage.ByCreatedAt(entsql.OrderDesc()),
+			aimessage.ByID(entsql.OrderDesc()),
 		).
 		Limit(limit).
 		All(ctx)
@@ -263,6 +264,9 @@ func (r *Repository) ListMessages(ctx context.Context, principal auth.Principal,
 	items := make([]ChatMessage, 0, len(entities))
 	for _, item := range entities {
 		items = append(items, messageFromEnt(item))
+	}
+	for left, right := 0, len(items)-1; left < right; left, right = left+1, right-1 {
+		items[left], items[right] = items[right], items[left]
 	}
 	return items, nil
 }
@@ -355,6 +359,30 @@ func (r *Repository) UpdateAttachment(ctx context.Context, principal auth.Princi
 	existing.Status = attachment.Status
 	existing.Error = attachment.Error
 	return attachmentFromEnt(entity), nil
+}
+
+// BindAttachmentToConversation 把上传时还没有归属会话的附件绑定到首次使用它的会话，
+// 这样删除会话时才能一并回收这些附件文件，避免磁盘与数据库记录长期泄漏。
+func (r *Repository) BindAttachmentToConversation(ctx context.Context, schoolID, attachmentID, conversationID uuid.UUID) error {
+	if r.client == nil {
+		return ErrNotFound
+	}
+	_, err := r.client.AIAttachment.UpdateOneID(attachmentID).
+		Where(
+			aiattachment.SchoolIDEQ(schoolID),
+			aiattachment.ConversationIDIsNil(),
+			aiattachment.DeletedAtIsNil(),
+		).
+		SetConversationID(conversationID).
+		Save(ctx)
+	if err != nil {
+		// 附件已经绑定到其他会话或已被删除时保持原状。
+		if ent.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // ListConversationAttachments 返回会话下的附件记录，供删除会话时回收磁盘文件与数据库行。

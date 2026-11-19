@@ -232,7 +232,13 @@ func (h *Handler) UploadAttachment(c echo.Context) error {
 	if !ok {
 		return unauthorized()
 	}
+	// 先限制请求体，避免超大 multipart 请求在解析阶段就被写入磁盘。
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, MaxDocBytes+(1<<20))
 	if err := c.Request().ParseMultipartForm(26 << 20); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			return apperrorValidation("file", "文件超过 20 MiB 限制")
+		}
 		return apperrorValidation("file", "无法读取上传内容")
 	}
 	file, header, err := c.Request().FormFile("file")

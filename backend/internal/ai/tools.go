@@ -418,7 +418,11 @@ func (s *Service) toolReadAttachment(ctx context.Context, toolContext ToolContex
 }
 
 func (s *Service) toolExtractQuestions(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
-	attachments, err := s.loadAttachments(ctx, toolContext.Principal, toolContext.AttachmentIDs)
+	ids := stringSliceArgument(args, "attachment_ids")
+	if len(ids) == 0 {
+		ids = toolContext.AttachmentIDs
+	}
+	attachments, err := s.loadAttachments(ctx, toolContext.Principal, ids)
 	if err != nil {
 		return ToolResult{}, err
 	}
@@ -448,7 +452,11 @@ func (s *Service) toolExtractQuestions(ctx context.Context, toolContext ToolCont
 }
 
 func (s *Service) toolImportDocument(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
-	attachments, err := s.loadAttachments(ctx, toolContext.Principal, toolContext.AttachmentIDs)
+	ids := stringSliceArgument(args, "attachment_ids")
+	if len(ids) == 0 {
+		ids = toolContext.AttachmentIDs
+	}
+	attachments, err := s.loadAttachments(ctx, toolContext.Principal, ids)
 	if err != nil {
 		return ToolResult{}, err
 	}

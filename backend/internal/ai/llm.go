@@ -240,23 +240,17 @@ func extractJSON(raw string) string {
 		}
 		raw = strings.TrimSuffix(strings.TrimSpace(raw), "```")
 	}
-	start := -1
-	for index, char := range raw {
-		if char == '{' || char == '[' {
-			start = index
-			break
-		}
+	// 优先定位 JSON 对象：模型常在 JSON 之前输出带方括号的说明文字，若先匹配 '[' 会截错范围。
+	start := strings.IndexByte(raw, '{')
+	closing := byte('}')
+	if start < 0 {
+		start = strings.IndexByte(raw, '[')
+		closing = ']'
 	}
 	if start < 0 {
 		return raw
 	}
-	end := -1
-	for index := len(raw) - 1; index >= start; index-- {
-		if raw[index] == '}' || raw[index] == ']' {
-			end = index
-			break
-		}
-	}
+	end := strings.LastIndexByte(raw, closing)
 	if end < start {
 		return raw
 	}

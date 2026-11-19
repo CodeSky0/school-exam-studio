@@ -42,7 +42,7 @@ export function Composer({
   const [dragging, setDragging] = useState(false);
   const uploading = uploads.some((item) => item.status === "uploading");
   const full = attachments.length >= MAX_ATTACHMENTS;
-  const canSend = (value.trim().length > 0 || attachments.length > 0 || uploads.length > 0) && !isSending && !uploading && !readOnly;
+  const canSend = (value.trim().length > 0 || attachments.length > 0) && !isSending && !uploading && !readOnly;
 
   useEffect(() => {
     const element = textareaRef.current;
