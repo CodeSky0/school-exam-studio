@@ -97,7 +97,7 @@ func (s *Sanitizer) normalizeRichText(value, field string, required bool) (strin
 	if !utf8.ValidString(value) {
 		return "", validationError(field, "字段包含无效字符")
 	}
-	value = strings.TrimSpace(s.Sanitize(value))
+	value = normalizeMathMarkup(strings.TrimSpace(s.Sanitize(value)))
 	if required && !richTextPresent(value) {
 		return "", validationError(field, "字段不能为空")
 	}

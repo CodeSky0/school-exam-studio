@@ -28,4 +28,24 @@ describe("受限富文本", () => {
     expect(richTextHasContent('<p><span data-type="inline-math" data-latex="\\frac{1}{2}"></span></p>')).toBe(true);
     expect(richTextHasContent("<p><br></p>")).toBe(false);
   });
+
+  it("把文本公式转换为题库统一的 data-latex 节点", () => {
+    const inline = sanitizeRichText("<p>已知 $x^2$ 求值</p>");
+    expect(inline).toBe('<p>已知 <span data-type="inlineMath" data-latex="x^2"></span> 求值</p>');
+
+    const block = sanitizeRichText("<p>$$\\frac{1}{2}$$</p>");
+    expect(block).toContain('data-type="blockMath"');
+    expect(block).toContain('data-latex="\\frac{1}{2}"');
+
+    const bracket = sanitizeRichText("<p>求 \\(a+b\\) 的和</p>");
+    expect(bracket).toContain('data-type="inlineMath"');
+    expect(bracket).toContain('data-latex="a+b"');
+  });
+
+  it("代码中的美元符号保持原样，未闭合分隔符不转换", () => {
+    const code = sanitizeRichText("<p><code>$x^2$</code></p>");
+    expect(code).toBe("<p><code>$x^2$</code></p>");
+    const unclosed = sanitizeRichText("<p>价格 $5 未闭合</p>");
+    expect(unclosed).toBe("<p>价格 $5 未闭合</p>");
+  });
 });

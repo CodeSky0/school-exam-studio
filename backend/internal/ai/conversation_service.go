@@ -549,6 +549,7 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 			"如果缺少学科、年级、题目 ID 或附件，先向用户澄清，不要猜测。" +
 			"写入题库时，question_type 只能填写以下五个英文字段值之一：single_choice（单选题）、multiple_choice（多选题）、true_false（判断题）、fill_blank（填空题）、essay（解答题/主观题）；" +
 			"禁止使用“单选”“填空”等中文题型名或其他别名，系统只接受上述英文枚举值。" +
+			"回复和题目中的数学公式统一使用 LaTeX：行内公式写成 $...$，独立公式写成 $$...$$。" +
 			"本轮附带的图片已经以视觉输入直接提供给你，请直接阅读图片中的文字、公式与表格，不要要求用户先做 OCR；" +
 			"需要 PDF/Word 全文时调用 read_attachment 分段读取。",
 	}}

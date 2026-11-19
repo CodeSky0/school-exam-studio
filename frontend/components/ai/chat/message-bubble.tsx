@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { Fragment, memo } from "react";
 import { ChevronDownIcon, FileTextIcon, ImageIcon } from "@radix-ui/react-icons";
 import {
   attachmentKindLabel,
@@ -12,6 +12,7 @@ import {
   type ToolCall,
 } from "@/lib/ai-chat";
 import { AttachmentImage } from "./attachment-image";
+import { MessageMath } from "./message-math";
 import { ToolCallCard } from "./tool-call-timeline";
 
 function ThinkingLine() {
@@ -28,7 +29,7 @@ function ThinkingLine() {
 }
 
 function renderInline(text: string, prefix: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\\\([\s\S]+?\\\)|\$[^$\n]+?\$)/g);
   return parts.filter(Boolean).map((part, index) => {
     const key = `${prefix}-${index}`;
     if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
@@ -37,11 +38,39 @@ function renderInline(text: string, prefix: string) {
     if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
       return <code key={key} className="rounded bg-neutral-3 px-1 py-0.5 font-mono text-[0.92em] text-neutral-9">{part.slice(1, -1)}</code>;
     }
+    if (part.startsWith("\\(") && part.endsWith("\\)") && part.length > 4) {
+      return <MessageMath key={key} latex={part.slice(2, -2).trim()} />;
+    }
+    if (part.startsWith("$") && part.endsWith("$") && part.length > 2) {
+      return <MessageMath key={key} latex={part.slice(1, -1).trim()} />;
+    }
     return <span key={key}>{part}</span>;
   });
 }
 
-function MessageText({ content }: { content: string }) {
+const blockMathPattern = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]/g;
+
+interface TextSegment {
+  type: "text" | "block";
+  value: string;
+}
+
+function splitBlockMath(content: string): TextSegment[] {
+  const segments: TextSegment[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  blockMathPattern.lastIndex = 0;
+  while ((match = blockMathPattern.exec(content)) !== null) {
+    if (match.index > cursor) segments.push({ type: "text", value: content.slice(cursor, match.index) });
+    const latex = (match[1] ?? match[2] ?? "").trim();
+    segments.push(latex ? { type: "block", value: latex } : { type: "text", value: match[0] });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < content.length) segments.push({ type: "text", value: content.slice(cursor) });
+  return segments.length > 0 ? segments : [{ type: "text", value: content }];
+}
+
+function renderPlainText(content: string, prefix: string): React.ReactNode[] {
   const lines = content.split("\n");
   const blocks: React.ReactNode[] = [];
   let list: string[] = [];
@@ -65,23 +94,38 @@ function MessageText({ content }: { content: string }) {
       list.push(trimmed.slice(2));
       return;
     }
-    flushList(`list-${index}`);
+    flushList(`${prefix}-list-${index}`);
     if (trimmed === "") {
-      blocks.push(<span key={`gap-${index}`} className="block h-2" aria-hidden="true" />);
+      blocks.push(<span key={`${prefix}-gap-${index}`} className="block h-2" aria-hidden="true" />);
       return;
     }
     if (trimmed.startsWith("> ")) {
       blocks.push(
-        <p key={`quote-${index}`} className="my-1 border-l-2 border-warning/60 pl-2.5 text-label-12 leading-5 text-warning">
-          {renderInline(trimmed.slice(2), `quote-${index}`)}
+        <p key={`${prefix}-quote-${index}`} className="my-1 border-l-2 border-warning/60 pl-2.5 text-label-12 leading-5 text-warning">
+          {renderInline(trimmed.slice(2), `${prefix}-quote-${index}`)}
         </p>,
       );
       return;
     }
-    blocks.push(<p key={`line-${index}`}>{renderInline(line, `line-${index}`)}</p>);
+    blocks.push(<p key={`${prefix}-line-${index}`}>{renderInline(line, `${prefix}-line-${index}`)}</p>);
   });
-  flushList("list-final");
-  return <div className="grid gap-1 text-copy-13 leading-6 text-neutral-8">{blocks}</div>;
+  flushList(`${prefix}-list-final`);
+  return blocks;
+}
+
+function MessageText({ content }: { content: string }) {
+  const segments = splitBlockMath(content);
+  return (
+    <div className="grid gap-1 text-copy-13 leading-6 text-neutral-8">
+      {segments.map((segment, index) => segment.type === "block" ? (
+        <div key={`math-${index}`} className="my-1 overflow-x-auto">
+          <MessageMath latex={segment.value} display />
+        </div>
+      ) : (
+        <Fragment key={`text-${index}`}>{renderPlainText(segment.value, `seg-${index}`)}</Fragment>
+      ))}
+    </div>
+  );
 }
 
 function MessageAttachments({ message }: { message: ChatMessage }) {

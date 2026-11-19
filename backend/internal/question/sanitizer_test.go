@@ -107,6 +107,47 @@ func validQuestionInput() question.Input {
 	}
 }
 
+func TestSanitizerNormalizesTextMathIntoEditorNodes(t *testing.T) {
+	sanitizer := question.NewSanitizer()
+	input := validQuestionInput()
+	input.Content = `<p>已知 $x^2$，求 \[y+1\] 的值</p>`
+	input.Explanation = `<p>由 $$a^2+b^2=c^2$$ 可得 $c$</p>`
+	normalized, err := sanitizer.Normalize(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`data-type="inlineMath" data-latex="x^2"`,
+		`data-type="blockMath" data-latex="y+1"`,
+		`data-type="blockMath" data-latex="a^2+b^2=c^2"`,
+		`data-type="inlineMath" data-latex="c"`,
+	} {
+		if !strings.Contains(normalized.Content+normalized.Explanation, expected) {
+			t.Fatalf("math markup %q missing: %s | %s", expected, normalized.Content, normalized.Explanation)
+		}
+	}
+
+	codeInput := validQuestionInput()
+	codeInput.Content = `<p><code>$x^2$</code> 保持原样</p>`
+	codeNormalized, err := sanitizer.Normalize(codeInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(codeNormalized.Content, "$x^2$") || strings.Contains(codeNormalized.Content, "data-latex") {
+		t.Fatalf("code block formula should stay literal: %s", codeNormalized.Content)
+	}
+
+	unclosed := validQuestionInput()
+	unclosed.Content = `<p>价格 $5 未闭合</p>`
+	unclosedNormalized, err := sanitizer.Normalize(unclosed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(unclosedNormalized.Content, "data-latex") {
+		t.Fatalf("unclosed delimiter should stay literal: %s", unclosedNormalized.Content)
+	}
+}
+
 func TestSanitizerDropsTagsDuplicatingCategoryAndKnowledgePoints(t *testing.T) {
 	sanitizer := question.NewSanitizer()
 	input := validQuestionInput()
