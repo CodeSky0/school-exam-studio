@@ -8,40 +8,42 @@ import (
 )
 
 type Config struct {
-	DatabaseURL  string
-	RedisURL     string
-	OCRURL       string
-	JWTSecret    string
-	CORSOrigin   string
-	HTTPAddr     string
-	SecureCookie bool
-	TrustProxy   bool
-	AutoMigrate  bool
-	AIBaseURL    string
-	AIAPIKey     string
-	AIModel      string
-	AITimeout    int
-	AIEncryptKey string
-	AIUploadDir  string
+	DatabaseURL    string
+	RedisURL       string
+	OCRURL         string
+	JWTSecret      string
+	CORSOrigin     string
+	HTTPAddr       string
+	SecureCookie   bool
+	TrustProxy     bool
+	AutoMigrate    bool
+	AIBaseURL      string
+	AIAPIKey       string
+	AIModel        string
+	AITimeout      int
+	AIEncryptKey   string
+	AIUploadDir    string
+	CloudUploadDir string
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		DatabaseURL:  os.Getenv("DATABASE_URL"),
-		RedisURL:     os.Getenv("REDIS_URL"),
-		OCRURL:       os.Getenv("OCR_URL"),
-		JWTSecret:    os.Getenv("JWT_SECRET"),
-		CORSOrigin:   envOr("CORS_ORIGIN", "http://localhost:3000"),
-		HTTPAddr:     envOr("HTTP_ADDR", ":8080"),
-		SecureCookie: os.Getenv("APP_ENV") == "production",
-		TrustProxy:   envBool("TRUST_PROXY"),
-		AutoMigrate:  envBoolDefault("AUTO_MIGRATE", true),
-		AIBaseURL:    strings.TrimSpace(os.Getenv("AI_BASE_URL")),
-		AIAPIKey:     strings.TrimSpace(os.Getenv("AI_API_KEY")),
-		AIModel:      envOr("AI_MODEL", "gpt-4o-mini"),
-		AITimeout:    envInt("AI_TIMEOUT_SECONDS", 45),
-		AIEncryptKey: strings.TrimSpace(os.Getenv("AI_SETTINGS_SECRET")),
-		AIUploadDir:  envOr("AI_UPLOAD_DIR", "./data/ai-uploads"),
+		DatabaseURL:    os.Getenv("DATABASE_URL"),
+		RedisURL:       os.Getenv("REDIS_URL"),
+		OCRURL:         os.Getenv("OCR_URL"),
+		JWTSecret:      os.Getenv("JWT_SECRET"),
+		CORSOrigin:     envOr("CORS_ORIGIN", "http://localhost:3000"),
+		HTTPAddr:       envOr("HTTP_ADDR", ":8080"),
+		SecureCookie:   os.Getenv("APP_ENV") == "production",
+		TrustProxy:     envBool("TRUST_PROXY"),
+		AutoMigrate:    envBoolDefault("AUTO_MIGRATE", true),
+		AIBaseURL:      strings.TrimSpace(os.Getenv("AI_BASE_URL")),
+		AIAPIKey:       strings.TrimSpace(os.Getenv("AI_API_KEY")),
+		AIModel:        envOr("AI_MODEL", "gpt-4o-mini"),
+		AITimeout:      envInt("AI_TIMEOUT_SECONDS", 45),
+		AIEncryptKey:   strings.TrimSpace(os.Getenv("AI_SETTINGS_SECRET")),
+		AIUploadDir:    envOr("AI_UPLOAD_DIR", "./data/ai-uploads"),
+		CloudUploadDir: envOr("CLOUD_UPLOAD_DIR", "./data/cloud-drive"),
 	}
 	if cfg.AIEncryptKey == "" {
 		cfg.AIEncryptKey = cfg.JWTSecret

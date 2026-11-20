@@ -21,6 +21,9 @@ type AIMessage func(*sql.Selector)
 // AIRun is the predicate function for airun builders.
 type AIRun func(*sql.Selector)
 
+// CloudItem is the predicate function for clouditem builders.
+type CloudItem func(*sql.Selector)
+
 // Paper is the predicate function for paper builders.
 type Paper func(*sql.Selector)
 

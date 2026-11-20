@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"school-exam-studio/backend/internal/auth"
 	"school-exam-studio/backend/internal/document"
+	"school-exam-studio/backend/internal/drive"
 )
 
 const (
@@ -137,6 +138,10 @@ func (s *Service) ListMessages(ctx context.Context, principal auth.Principal, co
 
 // UploadAttachment 保存文件、抽取文本，并把解析结果写入附件记录。
 func (s *Service) UploadAttachment(ctx context.Context, principal auth.Principal, conversationID, name, mime string, data []byte) (Attachment, error) {
+	return s.uploadAttachment(ctx, principal, conversationID, name, mime, data, true)
+}
+
+func (s *Service) uploadAttachment(ctx context.Context, principal auth.Principal, conversationID, name, mime string, data []byte, syncToCloud bool) (Attachment, error) {
 	if err := validatePrincipal(principal); err != nil {
 		return Attachment{}, err
 	}
@@ -179,7 +184,65 @@ func (s *Service) UploadAttachment(ctx context.Context, principal auth.Principal
 		_ = s.attachments.Remove(stored.StoragePath)
 		return Attachment{}, err
 	}
+	if syncToCloud && s.cloudDrive != nil {
+		// 自动归档是附加能力，失败不阻断对话附件上传。
+		_ = s.cloudDrive.ImportFromAI(ctx, principal, stored.Name, data)
+	}
 	return s.parseAttachment(ctx, principal, created)
+}
+
+// UploadCloudAttachments 把云盘中的文件复制为当前对话可发送的附件。
+func (s *Service) UploadCloudAttachments(ctx context.Context, principal auth.Principal, ids []string) ([]AttachmentRef, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return nil, err
+	}
+	if s.cloudDrive == nil {
+		return nil, validationError("cloud_file_ids", "云盘功能未启用")
+	}
+	if len(ids) == 0 {
+		return nil, validationError("cloud_file_ids", "请选择云盘文件")
+	}
+	if len(ids) > MaxAttachments {
+		return nil, validationError("cloud_file_ids", "每轮最多选择 5 个云盘文件")
+	}
+	refs := make([]AttachmentRef, 0, len(ids))
+	seen := make(map[string]bool, len(ids))
+	for _, raw := range ids {
+		raw = strings.TrimSpace(raw)
+		if seen[raw] {
+			continue
+		}
+		seen[raw] = true
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, validationError("cloud_file_ids", "云盘文件ID格式不正确")
+		}
+		file, err := s.cloudDrive.ReadForAI(ctx, principal, id)
+		if err != nil {
+			return nil, translateCloudError(err)
+		}
+		attachment, err := s.uploadAttachment(ctx, principal, "", file.Name, file.MIME, file.Data, false)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, attachment.Ref())
+	}
+	return refs, nil
+}
+
+func translateCloudError(err error) error {
+	var validation *drive.ValidationError
+	if errors.As(err, &validation) {
+		return validationError("cloud_file_ids", validation.Message)
+	}
+	switch {
+	case errors.Is(err, drive.ErrNotFound):
+		return ErrNotFound
+	case errors.Is(err, drive.ErrForbidden):
+		return ErrForbidden
+	default:
+		return err
+	}
 }
 
 func (s *Service) GetAttachment(ctx context.Context, principal auth.Principal, id uuid.UUID) (Attachment, error) {

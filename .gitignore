@@ -5,6 +5,7 @@
 backend/data/
 backend/internal/ai/data/
 data/ai-uploads/
+data/cloud-drive/
 !.env.example
 node_modules/
 .next/

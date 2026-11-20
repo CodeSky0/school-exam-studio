@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MagicWandIcon, PaperPlaneIcon, PlusIcon, StopIcon } from "@radix-ui/react-icons";
+import { FilePlusIcon, MagicWandIcon, PaperPlaneIcon, PlusIcon, StopIcon } from "@radix-ui/react-icons";
 import {
   ATTACHMENT_ACCEPT,
   MAX_ATTACHMENTS,
@@ -27,6 +27,7 @@ interface ComposerProps {
   onRemoveAttachment: (id: string) => void;
   onDismissUpload: (id: string) => void;
   onUploadFiles: (files: File[]) => void;
+  onPickFromCloud: () => void;
   skills: Skill[];
   onUseSkill: (skill: Skill) => void;
   readOnly?: boolean;
@@ -34,15 +35,26 @@ interface ComposerProps {
 
 export function Composer({
   value, onChange, onSubmit, onCancel, attachments, uploads, isSending, models, model, onModelChange,
-  onRemoveAttachment, onDismissUpload, onUploadFiles, skills, onUseSkill, readOnly = false,
+  onRemoveAttachment, onDismissUpload, onUploadFiles, onPickFromCloud, skills, onUseSkill, readOnly = false,
 }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
   const composingRef = useRef(false);
   const [dragging, setDragging] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const uploading = uploads.some((item) => item.status === "uploading");
   const full = attachments.length >= MAX_ATTACHMENTS;
   const canSend = (value.trim().length > 0 || attachments.length > 0) && !isSending && !uploading && !readOnly;
+
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    const close = (event: PointerEvent) => {
+      if (!attachMenuRef.current?.contains(event.target as Node)) setAttachMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [attachMenuOpen]);
 
   useEffect(() => {
     const element = textareaRef.current;
@@ -124,7 +136,7 @@ export function Composer({
           className="min-h-11 max-h-[168px] resize-none border-0 bg-transparent px-1 py-1.5 text-copy-14 leading-6 shadow-none focus-visible:ring-0"
         />
         <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="relative flex min-w-0 items-center gap-1.5">
             <input
               ref={fileInputRef}
               type="file"
@@ -137,9 +149,29 @@ export function Composer({
                 event.target.value = "";
               }}
             />
-            <Button type="button" size="icon" variant="ghost" aria-label="添加图片或文件" title="添加图片或文件" disabled={full || isSending || readOnly} onClick={() => fileInputRef.current?.click()}>
+            <Button type="button" size="icon" variant="ghost" aria-label="添加图片、文件或云盘资料" title="添加图片、文件或云盘资料" disabled={full || isSending || readOnly} onClick={() => setAttachMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={attachMenuOpen}>
               <PlusIcon />
             </Button>
+            {attachMenuOpen ? (
+              <div ref={attachMenuRef} role="menu" aria-label="添加附件" className="absolute bottom-full left-0 z-20 mb-2 w-48 overflow-hidden rounded-lg border border-border bg-paper py-1 shadow-[0_4px_24px_rgba(20,19,18,0.12)]">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-copy-13 text-neutral-8 transition-colors hover:bg-neutral-2 hover:text-neutral-10"
+                  onClick={() => { setAttachMenuOpen(false); fileInputRef.current?.click(); }}
+                >
+                  <FilePlusIcon className="size-4" />本地上传
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-copy-13 text-neutral-8 transition-colors hover:bg-neutral-2 hover:text-neutral-10"
+                  onClick={() => { setAttachMenuOpen(false); onPickFromCloud(); }}
+                >
+                  <MagicWandIcon className="size-4" />从云盘选择
+                </button>
+              </div>
+            ) : null}
             {full ? <span className="text-caption-10 text-neutral-6">最多 {MAX_ATTACHMENTS} 个附件</span> : null}
           </div>
           <div className="flex items-center gap-2">

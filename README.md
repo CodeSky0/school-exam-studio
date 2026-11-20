@@ -72,6 +72,8 @@ export AI_TIMEOUT_SECONDS='45'
 export AI_SETTINGS_SECRET=''
 # AI 对话附件落盘目录；生产环境需持久化并备份
 export AI_UPLOAD_DIR='./data/ai-uploads'
+# 学校云盘文件落盘目录；生产环境需持久化并备份
+export CLOUD_UPLOAD_DIR='./data/cloud-drive'
 # API 启动时默认自动执行迁移；设为 false 可关闭
 export AUTO_MIGRATE='true'
 # API 启动会自动迁移；也可在部署前手动执行 go run cmd/migrate/main.go
@@ -144,6 +146,7 @@ pnpm dev
 **配置**
 
 - `AI_UPLOAD_DIR`：附件落盘目录，默认 `./data/ai-uploads`；生产环境必须持久化并纳入备份。
+- `CLOUD_UPLOAD_DIR`：学校云盘落盘目录，默认 `./data/cloud-drive`；单文件上限 50 MiB，仅教师/管理员可访问。
 - `AI_ALLOW_LOCAL_FALLBACK`：默认 `false`。模型重试与故障转移均失败时是否回退本地引擎；开启后响应会标注 `provider=fallback` 与降级原因。
 - 管理员仍可在 `/admin/settings` 配置全校共享模型；学校配置优先于环境变量，API Key 加密存储且不会返回前端。
 - 旧的一次性 Agent 运行接口 `/api/v1/ai/agent/runs` 保留，历史运行记录与审计仍可查询。

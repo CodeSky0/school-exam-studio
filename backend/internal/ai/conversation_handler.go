@@ -263,6 +263,25 @@ func (h *Handler) UploadAttachment(c echo.Context) error {
 	return c.JSON(http.StatusCreated, attachment.Ref())
 }
 
+// AttachCloudFiles 把云盘文件复制为对话附件，复用统一的解析与权限校验。
+func (h *Handler) AttachCloudFiles(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	var input struct {
+		CloudFileIDs []string `json:"cloud_file_ids"`
+	}
+	if err := decodeOptionalAIJSON(c, &input); err != nil {
+		return err
+	}
+	items, err := h.service.UploadCloudAttachments(c.Request().Context(), principal, input.CloudFileIDs)
+	if err != nil {
+		return aiError(err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"items": items})
+}
+
 func (h *Handler) GetAttachment(c echo.Context) error {
 	principal, id, err := principalAndID(c)
 	if err != nil {

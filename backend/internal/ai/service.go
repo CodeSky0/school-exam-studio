@@ -10,9 +10,16 @@ import (
 
 	"github.com/google/uuid"
 	"school-exam-studio/backend/internal/auth"
+	"school-exam-studio/backend/internal/drive"
 	"school-exam-studio/backend/internal/paper"
 	"school-exam-studio/backend/internal/question"
 )
+
+// CloudDrive 是 AI 附件与云盘之间的桥接能力，由云盘服务实现。
+type CloudDrive interface {
+	ImportFromAI(ctx context.Context, principal auth.Principal, name string, data []byte) error
+	ReadForAI(ctx context.Context, principal auth.Principal, id uuid.UUID) (drive.ReadFile, error)
+}
 
 type Options struct {
 	QuestionService *question.Service
@@ -24,6 +31,7 @@ type Options struct {
 	LLMTimeout      time.Duration
 	SettingsSecret  string
 	UploadDir       string
+	CloudDrive      CloudDrive
 }
 
 type Service struct {
@@ -37,6 +45,7 @@ type Service struct {
 	settingsCipher *settingsCipher
 	llmTimeout     time.Duration
 	attachments    *AttachmentStore
+	cloudDrive     CloudDrive
 	breakers       *breakerSet
 }
 
@@ -56,6 +65,7 @@ func NewService(options Options) *Service {
 		settingsRepo:   options.Repository,
 		settingsCipher: newSettingsCipher(options.SettingsSecret),
 		llmTimeout:     options.LLMTimeout,
+		cloudDrive:     options.CloudDrive,
 		breakers:       newBreakerSet(defaultBreakerOpen, breakerThreshold),
 	}
 }

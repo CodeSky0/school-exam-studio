@@ -8,6 +8,7 @@ import (
 	"school-exam-studio/backend/ent/aiconversation"
 	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
+	"school-exam-studio/backend/ent/clouditem"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
 	"school-exam-studio/backend/ent/question"
@@ -281,6 +282,61 @@ func init() {
 	airunDescID := airunMixinFields0[0].Descriptor()
 	// airun.DefaultID holds the default value on creation for the id field.
 	airun.DefaultID = airunDescID.Default.(func() uuid.UUID)
+	clouditemMixin := schema.CloudItem{}.Mixin()
+	clouditemMixinFields0 := clouditemMixin[0].Fields()
+	_ = clouditemMixinFields0
+	clouditemFields := schema.CloudItem{}.Fields()
+	_ = clouditemFields
+	// clouditemDescCreatedAt is the schema descriptor for created_at field.
+	clouditemDescCreatedAt := clouditemMixinFields0[1].Descriptor()
+	// clouditem.DefaultCreatedAt holds the default value on creation for the created_at field.
+	clouditem.DefaultCreatedAt = clouditemDescCreatedAt.Default.(func() time.Time)
+	// clouditemDescUpdatedAt is the schema descriptor for updated_at field.
+	clouditemDescUpdatedAt := clouditemMixinFields0[2].Descriptor()
+	// clouditem.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	clouditem.DefaultUpdatedAt = clouditemDescUpdatedAt.Default.(func() time.Time)
+	// clouditem.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	clouditem.UpdateDefaultUpdatedAt = clouditemDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// clouditemDescName is the schema descriptor for name field.
+	clouditemDescName := clouditemFields[2].Descriptor()
+	// clouditem.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	clouditem.NameValidator = clouditemDescName.Validators[0].(func(string) error)
+	// clouditemDescIsFolder is the schema descriptor for is_folder field.
+	clouditemDescIsFolder := clouditemFields[3].Descriptor()
+	// clouditem.DefaultIsFolder holds the default value on creation for the is_folder field.
+	clouditem.DefaultIsFolder = clouditemDescIsFolder.Default.(bool)
+	// clouditemDescMime is the schema descriptor for mime field.
+	clouditemDescMime := clouditemFields[4].Descriptor()
+	// clouditem.DefaultMime holds the default value on creation for the mime field.
+	clouditem.DefaultMime = clouditemDescMime.Default.(string)
+	// clouditem.MimeValidator is a validator for the "mime" field. It is called by the builders before save.
+	clouditem.MimeValidator = clouditemDescMime.Validators[0].(func(string) error)
+	// clouditemDescKind is the schema descriptor for kind field.
+	clouditemDescKind := clouditemFields[5].Descriptor()
+	// clouditem.DefaultKind holds the default value on creation for the kind field.
+	clouditem.DefaultKind = clouditemDescKind.Default.(string)
+	// clouditem.KindValidator is a validator for the "kind" field. It is called by the builders before save.
+	clouditem.KindValidator = clouditemDescKind.Validators[0].(func(string) error)
+	// clouditemDescSizeBytes is the schema descriptor for size_bytes field.
+	clouditemDescSizeBytes := clouditemFields[6].Descriptor()
+	// clouditem.DefaultSizeBytes holds the default value on creation for the size_bytes field.
+	clouditem.DefaultSizeBytes = clouditemDescSizeBytes.Default.(int64)
+	// clouditemDescStoragePath is the schema descriptor for storage_path field.
+	clouditemDescStoragePath := clouditemFields[7].Descriptor()
+	// clouditem.DefaultStoragePath holds the default value on creation for the storage_path field.
+	clouditem.DefaultStoragePath = clouditemDescStoragePath.Default.(string)
+	// clouditem.StoragePathValidator is a validator for the "storage_path" field. It is called by the builders before save.
+	clouditem.StoragePathValidator = clouditemDescStoragePath.Validators[0].(func(string) error)
+	// clouditemDescSha256 is the schema descriptor for sha256 field.
+	clouditemDescSha256 := clouditemFields[8].Descriptor()
+	// clouditem.DefaultSha256 holds the default value on creation for the sha256 field.
+	clouditem.DefaultSha256 = clouditemDescSha256.Default.(string)
+	// clouditem.Sha256Validator is a validator for the "sha256" field. It is called by the builders before save.
+	clouditem.Sha256Validator = clouditemDescSha256.Validators[0].(func(string) error)
+	// clouditemDescID is the schema descriptor for id field.
+	clouditemDescID := clouditemMixinFields0[0].Descriptor()
+	// clouditem.DefaultID holds the default value on creation for the id field.
+	clouditem.DefaultID = clouditemDescID.Default.(func() uuid.UUID)
 	paperMixin := schema.Paper{}.Mixin()
 	paperMixinFields0 := paperMixin[0].Fields()
 	_ = paperMixinFields0

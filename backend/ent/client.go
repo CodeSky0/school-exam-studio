@@ -16,6 +16,7 @@ import (
 	"school-exam-studio/backend/ent/aiconversation"
 	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
+	"school-exam-studio/backend/ent/clouditem"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
 	"school-exam-studio/backend/ent/question"
@@ -45,6 +46,8 @@ type Client struct {
 	AIMessage *AIMessageClient
 	// AIRun is the client for interacting with the AIRun builders.
 	AIRun *AIRunClient
+	// CloudItem is the client for interacting with the CloudItem builders.
+	CloudItem *CloudItemClient
 	// Paper is the client for interacting with the Paper builders.
 	Paper *PaperClient
 	// PaperQuestion is the client for interacting with the PaperQuestion builders.
@@ -73,6 +76,7 @@ func (c *Client) init() {
 	c.AIConversation = NewAIConversationClient(c.config)
 	c.AIMessage = NewAIMessageClient(c.config)
 	c.AIRun = NewAIRunClient(c.config)
+	c.CloudItem = NewCloudItemClient(c.config)
 	c.Paper = NewPaperClient(c.config)
 	c.PaperQuestion = NewPaperQuestionClient(c.config)
 	c.Question = NewQuestionClient(c.config)
@@ -176,6 +180,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AIConversation:  NewAIConversationClient(cfg),
 		AIMessage:       NewAIMessageClient(cfg),
 		AIRun:           NewAIRunClient(cfg),
+		CloudItem:       NewCloudItemClient(cfg),
 		Paper:           NewPaperClient(cfg),
 		PaperQuestion:   NewPaperQuestionClient(cfg),
 		Question:        NewQuestionClient(cfg),
@@ -206,6 +211,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AIConversation:  NewAIConversationClient(cfg),
 		AIMessage:       NewAIMessageClient(cfg),
 		AIRun:           NewAIRunClient(cfg),
+		CloudItem:       NewCloudItemClient(cfg),
 		Paper:           NewPaperClient(cfg),
 		PaperQuestion:   NewPaperQuestionClient(cfg),
 		Question:        NewQuestionClient(cfg),
@@ -241,8 +247,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.AIAttachment, c.AIAuditLog, c.AIConversation, c.AIMessage, c.AIRun, c.Paper,
-		c.PaperQuestion, c.Question, c.School, c.SchoolAISetting, c.User,
+		c.AIAttachment, c.AIAuditLog, c.AIConversation, c.AIMessage, c.AIRun,
+		c.CloudItem, c.Paper, c.PaperQuestion, c.Question, c.School, c.SchoolAISetting,
+		c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -252,8 +259,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.AIAttachment, c.AIAuditLog, c.AIConversation, c.AIMessage, c.AIRun, c.Paper,
-		c.PaperQuestion, c.Question, c.School, c.SchoolAISetting, c.User,
+		c.AIAttachment, c.AIAuditLog, c.AIConversation, c.AIMessage, c.AIRun,
+		c.CloudItem, c.Paper, c.PaperQuestion, c.Question, c.School, c.SchoolAISetting,
+		c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -272,6 +280,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AIMessage.mutate(ctx, m)
 	case *AIRunMutation:
 		return c.AIRun.mutate(ctx, m)
+	case *CloudItemMutation:
+		return c.CloudItem.mutate(ctx, m)
 	case *PaperMutation:
 		return c.Paper.mutate(ctx, m)
 	case *PaperQuestionMutation:
@@ -951,6 +961,139 @@ func (c *AIRunClient) mutate(ctx context.Context, m *AIRunMutation) (Value, erro
 		return (&AIRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AIRun mutation op: %q", m.Op())
+	}
+}
+
+// CloudItemClient is a client for the CloudItem schema.
+type CloudItemClient struct {
+	config
+}
+
+// NewCloudItemClient returns a client for the CloudItem from the given config.
+func NewCloudItemClient(c config) *CloudItemClient {
+	return &CloudItemClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `clouditem.Hooks(f(g(h())))`.
+func (c *CloudItemClient) Use(hooks ...Hook) {
+	c.hooks.CloudItem = append(c.hooks.CloudItem, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `clouditem.Intercept(f(g(h())))`.
+func (c *CloudItemClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CloudItem = append(c.inters.CloudItem, interceptors...)
+}
+
+// Create returns a builder for creating a CloudItem entity.
+func (c *CloudItemClient) Create() *CloudItemCreate {
+	mutation := newCloudItemMutation(c.config, OpCreate)
+	return &CloudItemCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CloudItem entities.
+func (c *CloudItemClient) CreateBulk(builders ...*CloudItemCreate) *CloudItemCreateBulk {
+	return &CloudItemCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CloudItemClient) MapCreateBulk(slice any, setFunc func(*CloudItemCreate, int)) *CloudItemCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CloudItemCreateBulk{err: fmt.Errorf("calling to CloudItemClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CloudItemCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CloudItemCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CloudItem.
+func (c *CloudItemClient) Update() *CloudItemUpdate {
+	mutation := newCloudItemMutation(c.config, OpUpdate)
+	return &CloudItemUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CloudItemClient) UpdateOne(_m *CloudItem) *CloudItemUpdateOne {
+	mutation := newCloudItemMutation(c.config, OpUpdateOne, withCloudItem(_m))
+	return &CloudItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CloudItemClient) UpdateOneID(id uuid.UUID) *CloudItemUpdateOne {
+	mutation := newCloudItemMutation(c.config, OpUpdateOne, withCloudItemID(id))
+	return &CloudItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CloudItem.
+func (c *CloudItemClient) Delete() *CloudItemDelete {
+	mutation := newCloudItemMutation(c.config, OpDelete)
+	return &CloudItemDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CloudItemClient) DeleteOne(_m *CloudItem) *CloudItemDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CloudItemClient) DeleteOneID(id uuid.UUID) *CloudItemDeleteOne {
+	builder := c.Delete().Where(clouditem.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CloudItemDeleteOne{builder}
+}
+
+// Query returns a query builder for CloudItem.
+func (c *CloudItemClient) Query() *CloudItemQuery {
+	return &CloudItemQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCloudItem},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CloudItem entity by its id.
+func (c *CloudItemClient) Get(ctx context.Context, id uuid.UUID) (*CloudItem, error) {
+	return c.Query().Where(clouditem.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CloudItemClient) GetX(ctx context.Context, id uuid.UUID) *CloudItem {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *CloudItemClient) Hooks() []Hook {
+	return c.hooks.CloudItem
+}
+
+// Interceptors returns the client interceptors.
+func (c *CloudItemClient) Interceptors() []Interceptor {
+	return c.inters.CloudItem
+}
+
+func (c *CloudItemClient) mutate(ctx context.Context, m *CloudItemMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CloudItemCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CloudItemUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CloudItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CloudItemDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CloudItem mutation op: %q", m.Op())
 	}
 }
 
@@ -2011,11 +2154,11 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AIAttachment, AIAuditLog, AIConversation, AIMessage, AIRun, Paper,
+		AIAttachment, AIAuditLog, AIConversation, AIMessage, AIRun, CloudItem, Paper,
 		PaperQuestion, Question, School, SchoolAISetting, User []ent.Hook
 	}
 	inters struct {
-		AIAttachment, AIAuditLog, AIConversation, AIMessage, AIRun, Paper,
+		AIAttachment, AIAuditLog, AIConversation, AIMessage, AIRun, CloudItem, Paper,
 		PaperQuestion, Question, School, SchoolAISetting, User []ent.Interceptor
 	}
 )

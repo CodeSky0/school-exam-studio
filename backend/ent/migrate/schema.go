@@ -173,6 +173,41 @@ var (
 			},
 		},
 	}
+	// CloudItemsColumns holds the columns for the "cloud_items" table.
+	CloudItemsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "school_id", Type: field.TypeUUID},
+		{Name: "creator_id", Type: field.TypeUUID},
+		{Name: "parent_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "name", Type: field.TypeString, Size: 255},
+		{Name: "is_folder", Type: field.TypeBool, Default: false},
+		{Name: "mime", Type: field.TypeString, Size: 120, Default: ""},
+		{Name: "kind", Type: field.TypeString, Size: 20, Default: ""},
+		{Name: "size_bytes", Type: field.TypeInt64, Default: 0},
+		{Name: "storage_path", Type: field.TypeString, Size: 500, Default: ""},
+		{Name: "sha256", Type: field.TypeString, Size: 64, Default: ""},
+	}
+	// CloudItemsTable holds the schema information for the "cloud_items" table.
+	CloudItemsTable = &schema.Table{
+		Name:       "cloud_items",
+		Columns:    CloudItemsColumns,
+		PrimaryKey: []*schema.Column{CloudItemsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "clouditem_school_id_parent_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{CloudItemsColumns[4], CloudItemsColumns[6], CloudItemsColumns[1]},
+			},
+			{
+				Name:    "clouditem_school_id_sha256",
+				Unique:  false,
+				Columns: []*schema.Column{CloudItemsColumns[4], CloudItemsColumns[13]},
+			},
+		},
+	}
 	// PapersColumns holds the columns for the "papers" table.
 	PapersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -422,6 +457,7 @@ var (
 		AiConversationsTable,
 		AiMessagesTable,
 		AiRunsTable,
+		CloudItemsTable,
 		PapersTable,
 		PaperQuestionsTable,
 		QuestionsTable,

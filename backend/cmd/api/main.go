@@ -15,6 +15,7 @@ import (
 	"school-exam-studio/backend/internal/admin"
 	"school-exam-studio/backend/internal/ai"
 	"school-exam-studio/backend/internal/auth"
+	"school-exam-studio/backend/internal/drive"
 	"school-exam-studio/backend/internal/importer"
 	"school-exam-studio/backend/internal/ocr"
 	"school-exam-studio/backend/internal/paper"
@@ -72,6 +73,11 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+	cloudStore, err := drive.NewFileStore(cfg.CloudUploadDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cloudService := drive.NewService(drive.NewRepository(client), cloudStore)
 	aiService := ai.NewService(ai.Options{
 		QuestionService: questionService,
 		PaperService:    paperService,
@@ -82,6 +88,8 @@ func main() {
 		LLMTimeout:      time.Duration(cfg.AITimeout) * time.Second,
 		SettingsSecret:  cfg.AIEncryptKey,
 		UploadDir:       cfg.AIUploadDir,
+		// 云盘与 AI 附件双向联动：本地附件自动入云盘，云盘文件可加入对话。
+		CloudDrive: cloudService,
 	})
 	e := httpserver.New(client, httpserver.Options{
 		AuthService:     authService,
@@ -90,6 +98,7 @@ func main() {
 		AdminService:    adminService,
 		ImportService:   importService,
 		AIService:       aiService,
+		CloudService:    cloudService,
 		OCRClient:       ocrClient,
 		CORSOrigin:      cfg.CORSOrigin,
 		SecureCookie:    cfg.SecureCookie,

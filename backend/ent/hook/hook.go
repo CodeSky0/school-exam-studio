@@ -68,6 +68,18 @@ func (f AIRunFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AIRunMutation", m)
 }
 
+// The CloudItemFunc type is an adapter to allow the use of ordinary
+// function as CloudItem mutator.
+type CloudItemFunc func(context.Context, *ent.CloudItemMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CloudItemFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CloudItemMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CloudItemMutation", m)
+}
+
 // The PaperFunc type is an adapter to allow the use of ordinary
 // function as Paper mutator.
 type PaperFunc func(context.Context, *ent.PaperMutation) (ent.Value, error)

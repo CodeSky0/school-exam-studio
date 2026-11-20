@@ -127,7 +127,8 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 | GET | `/ai/conversations/:id/messages?limit=100` | 教师/管理员 | 消息历史，按时间升序，单页最多 200 条 |
 | POST | `/ai/conversations/:id/messages` | 创建者 | 发送消息并同步执行 Agent，返回用户消息、助手消息与更新后的会话 |
 | POST | `/ai/conversations/:id/messages/stream` | 创建者 | 同一条消息以 SSE 推送：用户消息、工具开始/结束、助手消息与完成事件 |
-| POST | `/ai/attachments` | 教师/管理员 | multipart 字段 `file`，可选 `conversation_id`；上传后同步解析文本 |
+| POST | `/ai/attachments` | 教师/管理员 | multipart 字段 `file`，可选 `conversation_id`；上传后同步解析文本，并自动归档到学校云盘（按 SHA256 去重） |
+| POST | `/ai/attachments/cloud` | 教师/管理员 | body `{"cloud_file_ids":["..."]}`；把云盘文件复制为对话附件，单次最多 5 个，仅支持可解析格式 |
 | GET | `/ai/attachments/:id` | 上传者/管理员 | 附件摘要：类型、状态、文本预览、字符数 |
 | GET | `/ai/attachments/:id/content` | 上传者/管理员 | 原始文件流，`inline` 展示，仅浏览器会话可访问 |
 | GET | `/ai/tools` | 教师/管理员 | 工具目录：名称、标签、说明、JSON Schema、是否写操作 |
@@ -195,7 +196,21 @@ data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","
 }
 ```
 
-附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。解析状态为 `uploaded`、`parsed`、`failed`；失败原因在 `error` 中返回。图片不做 OCR，上传后直接标记 `parsed`，发送消息时以多模态输入交给模型。扫描版 PDF 没有文本层时仍为 `parsed`（`text_chars=0`），可改传页面图片由模型直接阅读。
+附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。解析状态为 `uploaded`、`parsed`、`failed`；失败原因在 `error` 中返回。图片不做 OCR，上传后直接标记 `parsed`，发送消息时以多模态输入交给模型。扫描版 PDF 没有文本层时仍为 `parsed`（`text_chars=0`），可改传页面图片由模型直接阅读。上传成功的附件会自动归档到学校云盘根目录；相同内容按 SHA256 去重。
+
+## 学校云盘
+
+云盘面向教师与管理员，按学校隔离，二进制保存在 `CLOUD_UPLOAD_DIR`。支持文件夹树、上传、下载与递归软删除；单文件 ≤50 MiB，接受 PDF、DOC/DOCX、PPT/PPTX、XLS/XLSX、TXT/MD/CSV 与 PNG/JPEG/WebP/GIF。
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET | `/cloud/items?parent_id=` | 教师/管理员 | 列出目录直接子节点；`parent_id` 为空表示根目录，同时返回 `breadcrumbs` |
+| POST | `/cloud/folders` | 教师/管理员 | body `{"name":"...","parent_id":""}`；同目录禁止同名文件夹 |
+| POST | `/cloud/files` | 教师/管理员 | multipart 字段 `file` 与可选 `parent_id`；成功后返回文件节点 |
+| GET | `/cloud/items/:id/download` | 教师/管理员 | 以附件形式下载文件；文件夹不可下载 |
+| DELETE | `/cloud/items/:id` | 教师/管理员 | 递归软删除文件夹及内容，返回 `{"deleted":N}` |
+
+AI 工作台输入框的“+”可选择“本地上传”或“从云盘选择”；云盘选择会通过 `/ai/attachments/cloud` 复制为对话附件，PPT/Excel 等 AI 暂不解析的格式在选择器内禁用。
 
 Agent 运行策略：
 

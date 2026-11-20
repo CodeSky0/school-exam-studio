@@ -55,6 +55,7 @@ func Open(t *testing.T) *ent.Client {
 		{"paper_questions", func() error { _, err := client.PaperQuestion.Delete().Exec(ctx); return err }},
 		{"papers", func() error { _, err := client.Paper.Delete().Exec(ctx); return err }},
 		{"questions", func() error { _, err := client.Question.Delete().Exec(ctx); return err }},
+		{"cloud_items", func() error { _, err := client.CloudItem.Delete().Exec(ctx); return err }},
 		{"users", func() error { _, err := client.User.Delete().Exec(ctx); return err }},
 		{"schools", func() error { _, err := client.School.Delete().Exec(ctx); return err }},
 	} {

@@ -12,6 +12,7 @@ import (
 	"school-exam-studio/backend/internal/admin"
 	"school-exam-studio/backend/internal/ai"
 	"school-exam-studio/backend/internal/auth"
+	"school-exam-studio/backend/internal/drive"
 	"school-exam-studio/backend/internal/importer"
 	"school-exam-studio/backend/internal/ocr"
 	"school-exam-studio/backend/internal/paper"
@@ -27,6 +28,7 @@ type Options struct {
 	AdminService    *admin.Service
 	ImportService   *importer.Service
 	AIService       *ai.Service
+	CloudService    *drive.Service
 	OCRClient       *ocr.Client
 	CORSOrigin      string
 	SecureCookie    bool
@@ -49,8 +51,8 @@ func New(client *ent.Client, options ...Options) *echo.Echo {
 	e.HTTPErrorHandler = apperror.HTTPErrorHandler
 	e.Use(echomiddleware.RequestID())
 	e.Use(echomiddleware.Recover())
-	// JSON handlers apply stricter limits. Multipart OCR enforces 5 MiB per image and AI uploads enforce 20 MiB per document.
-	e.Use(echomiddleware.BodyLimit("25M"))
+	// JSON handlers apply stricter limits. Multipart OCR enforces 5 MiB per image, AI uploads enforce 20 MiB and cloud drive 50 MiB per document.
+	e.Use(echomiddleware.BodyLimit("56M"))
 	// 压缩 JSON 响应以降低带宽与内存拷贝；SSE 流式响应必须跳过，否则会被缓冲。
 	e.Use(echomiddleware.GzipWithConfig(echomiddleware.GzipConfig{
 		Level: 5,
@@ -117,6 +119,9 @@ func registerAuthRoutes(e *echo.Echo, configuration Options) {
 	}
 	if configuration.AIService != nil {
 		ai.NewHandler(configuration.AIService).Register(authenticated)
+	}
+	if configuration.CloudService != nil {
+		drive.NewHandler(configuration.CloudService).Register(authenticated)
 	}
 	if configuration.OCRClient != nil {
 		ocr.NewHandler(configuration.OCRClient).Register(authenticated)

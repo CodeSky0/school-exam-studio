@@ -51,6 +51,7 @@ func (h *Handler) Register(group *echo.Group) {
 	group.POST("/ai/conversations/:id/messages", h.SendMessage)
 	group.POST("/ai/conversations/:id/messages/stream", h.StreamMessage)
 	group.POST("/ai/attachments", h.UploadAttachment)
+	group.POST("/ai/attachments/cloud", h.AttachCloudFiles)
 	group.GET("/ai/attachments/:id", h.GetAttachment)
 	group.GET("/ai/attachments/:id/content", h.DownloadAttachment)
 	group.GET("/ai/tools", h.ListTools)

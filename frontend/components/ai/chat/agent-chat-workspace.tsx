@@ -40,6 +40,7 @@ import { ConversationSidebar } from "./conversation-sidebar";
 import { MessageList } from "./message-list";
 import { Composer } from "./composer";
 import { SkillsPanel } from "./skills-panel";
+import { CloudPicker } from "@/components/cloud/cloud-picker";
 import type { UploadTask } from "./attachment-tray";
 
 function initialPrompt() {
@@ -79,6 +80,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
   const [activeID, setActiveID] = useState("");
   const [draft, setDraft] = useState(initialPrompt);
   const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
+  const [cloudPickerOpen, setCloudPickerOpen] = useState(false);
   const [uploads, setUploads] = useState<UploadTask[]>([]);
   const [model, setModel] = useState("");
   const [liveTurn, setLiveTurn] = useState<LiveTurn | null>(null);
@@ -517,6 +519,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
             onRemoveAttachment={(id) => setAttachments((current) => current.filter((item) => item.id !== id))}
             onDismissUpload={(id) => setUploads((current) => current.filter((item) => item.id !== id))}
             onUploadFiles={handleUploadFiles}
+            onPickFromCloud={() => { setActionError(""); setCloudPickerOpen(true); }}
             skills={readOnly ? [] : skills}
             onUseSkill={useSkill}
             readOnly={readOnly}
@@ -550,6 +553,19 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
             </div>
           </div>
         </aside>
+        <CloudPicker
+          key={cloudPickerOpen ? "cloud-open" : "cloud-closed"}
+          open={cloudPickerOpen}
+          maxSelectable={Math.max(0, MAX_ATTACHMENTS - attachments.length)}
+          onClose={() => setCloudPickerOpen(false)}
+          onAttached={(items) => {
+            setAttachments((current) => {
+              const merged = new Map(current.map((item) => [item.id, item]));
+              for (const item of items) merged.set(item.id, item);
+              return Array.from(merged.values()).slice(0, MAX_ATTACHMENTS);
+            });
+          }}
+        />
       </div>
     </div>
   );

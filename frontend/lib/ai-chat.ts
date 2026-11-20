@@ -173,6 +173,7 @@ const messageListSchema = z.object({ items: z.array(chatMessageSchema) });
 const conversationDetailSchema = z.object({ conversation: conversationSchema, messages: z.array(chatMessageSchema) });
 const toolListSchema = z.object({ items: z.array(toolDescriptorSchema) });
 const skillListSchema = z.object({ items: z.array(skillSchema) });
+const attachmentListSchema = z.object({ items: z.array(attachmentRefSchema) });
 const emptySchema = z.undefined();
 
 export function listConversations(limit = 30) {
@@ -287,6 +288,14 @@ export function uploadAttachment(file: File, conversationID?: string) {
   form.append("file", file);
   if (conversationID) form.append("conversation_id", conversationID);
   return apiRequest("/api/v1/ai/attachments", attachmentRefSchema, { method: "POST", body: form });
+}
+
+// attachCloudFiles 把云盘文件复制成对话附件，返回可加入待发送列表的附件摘要。
+export function attachCloudFiles(cloudFileIDs: string[]) {
+  return apiRequest("/api/v1/ai/attachments/cloud", attachmentListSchema, {
+    method: "POST",
+    body: JSON.stringify({ cloud_file_ids: cloudFileIDs }),
+  });
 }
 
 export function fetchAttachmentBlob(id: string) {

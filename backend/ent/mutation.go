@@ -11,6 +11,7 @@ import (
 	"school-exam-studio/backend/ent/aiconversation"
 	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
+	"school-exam-studio/backend/ent/clouditem"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
 	"school-exam-studio/backend/ent/predicate"
@@ -41,6 +42,7 @@ const (
 	TypeAIConversation  = "AIConversation"
 	TypeAIMessage       = "AIMessage"
 	TypeAIRun           = "AIRun"
+	TypeCloudItem       = "CloudItem"
 	TypePaper           = "Paper"
 	TypePaperQuestion   = "PaperQuestion"
 	TypeQuestion        = "Question"
@@ -5337,6 +5339,1063 @@ func (m *AIRunMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *AIRunMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown AIRun edge %s", name)
+}
+
+// CloudItemMutation represents an operation that mutates the CloudItem nodes in the graph.
+type CloudItemMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	created_at    *time.Time
+	updated_at    *time.Time
+	deleted_at    *time.Time
+	school_id     *uuid.UUID
+	creator_id    *uuid.UUID
+	parent_id     *uuid.UUID
+	name          *string
+	is_folder     *bool
+	mime          *string
+	kind          *string
+	size_bytes    *int64
+	addsize_bytes *int64
+	storage_path  *string
+	sha256        *string
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*CloudItem, error)
+	predicates    []predicate.CloudItem
+}
+
+var _ ent.Mutation = (*CloudItemMutation)(nil)
+
+// clouditemOption allows management of the mutation configuration using functional options.
+type clouditemOption func(*CloudItemMutation)
+
+// newCloudItemMutation creates new mutation for the CloudItem entity.
+func newCloudItemMutation(c config, op Op, opts ...clouditemOption) *CloudItemMutation {
+	m := &CloudItemMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCloudItem,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCloudItemID sets the ID field of the mutation.
+func withCloudItemID(id uuid.UUID) clouditemOption {
+	return func(m *CloudItemMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CloudItem
+		)
+		m.oldValue = func(ctx context.Context) (*CloudItem, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CloudItem.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCloudItem sets the old CloudItem of the mutation.
+func withCloudItem(node *CloudItem) clouditemOption {
+	return func(m *CloudItemMutation) {
+		m.oldValue = func(context.Context) (*CloudItem, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CloudItemMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CloudItemMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of CloudItem entities.
+func (m *CloudItemMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CloudItemMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CloudItemMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CloudItem.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CloudItemMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CloudItemMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CloudItemMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CloudItemMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CloudItemMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CloudItemMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *CloudItemMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *CloudItemMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *CloudItemMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[clouditem.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *CloudItemMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[clouditem.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *CloudItemMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, clouditem.FieldDeletedAt)
+}
+
+// SetSchoolID sets the "school_id" field.
+func (m *CloudItemMutation) SetSchoolID(u uuid.UUID) {
+	m.school_id = &u
+}
+
+// SchoolID returns the value of the "school_id" field in the mutation.
+func (m *CloudItemMutation) SchoolID() (r uuid.UUID, exists bool) {
+	v := m.school_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSchoolID returns the old "school_id" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldSchoolID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSchoolID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSchoolID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSchoolID: %w", err)
+	}
+	return oldValue.SchoolID, nil
+}
+
+// ResetSchoolID resets all changes to the "school_id" field.
+func (m *CloudItemMutation) ResetSchoolID() {
+	m.school_id = nil
+}
+
+// SetCreatorID sets the "creator_id" field.
+func (m *CloudItemMutation) SetCreatorID(u uuid.UUID) {
+	m.creator_id = &u
+}
+
+// CreatorID returns the value of the "creator_id" field in the mutation.
+func (m *CloudItemMutation) CreatorID() (r uuid.UUID, exists bool) {
+	v := m.creator_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatorID returns the old "creator_id" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldCreatorID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatorID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatorID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatorID: %w", err)
+	}
+	return oldValue.CreatorID, nil
+}
+
+// ResetCreatorID resets all changes to the "creator_id" field.
+func (m *CloudItemMutation) ResetCreatorID() {
+	m.creator_id = nil
+}
+
+// SetParentID sets the "parent_id" field.
+func (m *CloudItemMutation) SetParentID(u uuid.UUID) {
+	m.parent_id = &u
+}
+
+// ParentID returns the value of the "parent_id" field in the mutation.
+func (m *CloudItemMutation) ParentID() (r uuid.UUID, exists bool) {
+	v := m.parent_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldParentID returns the old "parent_id" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldParentID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldParentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldParentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldParentID: %w", err)
+	}
+	return oldValue.ParentID, nil
+}
+
+// ClearParentID clears the value of the "parent_id" field.
+func (m *CloudItemMutation) ClearParentID() {
+	m.parent_id = nil
+	m.clearedFields[clouditem.FieldParentID] = struct{}{}
+}
+
+// ParentIDCleared returns if the "parent_id" field was cleared in this mutation.
+func (m *CloudItemMutation) ParentIDCleared() bool {
+	_, ok := m.clearedFields[clouditem.FieldParentID]
+	return ok
+}
+
+// ResetParentID resets all changes to the "parent_id" field.
+func (m *CloudItemMutation) ResetParentID() {
+	m.parent_id = nil
+	delete(m.clearedFields, clouditem.FieldParentID)
+}
+
+// SetName sets the "name" field.
+func (m *CloudItemMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *CloudItemMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *CloudItemMutation) ResetName() {
+	m.name = nil
+}
+
+// SetIsFolder sets the "is_folder" field.
+func (m *CloudItemMutation) SetIsFolder(b bool) {
+	m.is_folder = &b
+}
+
+// IsFolder returns the value of the "is_folder" field in the mutation.
+func (m *CloudItemMutation) IsFolder() (r bool, exists bool) {
+	v := m.is_folder
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsFolder returns the old "is_folder" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldIsFolder(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsFolder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsFolder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsFolder: %w", err)
+	}
+	return oldValue.IsFolder, nil
+}
+
+// ResetIsFolder resets all changes to the "is_folder" field.
+func (m *CloudItemMutation) ResetIsFolder() {
+	m.is_folder = nil
+}
+
+// SetMime sets the "mime" field.
+func (m *CloudItemMutation) SetMime(s string) {
+	m.mime = &s
+}
+
+// Mime returns the value of the "mime" field in the mutation.
+func (m *CloudItemMutation) Mime() (r string, exists bool) {
+	v := m.mime
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMime returns the old "mime" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldMime(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMime: %w", err)
+	}
+	return oldValue.Mime, nil
+}
+
+// ResetMime resets all changes to the "mime" field.
+func (m *CloudItemMutation) ResetMime() {
+	m.mime = nil
+}
+
+// SetKind sets the "kind" field.
+func (m *CloudItemMutation) SetKind(s string) {
+	m.kind = &s
+}
+
+// Kind returns the value of the "kind" field in the mutation.
+func (m *CloudItemMutation) Kind() (r string, exists bool) {
+	v := m.kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKind returns the old "kind" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKind: %w", err)
+	}
+	return oldValue.Kind, nil
+}
+
+// ResetKind resets all changes to the "kind" field.
+func (m *CloudItemMutation) ResetKind() {
+	m.kind = nil
+}
+
+// SetSizeBytes sets the "size_bytes" field.
+func (m *CloudItemMutation) SetSizeBytes(i int64) {
+	m.size_bytes = &i
+	m.addsize_bytes = nil
+}
+
+// SizeBytes returns the value of the "size_bytes" field in the mutation.
+func (m *CloudItemMutation) SizeBytes() (r int64, exists bool) {
+	v := m.size_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSizeBytes returns the old "size_bytes" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldSizeBytes(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSizeBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSizeBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSizeBytes: %w", err)
+	}
+	return oldValue.SizeBytes, nil
+}
+
+// AddSizeBytes adds i to the "size_bytes" field.
+func (m *CloudItemMutation) AddSizeBytes(i int64) {
+	if m.addsize_bytes != nil {
+		*m.addsize_bytes += i
+	} else {
+		m.addsize_bytes = &i
+	}
+}
+
+// AddedSizeBytes returns the value that was added to the "size_bytes" field in this mutation.
+func (m *CloudItemMutation) AddedSizeBytes() (r int64, exists bool) {
+	v := m.addsize_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSizeBytes resets all changes to the "size_bytes" field.
+func (m *CloudItemMutation) ResetSizeBytes() {
+	m.size_bytes = nil
+	m.addsize_bytes = nil
+}
+
+// SetStoragePath sets the "storage_path" field.
+func (m *CloudItemMutation) SetStoragePath(s string) {
+	m.storage_path = &s
+}
+
+// StoragePath returns the value of the "storage_path" field in the mutation.
+func (m *CloudItemMutation) StoragePath() (r string, exists bool) {
+	v := m.storage_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStoragePath returns the old "storage_path" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldStoragePath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStoragePath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStoragePath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStoragePath: %w", err)
+	}
+	return oldValue.StoragePath, nil
+}
+
+// ResetStoragePath resets all changes to the "storage_path" field.
+func (m *CloudItemMutation) ResetStoragePath() {
+	m.storage_path = nil
+}
+
+// SetSha256 sets the "sha256" field.
+func (m *CloudItemMutation) SetSha256(s string) {
+	m.sha256 = &s
+}
+
+// Sha256 returns the value of the "sha256" field in the mutation.
+func (m *CloudItemMutation) Sha256() (r string, exists bool) {
+	v := m.sha256
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSha256 returns the old "sha256" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldSha256(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSha256 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSha256 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSha256: %w", err)
+	}
+	return oldValue.Sha256, nil
+}
+
+// ResetSha256 resets all changes to the "sha256" field.
+func (m *CloudItemMutation) ResetSha256() {
+	m.sha256 = nil
+}
+
+// Where appends a list predicates to the CloudItemMutation builder.
+func (m *CloudItemMutation) Where(ps ...predicate.CloudItem) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CloudItemMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CloudItemMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CloudItem, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CloudItemMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CloudItemMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CloudItem).
+func (m *CloudItemMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CloudItemMutation) Fields() []string {
+	fields := make([]string, 0, 13)
+	if m.created_at != nil {
+		fields = append(fields, clouditem.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, clouditem.FieldUpdatedAt)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, clouditem.FieldDeletedAt)
+	}
+	if m.school_id != nil {
+		fields = append(fields, clouditem.FieldSchoolID)
+	}
+	if m.creator_id != nil {
+		fields = append(fields, clouditem.FieldCreatorID)
+	}
+	if m.parent_id != nil {
+		fields = append(fields, clouditem.FieldParentID)
+	}
+	if m.name != nil {
+		fields = append(fields, clouditem.FieldName)
+	}
+	if m.is_folder != nil {
+		fields = append(fields, clouditem.FieldIsFolder)
+	}
+	if m.mime != nil {
+		fields = append(fields, clouditem.FieldMime)
+	}
+	if m.kind != nil {
+		fields = append(fields, clouditem.FieldKind)
+	}
+	if m.size_bytes != nil {
+		fields = append(fields, clouditem.FieldSizeBytes)
+	}
+	if m.storage_path != nil {
+		fields = append(fields, clouditem.FieldStoragePath)
+	}
+	if m.sha256 != nil {
+		fields = append(fields, clouditem.FieldSha256)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CloudItemMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case clouditem.FieldCreatedAt:
+		return m.CreatedAt()
+	case clouditem.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case clouditem.FieldDeletedAt:
+		return m.DeletedAt()
+	case clouditem.FieldSchoolID:
+		return m.SchoolID()
+	case clouditem.FieldCreatorID:
+		return m.CreatorID()
+	case clouditem.FieldParentID:
+		return m.ParentID()
+	case clouditem.FieldName:
+		return m.Name()
+	case clouditem.FieldIsFolder:
+		return m.IsFolder()
+	case clouditem.FieldMime:
+		return m.Mime()
+	case clouditem.FieldKind:
+		return m.Kind()
+	case clouditem.FieldSizeBytes:
+		return m.SizeBytes()
+	case clouditem.FieldStoragePath:
+		return m.StoragePath()
+	case clouditem.FieldSha256:
+		return m.Sha256()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CloudItemMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case clouditem.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case clouditem.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case clouditem.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case clouditem.FieldSchoolID:
+		return m.OldSchoolID(ctx)
+	case clouditem.FieldCreatorID:
+		return m.OldCreatorID(ctx)
+	case clouditem.FieldParentID:
+		return m.OldParentID(ctx)
+	case clouditem.FieldName:
+		return m.OldName(ctx)
+	case clouditem.FieldIsFolder:
+		return m.OldIsFolder(ctx)
+	case clouditem.FieldMime:
+		return m.OldMime(ctx)
+	case clouditem.FieldKind:
+		return m.OldKind(ctx)
+	case clouditem.FieldSizeBytes:
+		return m.OldSizeBytes(ctx)
+	case clouditem.FieldStoragePath:
+		return m.OldStoragePath(ctx)
+	case clouditem.FieldSha256:
+		return m.OldSha256(ctx)
+	}
+	return nil, fmt.Errorf("unknown CloudItem field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CloudItemMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case clouditem.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case clouditem.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case clouditem.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case clouditem.FieldSchoolID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSchoolID(v)
+		return nil
+	case clouditem.FieldCreatorID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatorID(v)
+		return nil
+	case clouditem.FieldParentID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetParentID(v)
+		return nil
+	case clouditem.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case clouditem.FieldIsFolder:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsFolder(v)
+		return nil
+	case clouditem.FieldMime:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMime(v)
+		return nil
+	case clouditem.FieldKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKind(v)
+		return nil
+	case clouditem.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSizeBytes(v)
+		return nil
+	case clouditem.FieldStoragePath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStoragePath(v)
+		return nil
+	case clouditem.FieldSha256:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSha256(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CloudItem field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CloudItemMutation) AddedFields() []string {
+	var fields []string
+	if m.addsize_bytes != nil {
+		fields = append(fields, clouditem.FieldSizeBytes)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CloudItemMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case clouditem.FieldSizeBytes:
+		return m.AddedSizeBytes()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CloudItemMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case clouditem.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSizeBytes(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CloudItem numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CloudItemMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(clouditem.FieldDeletedAt) {
+		fields = append(fields, clouditem.FieldDeletedAt)
+	}
+	if m.FieldCleared(clouditem.FieldParentID) {
+		fields = append(fields, clouditem.FieldParentID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CloudItemMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CloudItemMutation) ClearField(name string) error {
+	switch name {
+	case clouditem.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case clouditem.FieldParentID:
+		m.ClearParentID()
+		return nil
+	}
+	return fmt.Errorf("unknown CloudItem nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CloudItemMutation) ResetField(name string) error {
+	switch name {
+	case clouditem.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case clouditem.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case clouditem.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case clouditem.FieldSchoolID:
+		m.ResetSchoolID()
+		return nil
+	case clouditem.FieldCreatorID:
+		m.ResetCreatorID()
+		return nil
+	case clouditem.FieldParentID:
+		m.ResetParentID()
+		return nil
+	case clouditem.FieldName:
+		m.ResetName()
+		return nil
+	case clouditem.FieldIsFolder:
+		m.ResetIsFolder()
+		return nil
+	case clouditem.FieldMime:
+		m.ResetMime()
+		return nil
+	case clouditem.FieldKind:
+		m.ResetKind()
+		return nil
+	case clouditem.FieldSizeBytes:
+		m.ResetSizeBytes()
+		return nil
+	case clouditem.FieldStoragePath:
+		m.ResetStoragePath()
+		return nil
+	case clouditem.FieldSha256:
+		m.ResetSha256()
+		return nil
+	}
+	return fmt.Errorf("unknown CloudItem field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CloudItemMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CloudItemMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CloudItemMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CloudItemMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CloudItemMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CloudItemMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CloudItemMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown CloudItem unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CloudItemMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown CloudItem edge %s", name)
 }
 
 // PaperMutation represents an operation that mutates the Paper nodes in the graph.
