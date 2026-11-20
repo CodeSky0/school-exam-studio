@@ -24,26 +24,36 @@ type Config struct {
 	AIEncryptKey   string
 	AIUploadDir    string
 	CloudUploadDir string
+
+	// 云盘资料向量化：留空远程地址与 Key 时使用本地哈希向量。
+	EmbeddingBaseURL         string
+	EmbeddingAPIKey          string
+	EmbeddingModel           string
+	EmbeddingLocalDimensions int
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		DatabaseURL:    os.Getenv("DATABASE_URL"),
-		RedisURL:       os.Getenv("REDIS_URL"),
-		OCRURL:         os.Getenv("OCR_URL"),
-		JWTSecret:      os.Getenv("JWT_SECRET"),
-		CORSOrigin:     envOr("CORS_ORIGIN", "http://localhost:3000"),
-		HTTPAddr:       envOr("HTTP_ADDR", ":8080"),
-		SecureCookie:   os.Getenv("APP_ENV") == "production",
-		TrustProxy:     envBool("TRUST_PROXY"),
-		AutoMigrate:    envBoolDefault("AUTO_MIGRATE", true),
-		AIBaseURL:      strings.TrimSpace(os.Getenv("AI_BASE_URL")),
-		AIAPIKey:       strings.TrimSpace(os.Getenv("AI_API_KEY")),
-		AIModel:        envOr("AI_MODEL", "gpt-4o-mini"),
-		AITimeout:      envInt("AI_TIMEOUT_SECONDS", 45),
-		AIEncryptKey:   strings.TrimSpace(os.Getenv("AI_SETTINGS_SECRET")),
-		AIUploadDir:    envOr("AI_UPLOAD_DIR", "./data/ai-uploads"),
-		CloudUploadDir: envOr("CLOUD_UPLOAD_DIR", "./data/cloud-drive"),
+		DatabaseURL:              os.Getenv("DATABASE_URL"),
+		RedisURL:                 os.Getenv("REDIS_URL"),
+		OCRURL:                   os.Getenv("OCR_URL"),
+		JWTSecret:                os.Getenv("JWT_SECRET"),
+		CORSOrigin:               envOr("CORS_ORIGIN", "http://localhost:3000"),
+		HTTPAddr:                 envOr("HTTP_ADDR", ":8080"),
+		SecureCookie:             os.Getenv("APP_ENV") == "production",
+		TrustProxy:               envBool("TRUST_PROXY"),
+		AutoMigrate:              envBoolDefault("AUTO_MIGRATE", true),
+		AIBaseURL:                strings.TrimSpace(os.Getenv("AI_BASE_URL")),
+		AIAPIKey:                 strings.TrimSpace(os.Getenv("AI_API_KEY")),
+		AIModel:                  envOr("AI_MODEL", "gpt-4o-mini"),
+		AITimeout:                envInt("AI_TIMEOUT_SECONDS", 45),
+		AIEncryptKey:             strings.TrimSpace(os.Getenv("AI_SETTINGS_SECRET")),
+		AIUploadDir:              envOr("AI_UPLOAD_DIR", "./data/ai-uploads"),
+		CloudUploadDir:           envOr("CLOUD_UPLOAD_DIR", "./data/cloud-drive"),
+		EmbeddingBaseURL:         strings.TrimSpace(os.Getenv("EMBEDDING_BASE_URL")),
+		EmbeddingAPIKey:          strings.TrimSpace(os.Getenv("EMBEDDING_API_KEY")),
+		EmbeddingModel:           envOr("EMBEDDING_MODEL", "text-embedding-3-small"),
+		EmbeddingLocalDimensions: envInt("EMBEDDING_LOCAL_DIMENSIONS", 256),
 	}
 	if cfg.AIEncryptKey == "" {
 		cfg.AIEncryptKey = cfg.JWTSecret

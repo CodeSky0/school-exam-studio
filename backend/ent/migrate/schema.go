@@ -173,6 +173,38 @@ var (
 			},
 		},
 	}
+	// CloudChunksColumns holds the columns for the "cloud_chunks" table.
+	CloudChunksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "school_id", Type: field.TypeUUID},
+		{Name: "cloud_item_id", Type: field.TypeUUID},
+		{Name: "chunk_index", Type: field.TypeInt, Default: 0},
+		{Name: "content", Type: field.TypeString, Size: 8000},
+		{Name: "embedding", Type: field.TypeJSON},
+		{Name: "provider", Type: field.TypeString, Size: 80, Default: ""},
+		{Name: "char_count", Type: field.TypeInt, Default: 0},
+	}
+	// CloudChunksTable holds the schema information for the "cloud_chunks" table.
+	CloudChunksTable = &schema.Table{
+		Name:       "cloud_chunks",
+		Columns:    CloudChunksColumns,
+		PrimaryKey: []*schema.Column{CloudChunksColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "cloudchunk_school_id_cloud_item_id_chunk_index",
+				Unique:  false,
+				Columns: []*schema.Column{CloudChunksColumns[4], CloudChunksColumns[5], CloudChunksColumns[6]},
+			},
+			{
+				Name:    "cloudchunk_school_id_provider",
+				Unique:  false,
+				Columns: []*schema.Column{CloudChunksColumns[4], CloudChunksColumns[9]},
+			},
+		},
+	}
 	// CloudItemsColumns holds the columns for the "cloud_items" table.
 	CloudItemsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -189,6 +221,11 @@ var (
 		{Name: "size_bytes", Type: field.TypeInt64, Default: 0},
 		{Name: "storage_path", Type: field.TypeString, Size: 500, Default: ""},
 		{Name: "sha256", Type: field.TypeString, Size: 64, Default: ""},
+		{Name: "index_status", Type: field.TypeString, Size: 20, Default: "pending"},
+		{Name: "index_error", Type: field.TypeString, Size: 500, Default: ""},
+		{Name: "index_provider", Type: field.TypeString, Size: 80, Default: ""},
+		{Name: "chunk_count", Type: field.TypeInt, Default: 0},
+		{Name: "indexed_at", Type: field.TypeTime, Nullable: true},
 	}
 	// CloudItemsTable holds the schema information for the "cloud_items" table.
 	CloudItemsTable = &schema.Table{
@@ -457,6 +494,7 @@ var (
 		AiConversationsTable,
 		AiMessagesTable,
 		AiRunsTable,
+		CloudChunksTable,
 		CloudItemsTable,
 		PapersTable,
 		PaperQuestionsTable,

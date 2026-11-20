@@ -58,6 +58,11 @@ var (
 		Description: "读取本轮附件正文：PDF/Word/文本返回抽取文本并支持分段，图片已作为视觉输入直接提供给模型。不会写入题库。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"attachment_ids":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0,"maximum":200000},"limit":{"type":"integer","minimum":500,"maximum":6000}},"additionalProperties":false}`),
 	}
+	toolSearchCloud = ToolDescriptor{
+		Name: "search_cloud", Label: "检索云盘资料", Writes: false,
+		Description: "按关键词或问题语义检索学校云盘中已自动向量化的资料，返回最相关的文件名称、原文片段与相似度。适合引用教案、试卷、教材章节或核对校内资料，不写入任何数据。",
+		Parameters:  json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":20}},"required":["query"],"additionalProperties":false}`),
+	}
 	toolExtractQuestions = ToolDescriptor{
 		Name: "extract_questions", Label: "文档切题", Writes: false,
 		Description: "从本轮 PDF、Word、文本附件中抽取文本并切分为题目草稿，只预览不入库。",

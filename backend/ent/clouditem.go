@@ -43,7 +43,17 @@ type CloudItem struct {
 	// StoragePath holds the value of the "storage_path" field.
 	StoragePath string `json:"storage_path,omitempty"`
 	// Sha256 holds the value of the "sha256" field.
-	Sha256       string `json:"sha256,omitempty"`
+	Sha256 string `json:"sha256,omitempty"`
+	// IndexStatus holds the value of the "index_status" field.
+	IndexStatus string `json:"index_status,omitempty"`
+	// IndexError holds the value of the "index_error" field.
+	IndexError string `json:"index_error,omitempty"`
+	// IndexProvider holds the value of the "index_provider" field.
+	IndexProvider string `json:"index_provider,omitempty"`
+	// ChunkCount holds the value of the "chunk_count" field.
+	ChunkCount int `json:"chunk_count,omitempty"`
+	// IndexedAt holds the value of the "indexed_at" field.
+	IndexedAt    *time.Time `json:"indexed_at,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -56,11 +66,11 @@ func (*CloudItem) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case clouditem.FieldIsFolder:
 			values[i] = new(sql.NullBool)
-		case clouditem.FieldSizeBytes:
+		case clouditem.FieldSizeBytes, clouditem.FieldChunkCount:
 			values[i] = new(sql.NullInt64)
-		case clouditem.FieldName, clouditem.FieldMime, clouditem.FieldKind, clouditem.FieldStoragePath, clouditem.FieldSha256:
+		case clouditem.FieldName, clouditem.FieldMime, clouditem.FieldKind, clouditem.FieldStoragePath, clouditem.FieldSha256, clouditem.FieldIndexStatus, clouditem.FieldIndexError, clouditem.FieldIndexProvider:
 			values[i] = new(sql.NullString)
-		case clouditem.FieldCreatedAt, clouditem.FieldUpdatedAt, clouditem.FieldDeletedAt:
+		case clouditem.FieldCreatedAt, clouditem.FieldUpdatedAt, clouditem.FieldDeletedAt, clouditem.FieldIndexedAt:
 			values[i] = new(sql.NullTime)
 		case clouditem.FieldID, clouditem.FieldSchoolID, clouditem.FieldCreatorID:
 			values[i] = new(uuid.UUID)
@@ -165,6 +175,37 @@ func (_m *CloudItem) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Sha256 = value.String
 			}
+		case clouditem.FieldIndexStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field index_status", values[i])
+			} else if value.Valid {
+				_m.IndexStatus = value.String
+			}
+		case clouditem.FieldIndexError:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field index_error", values[i])
+			} else if value.Valid {
+				_m.IndexError = value.String
+			}
+		case clouditem.FieldIndexProvider:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field index_provider", values[i])
+			} else if value.Valid {
+				_m.IndexProvider = value.String
+			}
+		case clouditem.FieldChunkCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field chunk_count", values[i])
+			} else if value.Valid {
+				_m.ChunkCount = int(value.Int64)
+			}
+		case clouditem.FieldIndexedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field indexed_at", values[i])
+			} else if value.Valid {
+				_m.IndexedAt = new(time.Time)
+				*_m.IndexedAt = value.Time
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -243,6 +284,23 @@ func (_m *CloudItem) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("sha256=")
 	builder.WriteString(_m.Sha256)
+	builder.WriteString(", ")
+	builder.WriteString("index_status=")
+	builder.WriteString(_m.IndexStatus)
+	builder.WriteString(", ")
+	builder.WriteString("index_error=")
+	builder.WriteString(_m.IndexError)
+	builder.WriteString(", ")
+	builder.WriteString("index_provider=")
+	builder.WriteString(_m.IndexProvider)
+	builder.WriteString(", ")
+	builder.WriteString("chunk_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ChunkCount))
+	builder.WriteString(", ")
+	if v := _m.IndexedAt; v != nil {
+		builder.WriteString("indexed_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

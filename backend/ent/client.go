@@ -16,6 +16,7 @@ import (
 	"school-exam-studio/backend/ent/aiconversation"
 	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
+	"school-exam-studio/backend/ent/cloudchunk"
 	"school-exam-studio/backend/ent/clouditem"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
@@ -46,6 +47,8 @@ type Client struct {
 	AIMessage *AIMessageClient
 	// AIRun is the client for interacting with the AIRun builders.
 	AIRun *AIRunClient
+	// CloudChunk is the client for interacting with the CloudChunk builders.
+	CloudChunk *CloudChunkClient
 	// CloudItem is the client for interacting with the CloudItem builders.
 	CloudItem *CloudItemClient
 	// Paper is the client for interacting with the Paper builders.
@@ -76,6 +79,7 @@ func (c *Client) init() {
 	c.AIConversation = NewAIConversationClient(c.config)
 	c.AIMessage = NewAIMessageClient(c.config)
 	c.AIRun = NewAIRunClient(c.config)
+	c.CloudChunk = NewCloudChunkClient(c.config)
 	c.CloudItem = NewCloudItemClient(c.config)
 	c.Paper = NewPaperClient(c.config)
 	c.PaperQuestion = NewPaperQuestionClient(c.config)
@@ -180,6 +184,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AIConversation:  NewAIConversationClient(cfg),
 		AIMessage:       NewAIMessageClient(cfg),
 		AIRun:           NewAIRunClient(cfg),
+		CloudChunk:      NewCloudChunkClient(cfg),
 		CloudItem:       NewCloudItemClient(cfg),
 		Paper:           NewPaperClient(cfg),
 		PaperQuestion:   NewPaperQuestionClient(cfg),
@@ -211,6 +216,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AIConversation:  NewAIConversationClient(cfg),
 		AIMessage:       NewAIMessageClient(cfg),
 		AIRun:           NewAIRunClient(cfg),
+		CloudChunk:      NewCloudChunkClient(cfg),
 		CloudItem:       NewCloudItemClient(cfg),
 		Paper:           NewPaperClient(cfg),
 		PaperQuestion:   NewPaperQuestionClient(cfg),
@@ -248,8 +254,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.AIAttachment, c.AIAuditLog, c.AIConversation, c.AIMessage, c.AIRun,
-		c.CloudItem, c.Paper, c.PaperQuestion, c.Question, c.School, c.SchoolAISetting,
-		c.User,
+		c.CloudChunk, c.CloudItem, c.Paper, c.PaperQuestion, c.Question, c.School,
+		c.SchoolAISetting, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -260,8 +266,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.AIAttachment, c.AIAuditLog, c.AIConversation, c.AIMessage, c.AIRun,
-		c.CloudItem, c.Paper, c.PaperQuestion, c.Question, c.School, c.SchoolAISetting,
-		c.User,
+		c.CloudChunk, c.CloudItem, c.Paper, c.PaperQuestion, c.Question, c.School,
+		c.SchoolAISetting, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -280,6 +286,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AIMessage.mutate(ctx, m)
 	case *AIRunMutation:
 		return c.AIRun.mutate(ctx, m)
+	case *CloudChunkMutation:
+		return c.CloudChunk.mutate(ctx, m)
 	case *CloudItemMutation:
 		return c.CloudItem.mutate(ctx, m)
 	case *PaperMutation:
@@ -961,6 +969,139 @@ func (c *AIRunClient) mutate(ctx context.Context, m *AIRunMutation) (Value, erro
 		return (&AIRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AIRun mutation op: %q", m.Op())
+	}
+}
+
+// CloudChunkClient is a client for the CloudChunk schema.
+type CloudChunkClient struct {
+	config
+}
+
+// NewCloudChunkClient returns a client for the CloudChunk from the given config.
+func NewCloudChunkClient(c config) *CloudChunkClient {
+	return &CloudChunkClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `cloudchunk.Hooks(f(g(h())))`.
+func (c *CloudChunkClient) Use(hooks ...Hook) {
+	c.hooks.CloudChunk = append(c.hooks.CloudChunk, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `cloudchunk.Intercept(f(g(h())))`.
+func (c *CloudChunkClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CloudChunk = append(c.inters.CloudChunk, interceptors...)
+}
+
+// Create returns a builder for creating a CloudChunk entity.
+func (c *CloudChunkClient) Create() *CloudChunkCreate {
+	mutation := newCloudChunkMutation(c.config, OpCreate)
+	return &CloudChunkCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CloudChunk entities.
+func (c *CloudChunkClient) CreateBulk(builders ...*CloudChunkCreate) *CloudChunkCreateBulk {
+	return &CloudChunkCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CloudChunkClient) MapCreateBulk(slice any, setFunc func(*CloudChunkCreate, int)) *CloudChunkCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CloudChunkCreateBulk{err: fmt.Errorf("calling to CloudChunkClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CloudChunkCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CloudChunkCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CloudChunk.
+func (c *CloudChunkClient) Update() *CloudChunkUpdate {
+	mutation := newCloudChunkMutation(c.config, OpUpdate)
+	return &CloudChunkUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CloudChunkClient) UpdateOne(_m *CloudChunk) *CloudChunkUpdateOne {
+	mutation := newCloudChunkMutation(c.config, OpUpdateOne, withCloudChunk(_m))
+	return &CloudChunkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CloudChunkClient) UpdateOneID(id uuid.UUID) *CloudChunkUpdateOne {
+	mutation := newCloudChunkMutation(c.config, OpUpdateOne, withCloudChunkID(id))
+	return &CloudChunkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CloudChunk.
+func (c *CloudChunkClient) Delete() *CloudChunkDelete {
+	mutation := newCloudChunkMutation(c.config, OpDelete)
+	return &CloudChunkDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CloudChunkClient) DeleteOne(_m *CloudChunk) *CloudChunkDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CloudChunkClient) DeleteOneID(id uuid.UUID) *CloudChunkDeleteOne {
+	builder := c.Delete().Where(cloudchunk.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CloudChunkDeleteOne{builder}
+}
+
+// Query returns a query builder for CloudChunk.
+func (c *CloudChunkClient) Query() *CloudChunkQuery {
+	return &CloudChunkQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCloudChunk},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CloudChunk entity by its id.
+func (c *CloudChunkClient) Get(ctx context.Context, id uuid.UUID) (*CloudChunk, error) {
+	return c.Query().Where(cloudchunk.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CloudChunkClient) GetX(ctx context.Context, id uuid.UUID) *CloudChunk {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *CloudChunkClient) Hooks() []Hook {
+	return c.hooks.CloudChunk
+}
+
+// Interceptors returns the client interceptors.
+func (c *CloudChunkClient) Interceptors() []Interceptor {
+	return c.inters.CloudChunk
+}
+
+func (c *CloudChunkClient) mutate(ctx context.Context, m *CloudChunkMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CloudChunkCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CloudChunkUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CloudChunkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CloudChunkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CloudChunk mutation op: %q", m.Op())
 	}
 }
 
@@ -2154,11 +2295,13 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AIAttachment, AIAuditLog, AIConversation, AIMessage, AIRun, CloudItem, Paper,
-		PaperQuestion, Question, School, SchoolAISetting, User []ent.Hook
+		AIAttachment, AIAuditLog, AIConversation, AIMessage, AIRun, CloudChunk,
+		CloudItem, Paper, PaperQuestion, Question, School, SchoolAISetting,
+		User []ent.Hook
 	}
 	inters struct {
-		AIAttachment, AIAuditLog, AIConversation, AIMessage, AIRun, CloudItem, Paper,
-		PaperQuestion, Question, School, SchoolAISetting, User []ent.Interceptor
+		AIAttachment, AIAuditLog, AIConversation, AIMessage, AIRun, CloudChunk,
+		CloudItem, Paper, PaperQuestion, Question, School, SchoolAISetting,
+		User []ent.Interceptor
 	}
 )

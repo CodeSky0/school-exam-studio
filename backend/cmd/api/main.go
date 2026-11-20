@@ -16,6 +16,7 @@ import (
 	"school-exam-studio/backend/internal/ai"
 	"school-exam-studio/backend/internal/auth"
 	"school-exam-studio/backend/internal/drive"
+	"school-exam-studio/backend/internal/embedding"
 	"school-exam-studio/backend/internal/importer"
 	"school-exam-studio/backend/internal/ocr"
 	"school-exam-studio/backend/internal/paper"
@@ -77,7 +78,23 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	cloudService := drive.NewService(drive.NewRepository(client), cloudStore)
+	embedder, err := embedding.New(
+		cfg.EmbeddingBaseURL,
+		cfg.EmbeddingAPIKey,
+		cfg.EmbeddingModel,
+		cfg.EmbeddingLocalDimensions,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cloudRepository := drive.NewRepository(client)
+	cloudIndexer := drive.NewIndexer(cloudRepository, cloudStore, embedder, log.Default())
+	cloudService := drive.NewService(cloudRepository, cloudStore)
+	cloudService.SetIndexer(cloudIndexer)
+	indexContext, indexCancel := context.WithCancel(context.Background())
+	defer indexCancel()
+	cloudIndexer.Start(indexContext)
+	log.Printf("cloud index provider: %s", cloudIndexer.Provider())
 	aiService := ai.NewService(ai.Options{
 		QuestionService: questionService,
 		PaperService:    paperService,

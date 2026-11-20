@@ -58,6 +58,15 @@ func (s *Service) ListSkills() []Skill {
 			RequiredTools: []string{"list_attachments", "read_attachment"},
 		},
 		{
+			ID: "cloud_research", Title: "云盘资料问答", Category: "document",
+			Description: "在学校云盘已向量化的资料中做语义检索，基于原文片段回答或整理要点，并标注引用的文件名。",
+			Icon:        "book", AcceptsAttachments: false,
+			Prompt: "请先说明你要在学校云盘中检索的主题，然后使用 search_cloud 查找相关资料。" +
+				"基于检索到的原文片段回答，列出来源文件名与相关片段；资料不足时明确说明，不要编造云盘中没有的内容。",
+			Steps:         []string{"语义检索云盘资料", "核对原文片段", "输出引用与结论"},
+			RequiredTools: []string{"search_cloud"},
+		},
+		{
 			ID: "paper_split", Title: "整卷拆题", Category: "document",
 			Description: "把整份试卷拆成独立题目，保留题号、选项、答案与解析，便于逐题校对。",
 			Icon:        "split", AcceptsAttachments: true,

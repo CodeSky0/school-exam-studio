@@ -626,7 +626,9 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 			"禁止使用“单选”“填空”等中文题型名或其他别名，系统只接受上述英文枚举值。" +
 			"回复和题目中的数学公式统一使用 LaTeX：行内公式写成 $...$，独立公式写成 $$...$$。" +
 			"本轮附带的图片已经以视觉输入直接提供给你，请直接阅读图片中的文字、公式与表格，不要要求用户先做 OCR；" +
-			"需要 PDF/Word 全文时调用 read_attachment 分段读取。",
+			"需要 PDF/Word 全文时调用 read_attachment 分段读取。" +
+			"需要校内教案、试卷或教材资料时调用 search_cloud 检索已向量化的云盘内容，只引用返回的文件名与原文片段，不要编造云盘中没有的内容；" +
+			"如果云盘检索没有结果，明确说明并建议用户上传资料或等待向量化完成。",
 	}}
 	start := len(history) - maxLLMHistory
 	if start < 0 {

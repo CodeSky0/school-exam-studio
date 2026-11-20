@@ -28,6 +28,9 @@
 | `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` | 可选。OpenAI 兼容模型服务；未配置时使用本地确定性引擎 |
 | `AI_SETTINGS_SECRET` | 可选。加密学校设置中的厂商 API Key；留空回退到 `JWT_SECRET` |
 | `AI_UPLOAD_DIR` | AI 对话附件落盘目录，默认 `./data/ai-uploads`。生产必须使用持久化卷并纳入备份 |
+| `CLOUD_UPLOAD_DIR` | 学校云盘文件落盘目录，默认 `./data/cloud-drive`。生产必须使用持久化卷并纳入备份 |
+| `EMBEDDING_BASE_URL` / `EMBEDDING_API_KEY` / `EMBEDDING_MODEL` | 可选。云盘资料向量化使用的 OpenAI 兼容 `/embeddings` 服务；留空时使用内置本地哈希向量，离线可用 |
+| `EMBEDDING_LOCAL_DIMENSIONS` | 本地哈希向量维度，默认 `256`，范围 64-1024。切换向量模型后必须在云盘页面重建索引 |
 | `NEXT_PUBLIC_API_URL` | 构建时注入的 API 地址，修改后必须重新构建前端 |
 
 禁止把 `.env`、访问令牌、密码或模型缓存提交到 Git。

@@ -10,8 +10,35 @@ export const cloudItemSchema = z.object({
   kind: z.string().default(""),
   size_bytes: z.number().int().default(0),
   creator_id: z.string().default(""),
+  index_status: z.string().default("pending"),
+  index_error: z.string().default(""),
+  index_provider: z.string().default(""),
+  chunk_count: z.number().int().default(0),
+  indexed_at: z.string().nullable().default(null),
   created_at: z.string(),
   updated_at: z.string(),
+});
+
+// 云盘语义检索结果：AI 与前端搜索共用同一接口。
+export const cloudHitSchema = z.object({
+  item_id: z.string(),
+  name: z.string(),
+  kind: z.string().default(""),
+  chunk_index: z.number().int().default(0),
+  score: z.number().default(0),
+  excerpt: z.string().default(""),
+});
+
+export const cloudSearchSchema = z.object({
+  query: z.string().default(""),
+  provider: z.string().default(""),
+  hits: z.array(cloudHitSchema).default([]),
+  chunks_scanned: z.number().int().default(0),
+  index_available: z.boolean().default(false),
+});
+
+export const cloudIndexStatsSchema = z.object({
+  counts: z.record(z.string(), z.number()).default({}),
 });
 
 export const cloudBreadcrumbSchema = z.object({
@@ -28,6 +55,8 @@ export const cloudListSchema = z.object({
 export type CloudItem = z.infer<typeof cloudItemSchema>;
 export type CloudBreadcrumb = z.infer<typeof cloudBreadcrumbSchema>;
 export type CloudList = z.infer<typeof cloudListSchema>;
+export type CloudHit = z.infer<typeof cloudHitSchema>;
+export type CloudSearch = z.infer<typeof cloudSearchSchema>;
 
 export const CLOUD_ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.csv,image/png,image/jpeg,image/webp,image/gif";
 export const CLOUD_MAX_BYTES = 50 * 1024 * 1024;
@@ -58,6 +87,24 @@ export function deleteCloudItem(id: string) {
   return apiRequest(`/api/v1/cloud/items/${encodeURIComponent(id)}`, z.object({ deleted: z.number().int() }), {
     method: "DELETE",
   });
+}
+
+// searchCloudFiles 调用云盘语义检索，返回已向量化资料的原文片段。
+export function searchCloudFiles(query: string, limit = 8) {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiRequest(`/api/v1/cloud/search?${params.toString()}`, cloudSearchSchema);
+}
+
+export function reindexCloudItem(id: string) {
+  return apiRequest(`/api/v1/cloud/items/${encodeURIComponent(id)}/reindex`, cloudItemSchema, { method: "POST" });
+}
+
+export function reindexAllCloudFiles() {
+  return apiRequest("/api/v1/cloud/reindex", z.object({ queued: z.number().int() }), { method: "POST" });
+}
+
+export function fetchCloudIndexStats() {
+  return apiRequest("/api/v1/cloud/index/stats", cloudIndexStatsSchema);
 }
 
 export function fetchCloudFileBlob(id: string) {
@@ -117,4 +164,33 @@ export function cloudKindLabel(item: CloudItem) {
     case "text": return "文本";
     default: return "文件";
   }
+}
+
+// cloudIndexLabel 返回云盘文件的向量化状态文案；文件夹不展示。
+export function cloudIndexLabel(item: CloudItem) {
+  if (item.is_folder) return "";
+  switch (item.index_status) {
+    case "ready": return `已向量化 · ${item.chunk_count} 段`;
+    case "pending":
+    case "processing": return "向量化中…";
+    case "unsupported": return "不支持向量化";
+    case "failed": return "向量化失败";
+    default: return "";
+  }
+}
+
+export function cloudIndexTone(item: CloudItem) {
+  if (item.index_status === "ready") return "text-success";
+  if (item.index_status === "failed") return "text-error";
+  if (item.index_status === "pending" || item.index_status === "processing") return "text-accent-strong";
+  return "text-neutral-6";
+}
+
+export function cloudIndexHint(item: CloudItem) {
+  if (item.is_folder || item.index_status === "ready" || !item.index_error) return "";
+  return item.index_error;
+}
+
+export function formatCloudScore(score: number) {
+  return `${Math.round(score * 100)}%`;
 }

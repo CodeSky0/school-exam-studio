@@ -11,6 +11,7 @@ import (
 	"school-exam-studio/backend/ent/aiconversation"
 	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
+	"school-exam-studio/backend/ent/cloudchunk"
 	"school-exam-studio/backend/ent/clouditem"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
@@ -42,6 +43,7 @@ const (
 	TypeAIConversation  = "AIConversation"
 	TypeAIMessage       = "AIMessage"
 	TypeAIRun           = "AIRun"
+	TypeCloudChunk      = "CloudChunk"
 	TypeCloudItem       = "CloudItem"
 	TypePaper           = "Paper"
 	TypePaperQuestion   = "PaperQuestion"
@@ -5341,30 +5343,961 @@ func (m *AIRunMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown AIRun edge %s", name)
 }
 
+// CloudChunkMutation represents an operation that mutates the CloudChunk nodes in the graph.
+type CloudChunkMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *uuid.UUID
+	created_at      *time.Time
+	updated_at      *time.Time
+	deleted_at      *time.Time
+	school_id       *uuid.UUID
+	cloud_item_id   *uuid.UUID
+	chunk_index     *int
+	addchunk_index  *int
+	content         *string
+	embedding       *[]float32
+	appendembedding []float32
+	provider        *string
+	char_count      *int
+	addchar_count   *int
+	clearedFields   map[string]struct{}
+	done            bool
+	oldValue        func(context.Context) (*CloudChunk, error)
+	predicates      []predicate.CloudChunk
+}
+
+var _ ent.Mutation = (*CloudChunkMutation)(nil)
+
+// cloudchunkOption allows management of the mutation configuration using functional options.
+type cloudchunkOption func(*CloudChunkMutation)
+
+// newCloudChunkMutation creates new mutation for the CloudChunk entity.
+func newCloudChunkMutation(c config, op Op, opts ...cloudchunkOption) *CloudChunkMutation {
+	m := &CloudChunkMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCloudChunk,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCloudChunkID sets the ID field of the mutation.
+func withCloudChunkID(id uuid.UUID) cloudchunkOption {
+	return func(m *CloudChunkMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CloudChunk
+		)
+		m.oldValue = func(ctx context.Context) (*CloudChunk, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CloudChunk.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCloudChunk sets the old CloudChunk of the mutation.
+func withCloudChunk(node *CloudChunk) cloudchunkOption {
+	return func(m *CloudChunkMutation) {
+		m.oldValue = func(context.Context) (*CloudChunk, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CloudChunkMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CloudChunkMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of CloudChunk entities.
+func (m *CloudChunkMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CloudChunkMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CloudChunkMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CloudChunk.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CloudChunkMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CloudChunkMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CloudChunkMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CloudChunkMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CloudChunkMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CloudChunkMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *CloudChunkMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *CloudChunkMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *CloudChunkMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[cloudchunk.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *CloudChunkMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[cloudchunk.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *CloudChunkMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, cloudchunk.FieldDeletedAt)
+}
+
+// SetSchoolID sets the "school_id" field.
+func (m *CloudChunkMutation) SetSchoolID(u uuid.UUID) {
+	m.school_id = &u
+}
+
+// SchoolID returns the value of the "school_id" field in the mutation.
+func (m *CloudChunkMutation) SchoolID() (r uuid.UUID, exists bool) {
+	v := m.school_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSchoolID returns the old "school_id" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldSchoolID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSchoolID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSchoolID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSchoolID: %w", err)
+	}
+	return oldValue.SchoolID, nil
+}
+
+// ResetSchoolID resets all changes to the "school_id" field.
+func (m *CloudChunkMutation) ResetSchoolID() {
+	m.school_id = nil
+}
+
+// SetCloudItemID sets the "cloud_item_id" field.
+func (m *CloudChunkMutation) SetCloudItemID(u uuid.UUID) {
+	m.cloud_item_id = &u
+}
+
+// CloudItemID returns the value of the "cloud_item_id" field in the mutation.
+func (m *CloudChunkMutation) CloudItemID() (r uuid.UUID, exists bool) {
+	v := m.cloud_item_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCloudItemID returns the old "cloud_item_id" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldCloudItemID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCloudItemID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCloudItemID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCloudItemID: %w", err)
+	}
+	return oldValue.CloudItemID, nil
+}
+
+// ResetCloudItemID resets all changes to the "cloud_item_id" field.
+func (m *CloudChunkMutation) ResetCloudItemID() {
+	m.cloud_item_id = nil
+}
+
+// SetChunkIndex sets the "chunk_index" field.
+func (m *CloudChunkMutation) SetChunkIndex(i int) {
+	m.chunk_index = &i
+	m.addchunk_index = nil
+}
+
+// ChunkIndex returns the value of the "chunk_index" field in the mutation.
+func (m *CloudChunkMutation) ChunkIndex() (r int, exists bool) {
+	v := m.chunk_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChunkIndex returns the old "chunk_index" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldChunkIndex(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChunkIndex is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChunkIndex requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChunkIndex: %w", err)
+	}
+	return oldValue.ChunkIndex, nil
+}
+
+// AddChunkIndex adds i to the "chunk_index" field.
+func (m *CloudChunkMutation) AddChunkIndex(i int) {
+	if m.addchunk_index != nil {
+		*m.addchunk_index += i
+	} else {
+		m.addchunk_index = &i
+	}
+}
+
+// AddedChunkIndex returns the value that was added to the "chunk_index" field in this mutation.
+func (m *CloudChunkMutation) AddedChunkIndex() (r int, exists bool) {
+	v := m.addchunk_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetChunkIndex resets all changes to the "chunk_index" field.
+func (m *CloudChunkMutation) ResetChunkIndex() {
+	m.chunk_index = nil
+	m.addchunk_index = nil
+}
+
+// SetContent sets the "content" field.
+func (m *CloudChunkMutation) SetContent(s string) {
+	m.content = &s
+}
+
+// Content returns the value of the "content" field in the mutation.
+func (m *CloudChunkMutation) Content() (r string, exists bool) {
+	v := m.content
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContent returns the old "content" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldContent(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContent: %w", err)
+	}
+	return oldValue.Content, nil
+}
+
+// ResetContent resets all changes to the "content" field.
+func (m *CloudChunkMutation) ResetContent() {
+	m.content = nil
+}
+
+// SetEmbedding sets the "embedding" field.
+func (m *CloudChunkMutation) SetEmbedding(f []float32) {
+	m.embedding = &f
+	m.appendembedding = nil
+}
+
+// Embedding returns the value of the "embedding" field in the mutation.
+func (m *CloudChunkMutation) Embedding() (r []float32, exists bool) {
+	v := m.embedding
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmbedding returns the old "embedding" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldEmbedding(ctx context.Context) (v []float32, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmbedding is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmbedding requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmbedding: %w", err)
+	}
+	return oldValue.Embedding, nil
+}
+
+// AppendEmbedding adds f to the "embedding" field.
+func (m *CloudChunkMutation) AppendEmbedding(f []float32) {
+	m.appendembedding = append(m.appendembedding, f...)
+}
+
+// AppendedEmbedding returns the list of values that were appended to the "embedding" field in this mutation.
+func (m *CloudChunkMutation) AppendedEmbedding() ([]float32, bool) {
+	if len(m.appendembedding) == 0 {
+		return nil, false
+	}
+	return m.appendembedding, true
+}
+
+// ResetEmbedding resets all changes to the "embedding" field.
+func (m *CloudChunkMutation) ResetEmbedding() {
+	m.embedding = nil
+	m.appendembedding = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *CloudChunkMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *CloudChunkMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *CloudChunkMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetCharCount sets the "char_count" field.
+func (m *CloudChunkMutation) SetCharCount(i int) {
+	m.char_count = &i
+	m.addchar_count = nil
+}
+
+// CharCount returns the value of the "char_count" field in the mutation.
+func (m *CloudChunkMutation) CharCount() (r int, exists bool) {
+	v := m.char_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCharCount returns the old "char_count" field's value of the CloudChunk entity.
+// If the CloudChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudChunkMutation) OldCharCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCharCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCharCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCharCount: %w", err)
+	}
+	return oldValue.CharCount, nil
+}
+
+// AddCharCount adds i to the "char_count" field.
+func (m *CloudChunkMutation) AddCharCount(i int) {
+	if m.addchar_count != nil {
+		*m.addchar_count += i
+	} else {
+		m.addchar_count = &i
+	}
+}
+
+// AddedCharCount returns the value that was added to the "char_count" field in this mutation.
+func (m *CloudChunkMutation) AddedCharCount() (r int, exists bool) {
+	v := m.addchar_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCharCount resets all changes to the "char_count" field.
+func (m *CloudChunkMutation) ResetCharCount() {
+	m.char_count = nil
+	m.addchar_count = nil
+}
+
+// Where appends a list predicates to the CloudChunkMutation builder.
+func (m *CloudChunkMutation) Where(ps ...predicate.CloudChunk) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CloudChunkMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CloudChunkMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CloudChunk, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CloudChunkMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CloudChunkMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CloudChunk).
+func (m *CloudChunkMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CloudChunkMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.created_at != nil {
+		fields = append(fields, cloudchunk.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, cloudchunk.FieldUpdatedAt)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, cloudchunk.FieldDeletedAt)
+	}
+	if m.school_id != nil {
+		fields = append(fields, cloudchunk.FieldSchoolID)
+	}
+	if m.cloud_item_id != nil {
+		fields = append(fields, cloudchunk.FieldCloudItemID)
+	}
+	if m.chunk_index != nil {
+		fields = append(fields, cloudchunk.FieldChunkIndex)
+	}
+	if m.content != nil {
+		fields = append(fields, cloudchunk.FieldContent)
+	}
+	if m.embedding != nil {
+		fields = append(fields, cloudchunk.FieldEmbedding)
+	}
+	if m.provider != nil {
+		fields = append(fields, cloudchunk.FieldProvider)
+	}
+	if m.char_count != nil {
+		fields = append(fields, cloudchunk.FieldCharCount)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CloudChunkMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case cloudchunk.FieldCreatedAt:
+		return m.CreatedAt()
+	case cloudchunk.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case cloudchunk.FieldDeletedAt:
+		return m.DeletedAt()
+	case cloudchunk.FieldSchoolID:
+		return m.SchoolID()
+	case cloudchunk.FieldCloudItemID:
+		return m.CloudItemID()
+	case cloudchunk.FieldChunkIndex:
+		return m.ChunkIndex()
+	case cloudchunk.FieldContent:
+		return m.Content()
+	case cloudchunk.FieldEmbedding:
+		return m.Embedding()
+	case cloudchunk.FieldProvider:
+		return m.Provider()
+	case cloudchunk.FieldCharCount:
+		return m.CharCount()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CloudChunkMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case cloudchunk.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case cloudchunk.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case cloudchunk.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case cloudchunk.FieldSchoolID:
+		return m.OldSchoolID(ctx)
+	case cloudchunk.FieldCloudItemID:
+		return m.OldCloudItemID(ctx)
+	case cloudchunk.FieldChunkIndex:
+		return m.OldChunkIndex(ctx)
+	case cloudchunk.FieldContent:
+		return m.OldContent(ctx)
+	case cloudchunk.FieldEmbedding:
+		return m.OldEmbedding(ctx)
+	case cloudchunk.FieldProvider:
+		return m.OldProvider(ctx)
+	case cloudchunk.FieldCharCount:
+		return m.OldCharCount(ctx)
+	}
+	return nil, fmt.Errorf("unknown CloudChunk field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CloudChunkMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case cloudchunk.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case cloudchunk.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case cloudchunk.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case cloudchunk.FieldSchoolID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSchoolID(v)
+		return nil
+	case cloudchunk.FieldCloudItemID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCloudItemID(v)
+		return nil
+	case cloudchunk.FieldChunkIndex:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChunkIndex(v)
+		return nil
+	case cloudchunk.FieldContent:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContent(v)
+		return nil
+	case cloudchunk.FieldEmbedding:
+		v, ok := value.([]float32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmbedding(v)
+		return nil
+	case cloudchunk.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case cloudchunk.FieldCharCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCharCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CloudChunk field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CloudChunkMutation) AddedFields() []string {
+	var fields []string
+	if m.addchunk_index != nil {
+		fields = append(fields, cloudchunk.FieldChunkIndex)
+	}
+	if m.addchar_count != nil {
+		fields = append(fields, cloudchunk.FieldCharCount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CloudChunkMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case cloudchunk.FieldChunkIndex:
+		return m.AddedChunkIndex()
+	case cloudchunk.FieldCharCount:
+		return m.AddedCharCount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CloudChunkMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case cloudchunk.FieldChunkIndex:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddChunkIndex(v)
+		return nil
+	case cloudchunk.FieldCharCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCharCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CloudChunk numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CloudChunkMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(cloudchunk.FieldDeletedAt) {
+		fields = append(fields, cloudchunk.FieldDeletedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CloudChunkMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CloudChunkMutation) ClearField(name string) error {
+	switch name {
+	case cloudchunk.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CloudChunk nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CloudChunkMutation) ResetField(name string) error {
+	switch name {
+	case cloudchunk.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case cloudchunk.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case cloudchunk.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case cloudchunk.FieldSchoolID:
+		m.ResetSchoolID()
+		return nil
+	case cloudchunk.FieldCloudItemID:
+		m.ResetCloudItemID()
+		return nil
+	case cloudchunk.FieldChunkIndex:
+		m.ResetChunkIndex()
+		return nil
+	case cloudchunk.FieldContent:
+		m.ResetContent()
+		return nil
+	case cloudchunk.FieldEmbedding:
+		m.ResetEmbedding()
+		return nil
+	case cloudchunk.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case cloudchunk.FieldCharCount:
+		m.ResetCharCount()
+		return nil
+	}
+	return fmt.Errorf("unknown CloudChunk field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CloudChunkMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CloudChunkMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CloudChunkMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CloudChunkMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CloudChunkMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CloudChunkMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CloudChunkMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown CloudChunk unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CloudChunkMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown CloudChunk edge %s", name)
+}
+
 // CloudItemMutation represents an operation that mutates the CloudItem nodes in the graph.
 type CloudItemMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *uuid.UUID
-	created_at    *time.Time
-	updated_at    *time.Time
-	deleted_at    *time.Time
-	school_id     *uuid.UUID
-	creator_id    *uuid.UUID
-	parent_id     *uuid.UUID
-	name          *string
-	is_folder     *bool
-	mime          *string
-	kind          *string
-	size_bytes    *int64
-	addsize_bytes *int64
-	storage_path  *string
-	sha256        *string
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*CloudItem, error)
-	predicates    []predicate.CloudItem
+	op             Op
+	typ            string
+	id             *uuid.UUID
+	created_at     *time.Time
+	updated_at     *time.Time
+	deleted_at     *time.Time
+	school_id      *uuid.UUID
+	creator_id     *uuid.UUID
+	parent_id      *uuid.UUID
+	name           *string
+	is_folder      *bool
+	mime           *string
+	kind           *string
+	size_bytes     *int64
+	addsize_bytes  *int64
+	storage_path   *string
+	sha256         *string
+	index_status   *string
+	index_error    *string
+	index_provider *string
+	chunk_count    *int
+	addchunk_count *int
+	indexed_at     *time.Time
+	clearedFields  map[string]struct{}
+	done           bool
+	oldValue       func(context.Context) (*CloudItem, error)
+	predicates     []predicate.CloudItem
 }
 
 var _ ent.Mutation = (*CloudItemMutation)(nil)
@@ -5985,6 +6918,219 @@ func (m *CloudItemMutation) ResetSha256() {
 	m.sha256 = nil
 }
 
+// SetIndexStatus sets the "index_status" field.
+func (m *CloudItemMutation) SetIndexStatus(s string) {
+	m.index_status = &s
+}
+
+// IndexStatus returns the value of the "index_status" field in the mutation.
+func (m *CloudItemMutation) IndexStatus() (r string, exists bool) {
+	v := m.index_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIndexStatus returns the old "index_status" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldIndexStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIndexStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIndexStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIndexStatus: %w", err)
+	}
+	return oldValue.IndexStatus, nil
+}
+
+// ResetIndexStatus resets all changes to the "index_status" field.
+func (m *CloudItemMutation) ResetIndexStatus() {
+	m.index_status = nil
+}
+
+// SetIndexError sets the "index_error" field.
+func (m *CloudItemMutation) SetIndexError(s string) {
+	m.index_error = &s
+}
+
+// IndexError returns the value of the "index_error" field in the mutation.
+func (m *CloudItemMutation) IndexError() (r string, exists bool) {
+	v := m.index_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIndexError returns the old "index_error" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldIndexError(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIndexError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIndexError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIndexError: %w", err)
+	}
+	return oldValue.IndexError, nil
+}
+
+// ResetIndexError resets all changes to the "index_error" field.
+func (m *CloudItemMutation) ResetIndexError() {
+	m.index_error = nil
+}
+
+// SetIndexProvider sets the "index_provider" field.
+func (m *CloudItemMutation) SetIndexProvider(s string) {
+	m.index_provider = &s
+}
+
+// IndexProvider returns the value of the "index_provider" field in the mutation.
+func (m *CloudItemMutation) IndexProvider() (r string, exists bool) {
+	v := m.index_provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIndexProvider returns the old "index_provider" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldIndexProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIndexProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIndexProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIndexProvider: %w", err)
+	}
+	return oldValue.IndexProvider, nil
+}
+
+// ResetIndexProvider resets all changes to the "index_provider" field.
+func (m *CloudItemMutation) ResetIndexProvider() {
+	m.index_provider = nil
+}
+
+// SetChunkCount sets the "chunk_count" field.
+func (m *CloudItemMutation) SetChunkCount(i int) {
+	m.chunk_count = &i
+	m.addchunk_count = nil
+}
+
+// ChunkCount returns the value of the "chunk_count" field in the mutation.
+func (m *CloudItemMutation) ChunkCount() (r int, exists bool) {
+	v := m.chunk_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChunkCount returns the old "chunk_count" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldChunkCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChunkCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChunkCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChunkCount: %w", err)
+	}
+	return oldValue.ChunkCount, nil
+}
+
+// AddChunkCount adds i to the "chunk_count" field.
+func (m *CloudItemMutation) AddChunkCount(i int) {
+	if m.addchunk_count != nil {
+		*m.addchunk_count += i
+	} else {
+		m.addchunk_count = &i
+	}
+}
+
+// AddedChunkCount returns the value that was added to the "chunk_count" field in this mutation.
+func (m *CloudItemMutation) AddedChunkCount() (r int, exists bool) {
+	v := m.addchunk_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetChunkCount resets all changes to the "chunk_count" field.
+func (m *CloudItemMutation) ResetChunkCount() {
+	m.chunk_count = nil
+	m.addchunk_count = nil
+}
+
+// SetIndexedAt sets the "indexed_at" field.
+func (m *CloudItemMutation) SetIndexedAt(t time.Time) {
+	m.indexed_at = &t
+}
+
+// IndexedAt returns the value of the "indexed_at" field in the mutation.
+func (m *CloudItemMutation) IndexedAt() (r time.Time, exists bool) {
+	v := m.indexed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIndexedAt returns the old "indexed_at" field's value of the CloudItem entity.
+// If the CloudItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CloudItemMutation) OldIndexedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIndexedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIndexedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIndexedAt: %w", err)
+	}
+	return oldValue.IndexedAt, nil
+}
+
+// ClearIndexedAt clears the value of the "indexed_at" field.
+func (m *CloudItemMutation) ClearIndexedAt() {
+	m.indexed_at = nil
+	m.clearedFields[clouditem.FieldIndexedAt] = struct{}{}
+}
+
+// IndexedAtCleared returns if the "indexed_at" field was cleared in this mutation.
+func (m *CloudItemMutation) IndexedAtCleared() bool {
+	_, ok := m.clearedFields[clouditem.FieldIndexedAt]
+	return ok
+}
+
+// ResetIndexedAt resets all changes to the "indexed_at" field.
+func (m *CloudItemMutation) ResetIndexedAt() {
+	m.indexed_at = nil
+	delete(m.clearedFields, clouditem.FieldIndexedAt)
+}
+
 // Where appends a list predicates to the CloudItemMutation builder.
 func (m *CloudItemMutation) Where(ps ...predicate.CloudItem) {
 	m.predicates = append(m.predicates, ps...)
@@ -6019,7 +7165,7 @@ func (m *CloudItemMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CloudItemMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 18)
 	if m.created_at != nil {
 		fields = append(fields, clouditem.FieldCreatedAt)
 	}
@@ -6059,6 +7205,21 @@ func (m *CloudItemMutation) Fields() []string {
 	if m.sha256 != nil {
 		fields = append(fields, clouditem.FieldSha256)
 	}
+	if m.index_status != nil {
+		fields = append(fields, clouditem.FieldIndexStatus)
+	}
+	if m.index_error != nil {
+		fields = append(fields, clouditem.FieldIndexError)
+	}
+	if m.index_provider != nil {
+		fields = append(fields, clouditem.FieldIndexProvider)
+	}
+	if m.chunk_count != nil {
+		fields = append(fields, clouditem.FieldChunkCount)
+	}
+	if m.indexed_at != nil {
+		fields = append(fields, clouditem.FieldIndexedAt)
+	}
 	return fields
 }
 
@@ -6093,6 +7254,16 @@ func (m *CloudItemMutation) Field(name string) (ent.Value, bool) {
 		return m.StoragePath()
 	case clouditem.FieldSha256:
 		return m.Sha256()
+	case clouditem.FieldIndexStatus:
+		return m.IndexStatus()
+	case clouditem.FieldIndexError:
+		return m.IndexError()
+	case clouditem.FieldIndexProvider:
+		return m.IndexProvider()
+	case clouditem.FieldChunkCount:
+		return m.ChunkCount()
+	case clouditem.FieldIndexedAt:
+		return m.IndexedAt()
 	}
 	return nil, false
 }
@@ -6128,6 +7299,16 @@ func (m *CloudItemMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldStoragePath(ctx)
 	case clouditem.FieldSha256:
 		return m.OldSha256(ctx)
+	case clouditem.FieldIndexStatus:
+		return m.OldIndexStatus(ctx)
+	case clouditem.FieldIndexError:
+		return m.OldIndexError(ctx)
+	case clouditem.FieldIndexProvider:
+		return m.OldIndexProvider(ctx)
+	case clouditem.FieldChunkCount:
+		return m.OldChunkCount(ctx)
+	case clouditem.FieldIndexedAt:
+		return m.OldIndexedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown CloudItem field %s", name)
 }
@@ -6228,6 +7409,41 @@ func (m *CloudItemMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetSha256(v)
 		return nil
+	case clouditem.FieldIndexStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIndexStatus(v)
+		return nil
+	case clouditem.FieldIndexError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIndexError(v)
+		return nil
+	case clouditem.FieldIndexProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIndexProvider(v)
+		return nil
+	case clouditem.FieldChunkCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChunkCount(v)
+		return nil
+	case clouditem.FieldIndexedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIndexedAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown CloudItem field %s", name)
 }
@@ -6239,6 +7455,9 @@ func (m *CloudItemMutation) AddedFields() []string {
 	if m.addsize_bytes != nil {
 		fields = append(fields, clouditem.FieldSizeBytes)
 	}
+	if m.addchunk_count != nil {
+		fields = append(fields, clouditem.FieldChunkCount)
+	}
 	return fields
 }
 
@@ -6249,6 +7468,8 @@ func (m *CloudItemMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case clouditem.FieldSizeBytes:
 		return m.AddedSizeBytes()
+	case clouditem.FieldChunkCount:
+		return m.AddedChunkCount()
 	}
 	return nil, false
 }
@@ -6265,6 +7486,13 @@ func (m *CloudItemMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddSizeBytes(v)
 		return nil
+	case clouditem.FieldChunkCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddChunkCount(v)
+		return nil
 	}
 	return fmt.Errorf("unknown CloudItem numeric field %s", name)
 }
@@ -6278,6 +7506,9 @@ func (m *CloudItemMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(clouditem.FieldParentID) {
 		fields = append(fields, clouditem.FieldParentID)
+	}
+	if m.FieldCleared(clouditem.FieldIndexedAt) {
+		fields = append(fields, clouditem.FieldIndexedAt)
 	}
 	return fields
 }
@@ -6298,6 +7529,9 @@ func (m *CloudItemMutation) ClearField(name string) error {
 		return nil
 	case clouditem.FieldParentID:
 		m.ClearParentID()
+		return nil
+	case clouditem.FieldIndexedAt:
+		m.ClearIndexedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown CloudItem nullable field %s", name)
@@ -6345,6 +7579,21 @@ func (m *CloudItemMutation) ResetField(name string) error {
 		return nil
 	case clouditem.FieldSha256:
 		m.ResetSha256()
+		return nil
+	case clouditem.FieldIndexStatus:
+		m.ResetIndexStatus()
+		return nil
+	case clouditem.FieldIndexError:
+		m.ResetIndexError()
+		return nil
+	case clouditem.FieldIndexProvider:
+		m.ResetIndexProvider()
+		return nil
+	case clouditem.FieldChunkCount:
+		m.ResetChunkCount()
+		return nil
+	case clouditem.FieldIndexedAt:
+		m.ResetIndexedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown CloudItem field %s", name)

@@ -27,6 +27,12 @@ func (CloudItem) Fields() []ent.Field {
 		field.Int64("size_bytes").Default(0),
 		field.String("storage_path").MaxLen(500).Default(""),
 		field.String("sha256").MaxLen(64).Default(""),
+		// 云盘文件上传后自动进入向量化队列，状态供前端与 AI 检索使用。
+		field.String("index_status").MaxLen(20).Default("pending"),
+		field.String("index_error").MaxLen(500).Default(""),
+		field.String("index_provider").MaxLen(80).Default(""),
+		field.Int("chunk_count").Default(0),
+		field.Time("indexed_at").Optional().Nillable(),
 	}
 }
 

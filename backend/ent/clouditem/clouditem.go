@@ -40,6 +40,16 @@ const (
 	FieldStoragePath = "storage_path"
 	// FieldSha256 holds the string denoting the sha256 field in the database.
 	FieldSha256 = "sha256"
+	// FieldIndexStatus holds the string denoting the index_status field in the database.
+	FieldIndexStatus = "index_status"
+	// FieldIndexError holds the string denoting the index_error field in the database.
+	FieldIndexError = "index_error"
+	// FieldIndexProvider holds the string denoting the index_provider field in the database.
+	FieldIndexProvider = "index_provider"
+	// FieldChunkCount holds the string denoting the chunk_count field in the database.
+	FieldChunkCount = "chunk_count"
+	// FieldIndexedAt holds the string denoting the indexed_at field in the database.
+	FieldIndexedAt = "indexed_at"
 	// Table holds the table name of the clouditem in the database.
 	Table = "cloud_items"
 )
@@ -60,6 +70,11 @@ var Columns = []string{
 	FieldSizeBytes,
 	FieldStoragePath,
 	FieldSha256,
+	FieldIndexStatus,
+	FieldIndexError,
+	FieldIndexProvider,
+	FieldChunkCount,
+	FieldIndexedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -101,6 +116,20 @@ var (
 	DefaultSha256 string
 	// Sha256Validator is a validator for the "sha256" field. It is called by the builders before save.
 	Sha256Validator func(string) error
+	// DefaultIndexStatus holds the default value on creation for the "index_status" field.
+	DefaultIndexStatus string
+	// IndexStatusValidator is a validator for the "index_status" field. It is called by the builders before save.
+	IndexStatusValidator func(string) error
+	// DefaultIndexError holds the default value on creation for the "index_error" field.
+	DefaultIndexError string
+	// IndexErrorValidator is a validator for the "index_error" field. It is called by the builders before save.
+	IndexErrorValidator func(string) error
+	// DefaultIndexProvider holds the default value on creation for the "index_provider" field.
+	DefaultIndexProvider string
+	// IndexProviderValidator is a validator for the "index_provider" field. It is called by the builders before save.
+	IndexProviderValidator func(string) error
+	// DefaultChunkCount holds the default value on creation for the "chunk_count" field.
+	DefaultChunkCount int
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -176,4 +205,29 @@ func ByStoragePath(opts ...sql.OrderTermOption) OrderOption {
 // BySha256 orders the results by the sha256 field.
 func BySha256(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSha256, opts...).ToFunc()
+}
+
+// ByIndexStatus orders the results by the index_status field.
+func ByIndexStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIndexStatus, opts...).ToFunc()
+}
+
+// ByIndexError orders the results by the index_error field.
+func ByIndexError(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIndexError, opts...).ToFunc()
+}
+
+// ByIndexProvider orders the results by the index_provider field.
+func ByIndexProvider(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIndexProvider, opts...).ToFunc()
+}
+
+// ByChunkCount orders the results by the chunk_count field.
+func ByChunkCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldChunkCount, opts...).ToFunc()
+}
+
+// ByIndexedAt orders the results by the indexed_at field.
+func ByIndexedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIndexedAt, opts...).ToFunc()
 }

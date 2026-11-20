@@ -25,6 +25,7 @@
 | `compose_paper` | 是 | `subject`、`grade`、`category`、`knowledge_point`、`tag`、`count`、`model` | `agent_tool_compose_paper` | 从已发布题目组 100 分试卷草稿 |
 | `list_attachments` | 否 | — | — | 列出本轮附件的类型、状态与文本预览 |
 | `read_attachment` | 否 | `attachment_ids`、`offset`、`limit` | — | 读取 PDF/Word/文本正文并分段；图片标记为视觉输入，不返回图片文本 |
+| `search_cloud` | 否 | `query`、`limit` | — | 在本校已向量化的云盘资料中语义检索，返回文件名、原文片段与相似度；只读 |
 | `extract_questions` | 否 | `attachment_ids`、`subject`、`grade` | — | PDF/Word/文本切题，仅预览，最多 20 道 |
 | `import_document_questions` | 是 | `attachment_ids`、`subject`、`grade`、`category`、`tags` | `agent_tool_import_document_questions`、每题 `agent_import_question` | 文档切题并写入草稿，缺少答案的题跳过 |
 | `create_questions` | 是 | `subject`、`grade`、`items` | `agent_tool_create_questions` | 结构化题目批量创建草稿，单次 ≤10 道 |
@@ -78,6 +79,7 @@
 | 技能 ID | 名称 | 接受附件 | 工具组合 |
 |---|---|---|---|
 | `document_reader` | 文档阅读 | 是 | `list_attachments` → `read_attachment` |
+| `cloud_research` | 云盘资料问答 | 否 | `search_cloud` |
 | `document_import` | 文档智能录题 | 是 | `extract_questions` → `import_document_questions` |
 | `paper_split` | 整卷拆题 | 是 | `extract_questions` |
 | `bank_cleanup` | 题库体检与整理 | 否 | `bank_audit` → `organize_drafts` |

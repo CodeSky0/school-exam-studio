@@ -21,6 +21,9 @@ type AIMessage func(*sql.Selector)
 // AIRun is the predicate function for airun builders.
 type AIRun func(*sql.Selector)
 
+// CloudChunk is the predicate function for cloudchunk builders.
+type CloudChunk func(*sql.Selector)
+
 // CloudItem is the predicate function for clouditem builders.
 type CloudItem func(*sql.Selector)
 

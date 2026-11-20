@@ -208,6 +208,89 @@ func (_u *CloudItemUpdate) SetNillableSha256(v *string) *CloudItemUpdate {
 	return _u
 }
 
+// SetIndexStatus sets the "index_status" field.
+func (_u *CloudItemUpdate) SetIndexStatus(v string) *CloudItemUpdate {
+	_u.mutation.SetIndexStatus(v)
+	return _u
+}
+
+// SetNillableIndexStatus sets the "index_status" field if the given value is not nil.
+func (_u *CloudItemUpdate) SetNillableIndexStatus(v *string) *CloudItemUpdate {
+	if v != nil {
+		_u.SetIndexStatus(*v)
+	}
+	return _u
+}
+
+// SetIndexError sets the "index_error" field.
+func (_u *CloudItemUpdate) SetIndexError(v string) *CloudItemUpdate {
+	_u.mutation.SetIndexError(v)
+	return _u
+}
+
+// SetNillableIndexError sets the "index_error" field if the given value is not nil.
+func (_u *CloudItemUpdate) SetNillableIndexError(v *string) *CloudItemUpdate {
+	if v != nil {
+		_u.SetIndexError(*v)
+	}
+	return _u
+}
+
+// SetIndexProvider sets the "index_provider" field.
+func (_u *CloudItemUpdate) SetIndexProvider(v string) *CloudItemUpdate {
+	_u.mutation.SetIndexProvider(v)
+	return _u
+}
+
+// SetNillableIndexProvider sets the "index_provider" field if the given value is not nil.
+func (_u *CloudItemUpdate) SetNillableIndexProvider(v *string) *CloudItemUpdate {
+	if v != nil {
+		_u.SetIndexProvider(*v)
+	}
+	return _u
+}
+
+// SetChunkCount sets the "chunk_count" field.
+func (_u *CloudItemUpdate) SetChunkCount(v int) *CloudItemUpdate {
+	_u.mutation.ResetChunkCount()
+	_u.mutation.SetChunkCount(v)
+	return _u
+}
+
+// SetNillableChunkCount sets the "chunk_count" field if the given value is not nil.
+func (_u *CloudItemUpdate) SetNillableChunkCount(v *int) *CloudItemUpdate {
+	if v != nil {
+		_u.SetChunkCount(*v)
+	}
+	return _u
+}
+
+// AddChunkCount adds value to the "chunk_count" field.
+func (_u *CloudItemUpdate) AddChunkCount(v int) *CloudItemUpdate {
+	_u.mutation.AddChunkCount(v)
+	return _u
+}
+
+// SetIndexedAt sets the "indexed_at" field.
+func (_u *CloudItemUpdate) SetIndexedAt(v time.Time) *CloudItemUpdate {
+	_u.mutation.SetIndexedAt(v)
+	return _u
+}
+
+// SetNillableIndexedAt sets the "indexed_at" field if the given value is not nil.
+func (_u *CloudItemUpdate) SetNillableIndexedAt(v *time.Time) *CloudItemUpdate {
+	if v != nil {
+		_u.SetIndexedAt(*v)
+	}
+	return _u
+}
+
+// ClearIndexedAt clears the value of the "indexed_at" field.
+func (_u *CloudItemUpdate) ClearIndexedAt() *CloudItemUpdate {
+	_u.mutation.ClearIndexedAt()
+	return _u
+}
+
 // Mutation returns the CloudItemMutation object of the builder.
 func (_u *CloudItemUpdate) Mutation() *CloudItemMutation {
 	return _u.mutation
@@ -276,6 +359,21 @@ func (_u *CloudItemUpdate) check() error {
 			return &ValidationError{Name: "sha256", err: fmt.Errorf(`ent: validator failed for field "CloudItem.sha256": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.IndexStatus(); ok {
+		if err := clouditem.IndexStatusValidator(v); err != nil {
+			return &ValidationError{Name: "index_status", err: fmt.Errorf(`ent: validator failed for field "CloudItem.index_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.IndexError(); ok {
+		if err := clouditem.IndexErrorValidator(v); err != nil {
+			return &ValidationError{Name: "index_error", err: fmt.Errorf(`ent: validator failed for field "CloudItem.index_error": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.IndexProvider(); ok {
+		if err := clouditem.IndexProviderValidator(v); err != nil {
+			return &ValidationError{Name: "index_provider", err: fmt.Errorf(`ent: validator failed for field "CloudItem.index_provider": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -335,6 +433,27 @@ func (_u *CloudItemUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Sha256(); ok {
 		_spec.SetField(clouditem.FieldSha256, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.IndexStatus(); ok {
+		_spec.SetField(clouditem.FieldIndexStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.IndexError(); ok {
+		_spec.SetField(clouditem.FieldIndexError, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.IndexProvider(); ok {
+		_spec.SetField(clouditem.FieldIndexProvider, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ChunkCount(); ok {
+		_spec.SetField(clouditem.FieldChunkCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedChunkCount(); ok {
+		_spec.AddField(clouditem.FieldChunkCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.IndexedAt(); ok {
+		_spec.SetField(clouditem.FieldIndexedAt, field.TypeTime, value)
+	}
+	if _u.mutation.IndexedAtCleared() {
+		_spec.ClearField(clouditem.FieldIndexedAt, field.TypeTime)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -535,6 +654,89 @@ func (_u *CloudItemUpdateOne) SetNillableSha256(v *string) *CloudItemUpdateOne {
 	return _u
 }
 
+// SetIndexStatus sets the "index_status" field.
+func (_u *CloudItemUpdateOne) SetIndexStatus(v string) *CloudItemUpdateOne {
+	_u.mutation.SetIndexStatus(v)
+	return _u
+}
+
+// SetNillableIndexStatus sets the "index_status" field if the given value is not nil.
+func (_u *CloudItemUpdateOne) SetNillableIndexStatus(v *string) *CloudItemUpdateOne {
+	if v != nil {
+		_u.SetIndexStatus(*v)
+	}
+	return _u
+}
+
+// SetIndexError sets the "index_error" field.
+func (_u *CloudItemUpdateOne) SetIndexError(v string) *CloudItemUpdateOne {
+	_u.mutation.SetIndexError(v)
+	return _u
+}
+
+// SetNillableIndexError sets the "index_error" field if the given value is not nil.
+func (_u *CloudItemUpdateOne) SetNillableIndexError(v *string) *CloudItemUpdateOne {
+	if v != nil {
+		_u.SetIndexError(*v)
+	}
+	return _u
+}
+
+// SetIndexProvider sets the "index_provider" field.
+func (_u *CloudItemUpdateOne) SetIndexProvider(v string) *CloudItemUpdateOne {
+	_u.mutation.SetIndexProvider(v)
+	return _u
+}
+
+// SetNillableIndexProvider sets the "index_provider" field if the given value is not nil.
+func (_u *CloudItemUpdateOne) SetNillableIndexProvider(v *string) *CloudItemUpdateOne {
+	if v != nil {
+		_u.SetIndexProvider(*v)
+	}
+	return _u
+}
+
+// SetChunkCount sets the "chunk_count" field.
+func (_u *CloudItemUpdateOne) SetChunkCount(v int) *CloudItemUpdateOne {
+	_u.mutation.ResetChunkCount()
+	_u.mutation.SetChunkCount(v)
+	return _u
+}
+
+// SetNillableChunkCount sets the "chunk_count" field if the given value is not nil.
+func (_u *CloudItemUpdateOne) SetNillableChunkCount(v *int) *CloudItemUpdateOne {
+	if v != nil {
+		_u.SetChunkCount(*v)
+	}
+	return _u
+}
+
+// AddChunkCount adds value to the "chunk_count" field.
+func (_u *CloudItemUpdateOne) AddChunkCount(v int) *CloudItemUpdateOne {
+	_u.mutation.AddChunkCount(v)
+	return _u
+}
+
+// SetIndexedAt sets the "indexed_at" field.
+func (_u *CloudItemUpdateOne) SetIndexedAt(v time.Time) *CloudItemUpdateOne {
+	_u.mutation.SetIndexedAt(v)
+	return _u
+}
+
+// SetNillableIndexedAt sets the "indexed_at" field if the given value is not nil.
+func (_u *CloudItemUpdateOne) SetNillableIndexedAt(v *time.Time) *CloudItemUpdateOne {
+	if v != nil {
+		_u.SetIndexedAt(*v)
+	}
+	return _u
+}
+
+// ClearIndexedAt clears the value of the "indexed_at" field.
+func (_u *CloudItemUpdateOne) ClearIndexedAt() *CloudItemUpdateOne {
+	_u.mutation.ClearIndexedAt()
+	return _u
+}
+
 // Mutation returns the CloudItemMutation object of the builder.
 func (_u *CloudItemUpdateOne) Mutation() *CloudItemMutation {
 	return _u.mutation
@@ -616,6 +818,21 @@ func (_u *CloudItemUpdateOne) check() error {
 			return &ValidationError{Name: "sha256", err: fmt.Errorf(`ent: validator failed for field "CloudItem.sha256": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.IndexStatus(); ok {
+		if err := clouditem.IndexStatusValidator(v); err != nil {
+			return &ValidationError{Name: "index_status", err: fmt.Errorf(`ent: validator failed for field "CloudItem.index_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.IndexError(); ok {
+		if err := clouditem.IndexErrorValidator(v); err != nil {
+			return &ValidationError{Name: "index_error", err: fmt.Errorf(`ent: validator failed for field "CloudItem.index_error": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.IndexProvider(); ok {
+		if err := clouditem.IndexProviderValidator(v); err != nil {
+			return &ValidationError{Name: "index_provider", err: fmt.Errorf(`ent: validator failed for field "CloudItem.index_provider": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -692,6 +909,27 @@ func (_u *CloudItemUpdateOne) sqlSave(ctx context.Context) (_node *CloudItem, er
 	}
 	if value, ok := _u.mutation.Sha256(); ok {
 		_spec.SetField(clouditem.FieldSha256, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.IndexStatus(); ok {
+		_spec.SetField(clouditem.FieldIndexStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.IndexError(); ok {
+		_spec.SetField(clouditem.FieldIndexError, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.IndexProvider(); ok {
+		_spec.SetField(clouditem.FieldIndexProvider, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ChunkCount(); ok {
+		_spec.SetField(clouditem.FieldChunkCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedChunkCount(); ok {
+		_spec.AddField(clouditem.FieldChunkCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.IndexedAt(); ok {
+		_spec.SetField(clouditem.FieldIndexedAt, field.TypeTime, value)
+	}
+	if _u.mutation.IndexedAtCleared() {
+		_spec.ClearField(clouditem.FieldIndexedAt, field.TypeTime)
 	}
 	_node = &CloudItem{config: _u.config}
 	_spec.Assign = _node.assignValues

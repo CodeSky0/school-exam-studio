@@ -22,6 +22,8 @@ type Tx struct {
 	AIMessage *AIMessageClient
 	// AIRun is the client for interacting with the AIRun builders.
 	AIRun *AIRunClient
+	// CloudChunk is the client for interacting with the CloudChunk builders.
+	CloudChunk *CloudChunkClient
 	// CloudItem is the client for interacting with the CloudItem builders.
 	CloudItem *CloudItemClient
 	// Paper is the client for interacting with the Paper builders.
@@ -172,6 +174,7 @@ func (tx *Tx) init() {
 	tx.AIConversation = NewAIConversationClient(tx.config)
 	tx.AIMessage = NewAIMessageClient(tx.config)
 	tx.AIRun = NewAIRunClient(tx.config)
+	tx.CloudChunk = NewCloudChunkClient(tx.config)
 	tx.CloudItem = NewCloudItemClient(tx.config)
 	tx.Paper = NewPaperClient(tx.config)
 	tx.PaperQuestion = NewPaperQuestionClient(tx.config)

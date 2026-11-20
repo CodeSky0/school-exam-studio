@@ -19,6 +19,7 @@ import (
 type CloudDrive interface {
 	ImportFromAI(ctx context.Context, principal auth.Principal, name string, data []byte) error
 	ReadForAI(ctx context.Context, principal auth.Principal, id uuid.UUID) (drive.ReadFile, error)
+	Search(ctx context.Context, principal auth.Principal, query string, limit int) (drive.SearchResult, error)
 }
 
 type Options struct {
@@ -137,6 +138,7 @@ func (s *Service) Status(ctx context.Context, principal auth.Principal) Status {
 			"AI Agent 多轮对话、持久化会话与工具调用时间线",
 			"PDF/Word/图片文档阅读与智能切题入库",
 			"图片由多模态模型直接阅读，不依赖 OCR sidecar",
+			"云盘资料上传后自动向量化，支持语义检索与原文引用",
 			"内置技能目录与外部 Agent 工具发现",
 		},
 		Safety: []string{

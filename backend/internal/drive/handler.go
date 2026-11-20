@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -28,8 +29,76 @@ func (h *Handler) Register(group *echo.Group) {
 	group.GET("/cloud/items", h.List)
 	group.POST("/cloud/folders", h.CreateFolder)
 	group.POST("/cloud/files", h.Upload)
+	group.GET("/cloud/search", h.Search)
+	group.POST("/cloud/reindex", h.ReindexAll)
+	group.GET("/cloud/index/stats", h.IndexStats)
+	group.POST("/cloud/items/:id/reindex", h.Reindex)
 	group.GET("/cloud/items/:id/download", h.Download)
 	group.DELETE("/cloud/items/:id", h.Delete)
+}
+
+// Search 返回云盘资料的语义检索结果，供前端搜索框与 AI 引用。
+func (h *Handler) Search(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	limit := 8
+	if raw := c.QueryParam("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > searchMaxHits {
+			return driveError(validationError("limit", "limit 必须为 1-20 的整数"))
+		}
+		limit = parsed
+	}
+	result, err := h.service.Search(c.Request().Context(), principal, c.QueryParam("q"), limit)
+	if err != nil {
+		return driveError(err)
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
+// Reindex 把单个文件重新加入向量化队列。
+func (h *Handler) Reindex(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return driveError(validationError("id", "文件ID格式不正确"))
+	}
+	item, err := h.service.Reindex(c.Request().Context(), principal, id)
+	if err != nil {
+		return driveError(err)
+	}
+	return c.JSON(http.StatusAccepted, item)
+}
+
+// ReindexAll 把本校全部文件重新加入向量化队列。
+func (h *Handler) ReindexAll(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	queued, err := h.service.ReindexAll(c.Request().Context(), principal)
+	if err != nil {
+		return driveError(err)
+	}
+	return c.JSON(http.StatusAccepted, map[string]int{"queued": queued})
+}
+
+// IndexStats 汇总本校云盘文件的索引状态。
+func (h *Handler) IndexStats(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	stats, err := h.service.IndexStats(c.Request().Context(), principal)
+	if err != nil {
+		return driveError(err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"counts": stats})
 }
 
 func (h *Handler) List(c echo.Context) error {
@@ -162,6 +231,8 @@ func driveError(err error) error {
 		return apperror.New(http.StatusForbidden, "FORBIDDEN", "没有操作权限")
 	case errors.Is(err, ErrConflict):
 		return apperror.New(http.StatusConflict, "CLOUD_NAME_CONFLICT", "同名文件夹已存在")
+	case errors.Is(err, ErrIndexing):
+		return apperror.New(http.StatusServiceUnavailable, "CLOUD_INDEX_UNAVAILABLE", "云盘向量检索暂不可用")
 	default:
 		return apperror.Internal(err)
 	}

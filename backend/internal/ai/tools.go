@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"school-exam-studio/backend/internal/auth"
 	"school-exam-studio/backend/internal/document"
+	"school-exam-studio/backend/internal/drive"
 	"school-exam-studio/backend/internal/question"
 )
 
@@ -62,6 +64,7 @@ func (s *Service) toolRegistry() map[string]registeredTool {
 		{descriptor: toolComposePaper, run: s.toolComposePaper},
 		{descriptor: toolListAttachments, run: s.toolListAttachments},
 		{descriptor: toolReadAttachment, run: s.toolReadAttachment},
+		{descriptor: toolSearchCloud, run: s.toolSearchCloud},
 		{descriptor: toolExtractQuestions, run: s.toolExtractQuestions},
 		{descriptor: toolImportDocument, run: s.toolImportDocument},
 		{descriptor: toolCreateQuestions, run: s.toolCreateQuestions},
@@ -91,7 +94,7 @@ func toolCategory(name string) string {
 		return "paper"
 	case "bank_stats", "bank_audit", "find_duplicates", "review_queue", "search_similar_questions":
 		return "analytics"
-	case "list_attachments", "read_attachment", "extract_questions", "import_document_questions":
+	case "list_attachments", "read_attachment", "search_cloud", "extract_questions", "import_document_questions":
 		return "document"
 	default:
 		return "question"
@@ -415,6 +418,48 @@ func (s *Service) toolReadAttachment(ctx context.Context, toolContext ToolContex
 		summary += fmt.Sprintf("，其中 %d 张图片已作为视觉输入直接提供", visionCount)
 	}
 	return ToolResult{Summary: summary, Data: map[string]any{"items": items}}, nil
+}
+
+// toolSearchCloud 检索学校云盘中已向量化的资料，只读取文本片段，不写入任何数据。
+func (s *Service) toolSearchCloud(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
+	if s.cloudDrive == nil {
+		return ToolResult{}, validationError("query", "云盘向量检索未启用")
+	}
+	query := strings.TrimSpace(stringArgument(args, "query"))
+	if query == "" {
+		return ToolResult{}, validationError("query", "请输入检索关键词")
+	}
+	if len([]rune(query)) > 200 {
+		return ToolResult{}, validationError("query", "检索关键词不能超过200个字符")
+	}
+	limit := intArgument(args, "limit", 8, 1, 20)
+	result, err := s.cloudDrive.Search(ctx, toolContext.Principal, query, limit)
+	if err != nil {
+		if errors.Is(err, drive.ErrIndexing) {
+			return ToolResult{}, validationError("query", "云盘向量检索暂不可用")
+		}
+		if errors.Is(err, drive.ErrValidation) {
+			return ToolResult{}, validationError("query", "检索关键词不合法")
+		}
+		return ToolResult{}, err
+	}
+	files := make(map[string]bool, len(result.Hits))
+	for _, hit := range result.Hits {
+		files[hit.ItemID] = true
+	}
+	summary := fmt.Sprintf("云盘资料中未找到与「%s」相关的已索引内容", result.Query)
+	if len(result.Hits) > 0 {
+		summary = fmt.Sprintf("云盘资料中检索到 %d 个相关片段，来自 %d 个文件", len(result.Hits), len(files))
+	}
+	return ToolResult{
+		Summary: summary,
+		Data: map[string]any{
+			"query":          result.Query,
+			"provider":       result.Provider,
+			"chunks_scanned": result.ChunksScanned,
+			"hits":           result.Hits,
+		},
+	}, nil
 }
 
 func (s *Service) toolExtractQuestions(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
@@ -853,6 +898,7 @@ func validateToolArguments(name string, args map[string]any) error {
 		"compose_paper":             {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "question_id": true, "count": true, "model": true},
 		"list_attachments":          {},
 		"read_attachment":           {"attachment_ids": true, "offset": true, "limit": true},
+		"search_cloud":              {"query": true, "limit": true},
 		"extract_questions":         {"subject": true, "grade": true, "attachment_ids": true},
 		"import_document_questions": {"subject": true, "grade": true, "category": true, "tags": true, "attachment_ids": true},
 		"create_questions":          {"subject": true, "grade": true, "items": true},
@@ -903,6 +949,14 @@ func validateToolArguments(name string, args map[string]any) error {
 		ids := stringSliceArgument(args, "attachment_ids")
 		if len(ids) > MaxAttachments {
 			return validationError("attachment_ids", "每轮最多使用 5 个附件")
+		}
+	case "search_cloud":
+		query := strings.TrimSpace(stringArgument(args, "query"))
+		if query == "" {
+			return validationError("query", "请输入检索关键词")
+		}
+		if len([]rune(query)) > 200 {
+			return validationError("query", "检索关键词不能超过200个字符")
 		}
 	}
 	return nil

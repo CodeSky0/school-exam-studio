@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { aiCloudFileIssue, cloudKindLabel, cloudListSchema, supportsAIConversation, type CloudItem } from "./cloud";
+import {
+  aiCloudFileIssue,
+  cloudIndexLabel,
+  cloudKindLabel,
+  cloudListSchema,
+  cloudSearchSchema,
+  supportsAIConversation,
+  type CloudItem,
+} from "./cloud";
 
 function item(overrides: Partial<CloudItem> = {}): CloudItem {
   return {
@@ -11,6 +19,11 @@ function item(overrides: Partial<CloudItem> = {}): CloudItem {
     kind: "pdf",
     size_bytes: 1024,
     creator_id: "u1",
+    index_status: "ready",
+    index_error: "",
+    index_provider: "local-hash-v1",
+    chunk_count: 3,
+    indexed_at: "2026-11-20T00:00:00Z",
     created_at: "2026-11-20T00:00:00Z",
     updated_at: "2026-11-20T00:00:00Z",
     ...overrides,
@@ -39,5 +52,20 @@ describe("cloud helpers", () => {
     expect(cloudKindLabel(item({ kind: "docx", name: "a.docx" }))).toBe("Word");
     expect(cloudKindLabel(item({ kind: "pptx", name: "a.pptx" }))).toBe("PPT");
     expect(cloudKindLabel(item({ is_folder: true }))).toBe("文件夹");
+  });
+
+  it("labels vector index status", () => {
+    expect(cloudIndexLabel(item())).toBe("已向量化 · 3 段");
+    expect(cloudIndexLabel(item({ index_status: "processing" }))).toBe("向量化中…");
+    expect(cloudIndexLabel(item({ index_status: "failed" }))).toBe("向量化失败");
+    expect(cloudIndexLabel(item({ index_status: "unsupported" }))).toBe("不支持向量化");
+    expect(cloudIndexLabel(item({ is_folder: true }))).toBe("");
+  });
+
+  it("parses search responses with defaults", () => {
+    const parsed = cloudSearchSchema.parse({ query: "方程", hits: [{ item_id: "f1", name: "教案.pdf" }] });
+    expect(parsed.index_available).toBe(false);
+    expect(parsed.hits[0].score).toBe(0);
+    expect(parsed.hits[0].excerpt).toBe("");
   });
 });

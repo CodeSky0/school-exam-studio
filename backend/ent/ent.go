@@ -12,6 +12,7 @@ import (
 	"school-exam-studio/backend/ent/aiconversation"
 	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
+	"school-exam-studio/backend/ent/cloudchunk"
 	"school-exam-studio/backend/ent/clouditem"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
@@ -89,6 +90,7 @@ func checkColumn(t, c string) error {
 			aiconversation.Table:  aiconversation.ValidColumn,
 			aimessage.Table:       aimessage.ValidColumn,
 			airun.Table:           airun.ValidColumn,
+			cloudchunk.Table:      cloudchunk.ValidColumn,
 			clouditem.Table:       clouditem.ValidColumn,
 			paper.Table:           paper.ValidColumn,
 			paperquestion.Table:   paperquestion.ValidColumn,

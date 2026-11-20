@@ -120,6 +120,31 @@ func Sha256(v string) predicate.CloudItem {
 	return predicate.CloudItem(sql.FieldEQ(FieldSha256, v))
 }
 
+// IndexStatus applies equality check predicate on the "index_status" field. It's identical to IndexStatusEQ.
+func IndexStatus(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldIndexStatus, v))
+}
+
+// IndexError applies equality check predicate on the "index_error" field. It's identical to IndexErrorEQ.
+func IndexError(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldIndexError, v))
+}
+
+// IndexProvider applies equality check predicate on the "index_provider" field. It's identical to IndexProviderEQ.
+func IndexProvider(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldIndexProvider, v))
+}
+
+// ChunkCount applies equality check predicate on the "chunk_count" field. It's identical to ChunkCountEQ.
+func ChunkCount(v int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldChunkCount, v))
+}
+
+// IndexedAt applies equality check predicate on the "indexed_at" field. It's identical to IndexedAtEQ.
+func IndexedAt(v time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldIndexedAt, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.CloudItem {
 	return predicate.CloudItem(sql.FieldEQ(FieldCreatedAt, v))
@@ -753,6 +778,291 @@ func Sha256EqualFold(v string) predicate.CloudItem {
 // Sha256ContainsFold applies the ContainsFold predicate on the "sha256" field.
 func Sha256ContainsFold(v string) predicate.CloudItem {
 	return predicate.CloudItem(sql.FieldContainsFold(FieldSha256, v))
+}
+
+// IndexStatusEQ applies the EQ predicate on the "index_status" field.
+func IndexStatusEQ(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldIndexStatus, v))
+}
+
+// IndexStatusNEQ applies the NEQ predicate on the "index_status" field.
+func IndexStatusNEQ(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNEQ(FieldIndexStatus, v))
+}
+
+// IndexStatusIn applies the In predicate on the "index_status" field.
+func IndexStatusIn(vs ...string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldIn(FieldIndexStatus, vs...))
+}
+
+// IndexStatusNotIn applies the NotIn predicate on the "index_status" field.
+func IndexStatusNotIn(vs ...string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNotIn(FieldIndexStatus, vs...))
+}
+
+// IndexStatusGT applies the GT predicate on the "index_status" field.
+func IndexStatusGT(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGT(FieldIndexStatus, v))
+}
+
+// IndexStatusGTE applies the GTE predicate on the "index_status" field.
+func IndexStatusGTE(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGTE(FieldIndexStatus, v))
+}
+
+// IndexStatusLT applies the LT predicate on the "index_status" field.
+func IndexStatusLT(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLT(FieldIndexStatus, v))
+}
+
+// IndexStatusLTE applies the LTE predicate on the "index_status" field.
+func IndexStatusLTE(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLTE(FieldIndexStatus, v))
+}
+
+// IndexStatusContains applies the Contains predicate on the "index_status" field.
+func IndexStatusContains(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldContains(FieldIndexStatus, v))
+}
+
+// IndexStatusHasPrefix applies the HasPrefix predicate on the "index_status" field.
+func IndexStatusHasPrefix(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldHasPrefix(FieldIndexStatus, v))
+}
+
+// IndexStatusHasSuffix applies the HasSuffix predicate on the "index_status" field.
+func IndexStatusHasSuffix(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldHasSuffix(FieldIndexStatus, v))
+}
+
+// IndexStatusEqualFold applies the EqualFold predicate on the "index_status" field.
+func IndexStatusEqualFold(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEqualFold(FieldIndexStatus, v))
+}
+
+// IndexStatusContainsFold applies the ContainsFold predicate on the "index_status" field.
+func IndexStatusContainsFold(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldContainsFold(FieldIndexStatus, v))
+}
+
+// IndexErrorEQ applies the EQ predicate on the "index_error" field.
+func IndexErrorEQ(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldIndexError, v))
+}
+
+// IndexErrorNEQ applies the NEQ predicate on the "index_error" field.
+func IndexErrorNEQ(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNEQ(FieldIndexError, v))
+}
+
+// IndexErrorIn applies the In predicate on the "index_error" field.
+func IndexErrorIn(vs ...string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldIn(FieldIndexError, vs...))
+}
+
+// IndexErrorNotIn applies the NotIn predicate on the "index_error" field.
+func IndexErrorNotIn(vs ...string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNotIn(FieldIndexError, vs...))
+}
+
+// IndexErrorGT applies the GT predicate on the "index_error" field.
+func IndexErrorGT(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGT(FieldIndexError, v))
+}
+
+// IndexErrorGTE applies the GTE predicate on the "index_error" field.
+func IndexErrorGTE(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGTE(FieldIndexError, v))
+}
+
+// IndexErrorLT applies the LT predicate on the "index_error" field.
+func IndexErrorLT(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLT(FieldIndexError, v))
+}
+
+// IndexErrorLTE applies the LTE predicate on the "index_error" field.
+func IndexErrorLTE(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLTE(FieldIndexError, v))
+}
+
+// IndexErrorContains applies the Contains predicate on the "index_error" field.
+func IndexErrorContains(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldContains(FieldIndexError, v))
+}
+
+// IndexErrorHasPrefix applies the HasPrefix predicate on the "index_error" field.
+func IndexErrorHasPrefix(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldHasPrefix(FieldIndexError, v))
+}
+
+// IndexErrorHasSuffix applies the HasSuffix predicate on the "index_error" field.
+func IndexErrorHasSuffix(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldHasSuffix(FieldIndexError, v))
+}
+
+// IndexErrorEqualFold applies the EqualFold predicate on the "index_error" field.
+func IndexErrorEqualFold(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEqualFold(FieldIndexError, v))
+}
+
+// IndexErrorContainsFold applies the ContainsFold predicate on the "index_error" field.
+func IndexErrorContainsFold(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldContainsFold(FieldIndexError, v))
+}
+
+// IndexProviderEQ applies the EQ predicate on the "index_provider" field.
+func IndexProviderEQ(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldIndexProvider, v))
+}
+
+// IndexProviderNEQ applies the NEQ predicate on the "index_provider" field.
+func IndexProviderNEQ(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNEQ(FieldIndexProvider, v))
+}
+
+// IndexProviderIn applies the In predicate on the "index_provider" field.
+func IndexProviderIn(vs ...string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldIn(FieldIndexProvider, vs...))
+}
+
+// IndexProviderNotIn applies the NotIn predicate on the "index_provider" field.
+func IndexProviderNotIn(vs ...string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNotIn(FieldIndexProvider, vs...))
+}
+
+// IndexProviderGT applies the GT predicate on the "index_provider" field.
+func IndexProviderGT(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGT(FieldIndexProvider, v))
+}
+
+// IndexProviderGTE applies the GTE predicate on the "index_provider" field.
+func IndexProviderGTE(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGTE(FieldIndexProvider, v))
+}
+
+// IndexProviderLT applies the LT predicate on the "index_provider" field.
+func IndexProviderLT(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLT(FieldIndexProvider, v))
+}
+
+// IndexProviderLTE applies the LTE predicate on the "index_provider" field.
+func IndexProviderLTE(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLTE(FieldIndexProvider, v))
+}
+
+// IndexProviderContains applies the Contains predicate on the "index_provider" field.
+func IndexProviderContains(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldContains(FieldIndexProvider, v))
+}
+
+// IndexProviderHasPrefix applies the HasPrefix predicate on the "index_provider" field.
+func IndexProviderHasPrefix(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldHasPrefix(FieldIndexProvider, v))
+}
+
+// IndexProviderHasSuffix applies the HasSuffix predicate on the "index_provider" field.
+func IndexProviderHasSuffix(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldHasSuffix(FieldIndexProvider, v))
+}
+
+// IndexProviderEqualFold applies the EqualFold predicate on the "index_provider" field.
+func IndexProviderEqualFold(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEqualFold(FieldIndexProvider, v))
+}
+
+// IndexProviderContainsFold applies the ContainsFold predicate on the "index_provider" field.
+func IndexProviderContainsFold(v string) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldContainsFold(FieldIndexProvider, v))
+}
+
+// ChunkCountEQ applies the EQ predicate on the "chunk_count" field.
+func ChunkCountEQ(v int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldChunkCount, v))
+}
+
+// ChunkCountNEQ applies the NEQ predicate on the "chunk_count" field.
+func ChunkCountNEQ(v int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNEQ(FieldChunkCount, v))
+}
+
+// ChunkCountIn applies the In predicate on the "chunk_count" field.
+func ChunkCountIn(vs ...int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldIn(FieldChunkCount, vs...))
+}
+
+// ChunkCountNotIn applies the NotIn predicate on the "chunk_count" field.
+func ChunkCountNotIn(vs ...int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNotIn(FieldChunkCount, vs...))
+}
+
+// ChunkCountGT applies the GT predicate on the "chunk_count" field.
+func ChunkCountGT(v int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGT(FieldChunkCount, v))
+}
+
+// ChunkCountGTE applies the GTE predicate on the "chunk_count" field.
+func ChunkCountGTE(v int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGTE(FieldChunkCount, v))
+}
+
+// ChunkCountLT applies the LT predicate on the "chunk_count" field.
+func ChunkCountLT(v int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLT(FieldChunkCount, v))
+}
+
+// ChunkCountLTE applies the LTE predicate on the "chunk_count" field.
+func ChunkCountLTE(v int) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLTE(FieldChunkCount, v))
+}
+
+// IndexedAtEQ applies the EQ predicate on the "indexed_at" field.
+func IndexedAtEQ(v time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldEQ(FieldIndexedAt, v))
+}
+
+// IndexedAtNEQ applies the NEQ predicate on the "indexed_at" field.
+func IndexedAtNEQ(v time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNEQ(FieldIndexedAt, v))
+}
+
+// IndexedAtIn applies the In predicate on the "indexed_at" field.
+func IndexedAtIn(vs ...time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldIn(FieldIndexedAt, vs...))
+}
+
+// IndexedAtNotIn applies the NotIn predicate on the "indexed_at" field.
+func IndexedAtNotIn(vs ...time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNotIn(FieldIndexedAt, vs...))
+}
+
+// IndexedAtGT applies the GT predicate on the "indexed_at" field.
+func IndexedAtGT(v time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGT(FieldIndexedAt, v))
+}
+
+// IndexedAtGTE applies the GTE predicate on the "indexed_at" field.
+func IndexedAtGTE(v time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldGTE(FieldIndexedAt, v))
+}
+
+// IndexedAtLT applies the LT predicate on the "indexed_at" field.
+func IndexedAtLT(v time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLT(FieldIndexedAt, v))
+}
+
+// IndexedAtLTE applies the LTE predicate on the "indexed_at" field.
+func IndexedAtLTE(v time.Time) predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldLTE(FieldIndexedAt, v))
+}
+
+// IndexedAtIsNil applies the IsNil predicate on the "indexed_at" field.
+func IndexedAtIsNil() predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldIsNull(FieldIndexedAt))
+}
+
+// IndexedAtNotNil applies the NotNil predicate on the "indexed_at" field.
+func IndexedAtNotNil() predicate.CloudItem {
+	return predicate.CloudItem(sql.FieldNotNull(FieldIndexedAt))
 }
 
 // And groups predicates with the AND operator between them.

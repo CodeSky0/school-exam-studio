@@ -8,6 +8,7 @@ import (
 	"school-exam-studio/backend/ent/aiconversation"
 	"school-exam-studio/backend/ent/aimessage"
 	"school-exam-studio/backend/ent/airun"
+	"school-exam-studio/backend/ent/cloudchunk"
 	"school-exam-studio/backend/ent/clouditem"
 	"school-exam-studio/backend/ent/paper"
 	"school-exam-studio/backend/ent/paperquestion"
@@ -282,6 +283,43 @@ func init() {
 	airunDescID := airunMixinFields0[0].Descriptor()
 	// airun.DefaultID holds the default value on creation for the id field.
 	airun.DefaultID = airunDescID.Default.(func() uuid.UUID)
+	cloudchunkMixin := schema.CloudChunk{}.Mixin()
+	cloudchunkMixinFields0 := cloudchunkMixin[0].Fields()
+	_ = cloudchunkMixinFields0
+	cloudchunkFields := schema.CloudChunk{}.Fields()
+	_ = cloudchunkFields
+	// cloudchunkDescCreatedAt is the schema descriptor for created_at field.
+	cloudchunkDescCreatedAt := cloudchunkMixinFields0[1].Descriptor()
+	// cloudchunk.DefaultCreatedAt holds the default value on creation for the created_at field.
+	cloudchunk.DefaultCreatedAt = cloudchunkDescCreatedAt.Default.(func() time.Time)
+	// cloudchunkDescUpdatedAt is the schema descriptor for updated_at field.
+	cloudchunkDescUpdatedAt := cloudchunkMixinFields0[2].Descriptor()
+	// cloudchunk.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	cloudchunk.DefaultUpdatedAt = cloudchunkDescUpdatedAt.Default.(func() time.Time)
+	// cloudchunk.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	cloudchunk.UpdateDefaultUpdatedAt = cloudchunkDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// cloudchunkDescChunkIndex is the schema descriptor for chunk_index field.
+	cloudchunkDescChunkIndex := cloudchunkFields[1].Descriptor()
+	// cloudchunk.DefaultChunkIndex holds the default value on creation for the chunk_index field.
+	cloudchunk.DefaultChunkIndex = cloudchunkDescChunkIndex.Default.(int)
+	// cloudchunkDescContent is the schema descriptor for content field.
+	cloudchunkDescContent := cloudchunkFields[2].Descriptor()
+	// cloudchunk.ContentValidator is a validator for the "content" field. It is called by the builders before save.
+	cloudchunk.ContentValidator = cloudchunkDescContent.Validators[0].(func(string) error)
+	// cloudchunkDescProvider is the schema descriptor for provider field.
+	cloudchunkDescProvider := cloudchunkFields[4].Descriptor()
+	// cloudchunk.DefaultProvider holds the default value on creation for the provider field.
+	cloudchunk.DefaultProvider = cloudchunkDescProvider.Default.(string)
+	// cloudchunk.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	cloudchunk.ProviderValidator = cloudchunkDescProvider.Validators[0].(func(string) error)
+	// cloudchunkDescCharCount is the schema descriptor for char_count field.
+	cloudchunkDescCharCount := cloudchunkFields[5].Descriptor()
+	// cloudchunk.DefaultCharCount holds the default value on creation for the char_count field.
+	cloudchunk.DefaultCharCount = cloudchunkDescCharCount.Default.(int)
+	// cloudchunkDescID is the schema descriptor for id field.
+	cloudchunkDescID := cloudchunkMixinFields0[0].Descriptor()
+	// cloudchunk.DefaultID holds the default value on creation for the id field.
+	cloudchunk.DefaultID = cloudchunkDescID.Default.(func() uuid.UUID)
 	clouditemMixin := schema.CloudItem{}.Mixin()
 	clouditemMixinFields0 := clouditemMixin[0].Fields()
 	_ = clouditemMixinFields0
@@ -333,6 +371,28 @@ func init() {
 	clouditem.DefaultSha256 = clouditemDescSha256.Default.(string)
 	// clouditem.Sha256Validator is a validator for the "sha256" field. It is called by the builders before save.
 	clouditem.Sha256Validator = clouditemDescSha256.Validators[0].(func(string) error)
+	// clouditemDescIndexStatus is the schema descriptor for index_status field.
+	clouditemDescIndexStatus := clouditemFields[9].Descriptor()
+	// clouditem.DefaultIndexStatus holds the default value on creation for the index_status field.
+	clouditem.DefaultIndexStatus = clouditemDescIndexStatus.Default.(string)
+	// clouditem.IndexStatusValidator is a validator for the "index_status" field. It is called by the builders before save.
+	clouditem.IndexStatusValidator = clouditemDescIndexStatus.Validators[0].(func(string) error)
+	// clouditemDescIndexError is the schema descriptor for index_error field.
+	clouditemDescIndexError := clouditemFields[10].Descriptor()
+	// clouditem.DefaultIndexError holds the default value on creation for the index_error field.
+	clouditem.DefaultIndexError = clouditemDescIndexError.Default.(string)
+	// clouditem.IndexErrorValidator is a validator for the "index_error" field. It is called by the builders before save.
+	clouditem.IndexErrorValidator = clouditemDescIndexError.Validators[0].(func(string) error)
+	// clouditemDescIndexProvider is the schema descriptor for index_provider field.
+	clouditemDescIndexProvider := clouditemFields[11].Descriptor()
+	// clouditem.DefaultIndexProvider holds the default value on creation for the index_provider field.
+	clouditem.DefaultIndexProvider = clouditemDescIndexProvider.Default.(string)
+	// clouditem.IndexProviderValidator is a validator for the "index_provider" field. It is called by the builders before save.
+	clouditem.IndexProviderValidator = clouditemDescIndexProvider.Validators[0].(func(string) error)
+	// clouditemDescChunkCount is the schema descriptor for chunk_count field.
+	clouditemDescChunkCount := clouditemFields[12].Descriptor()
+	// clouditem.DefaultChunkCount holds the default value on creation for the chunk_count field.
+	clouditem.DefaultChunkCount = clouditemDescChunkCount.Default.(int)
 	// clouditemDescID is the schema descriptor for id field.
 	clouditemDescID := clouditemMixinFields0[0].Descriptor()
 	// clouditem.DefaultID holds the default value on creation for the id field.

@@ -200,17 +200,23 @@ data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","
 
 ## 学校云盘
 
-云盘面向教师与管理员，按学校隔离，二进制保存在 `CLOUD_UPLOAD_DIR`。支持文件夹树、上传、下载与递归软删除；单文件 ≤50 MiB，接受 PDF、DOC/DOCX、PPT/PPTX、XLS/XLSX、TXT/MD/CSV 与 PNG/JPEG/WebP/GIF。
+云盘面向教师与管理员，按学校隔离，二进制保存在 `CLOUD_UPLOAD_DIR`。支持文件夹树、上传、下载与递归软删除；单文件 ≤50 MiB，接受 PDF、DOC/DOCX、PPT/PPTX、XLS/XLSX、TXT/MD/CSV 与 PNG/JPEG/WebP/GIF。上传成功后文件会自动进入后台向量化队列，可抽取文本的格式会写入 `cloud_chunks` 供 AI 语义检索。
 
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
 | GET | `/cloud/items?parent_id=` | 教师/管理员 | 列出目录直接子节点；`parent_id` 为空表示根目录，同时返回 `breadcrumbs` |
 | POST | `/cloud/folders` | 教师/管理员 | body `{"name":"...","parent_id":""}`；同目录禁止同名文件夹 |
-| POST | `/cloud/files` | 教师/管理员 | multipart 字段 `file` 与可选 `parent_id`；成功后返回文件节点 |
+| POST | `/cloud/files` | 教师/管理员 | multipart 字段 `file` 与可选 `parent_id`；成功后返回文件节点并自动排队向量化 |
 | GET | `/cloud/items/:id/download` | 教师/管理员 | 以附件形式下载文件；文件夹不可下载 |
-| DELETE | `/cloud/items/:id` | 教师/管理员 | 递归软删除文件夹及内容，返回 `{"deleted":N}` |
+| DELETE | `/cloud/items/:id` | 教师/管理员 | 递归软删除文件夹及内容并清理向量，返回 `{"deleted":N}` |
+| GET | `/cloud/search?q=&limit=` | 教师/管理员 | 在本校已向量化资料中做语义检索；`limit` 默认 8、最大 20；返回 `query`、`provider`、`chunks_scanned`、`index_available` 与 `hits[]` |
+| POST | `/cloud/items/:id/reindex` | 教师/管理员 | 重新解析并向量化单个文件，返回 202 与文件节点 |
+| POST | `/cloud/reindex` | 教师/管理员 | 本校全部文件重新入队，返回 `{"queued":N}` |
+| GET | `/cloud/index/stats` | 教师/管理员 | 返回 `{"counts":{"ready":N,"pending":N,...}}` |
 
-AI 工作台输入框的“+”可选择“本地上传”或“从云盘选择”；云盘选择会通过 `/ai/attachments/cloud` 复制为对话附件，PPT/Excel 等 AI 暂不解析的格式在选择器内禁用。
+文件节点包含 `index_status`（`pending`、`processing`、`ready`、`unsupported`、`failed`）、`index_error`、`index_provider`、`chunk_count` 与 `indexed_at`。默认使用内置本地哈希向量；配置 `EMBEDDING_BASE_URL`、`EMBEDDING_API_KEY` 与 `EMBEDDING_MODEL` 后改用 OpenAI 兼容的 `/embeddings` 服务。切换向量模型后需调用重建接口，搜索结果只使用当前 provider 的向量，避免维度混用。
+
+AI 工作台输入框的“+”可选择“本地上传”或“从云盘选择”；云盘选择会通过 `/ai/attachments/cloud` 复制为对话附件，PPT/Excel 等 AI 暂不解析的格式在选择器内禁用。AI 还可通过 `search_cloud` 工具检索已向量化的云盘资料。
 
 Agent 运行策略：
 

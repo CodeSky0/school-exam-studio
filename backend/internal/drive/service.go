@@ -22,10 +22,16 @@ const (
 type Service struct {
 	repository *Repository
 	store      *FileStore
+	indexer    ContentIndexer
 }
 
 func NewService(repository *Repository, store *FileStore) *Service {
 	return &Service{repository: repository, store: store}
+}
+
+// SetIndexer 注入向量化能力。未注入时云盘仍可正常上传下载，仅语义检索不可用。
+func (s *Service) SetIndexer(indexer ContentIndexer) {
+	s.indexer = indexer
 }
 
 // List 返回某个目录的直接子节点；parentID 为空时表示云盘根目录。
@@ -140,6 +146,7 @@ func (s *Service) Upload(ctx context.Context, principal auth.Principal, parentID
 		_ = s.store.Remove(stored.StoragePath)
 		return ItemRef{}, err
 	}
+	s.enqueue(principal.SchoolID, created.ID)
 	return created.Ref(), nil
 }
 
@@ -202,6 +209,7 @@ func (s *Service) Delete(ctx context.Context, principal auth.Principal, id uuid.
 		if err := s.repository.MarkDeleted(ctx, principal.SchoolID, itemID); err != nil {
 			return 0, err
 		}
+		_ = s.repository.ClearChunks(ctx, principal.SchoolID, itemID)
 		if !item.IsFolder && s.store != nil {
 			_ = s.store.Remove(item.StoragePath)
 		}
@@ -242,16 +250,20 @@ func (s *Service) ImportFromAI(ctx context.Context, principal auth.Principal, na
 	}
 	digest := sha256.Sum256(data)
 	hash := hex.EncodeToString(digest[:])
-	if _, found, err := s.repository.FindBySHA(ctx, principal.SchoolID, hash); err != nil {
+	existing, found, err := s.repository.FindBySHA(ctx, principal.SchoolID, hash)
+	if err != nil {
 		return err
-	} else if found {
+	}
+	if found {
+		// 相同内容的文件可能尚未完成索引，入队可复用已有向量结果。
+		s.enqueue(principal.SchoolID, existing.ID)
 		return nil
 	}
 	stored, err := s.store.Save(principal.SchoolID, principal.UserID, name, data)
 	if err != nil {
 		return err
 	}
-	_, err = s.repository.Create(ctx, principal.SchoolID, Item{
+	created, err := s.repository.Create(ctx, principal.SchoolID, Item{
 		CreatorID:   principal.UserID.String(),
 		Name:        stored.Name,
 		MIME:        stored.MIME,
@@ -264,7 +276,82 @@ func (s *Service) ImportFromAI(ctx context.Context, principal auth.Principal, na
 		_ = s.store.Remove(stored.StoragePath)
 		return err
 	}
+	s.enqueue(principal.SchoolID, created.ID)
 	return nil
+}
+
+// Search 在本校云盘中做语义检索，返回最相关的文本片段。
+func (s *Service) Search(ctx context.Context, principal auth.Principal, query string, limit int) (SearchResult, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return SearchResult{}, err
+	}
+	if s.indexer == nil {
+		return SearchResult{}, ErrIndexing
+	}
+	return s.indexer.Search(ctx, principal.SchoolID, query, limit)
+}
+
+// Reindex 重新解析单个文件并写入向量，供上传失败或切换向量模型后手动重建。
+func (s *Service) Reindex(ctx context.Context, principal auth.Principal, id uuid.UUID) (ItemRef, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return ItemRef{}, err
+	}
+	item, err := s.repository.Get(ctx, principal.SchoolID, id)
+	if err != nil {
+		return ItemRef{}, err
+	}
+	if item.IsFolder {
+		return ItemRef{}, validationError("id", "文件夹不能建立向量索引")
+	}
+	if s.indexer == nil {
+		return ItemRef{}, ErrIndexing
+	}
+	if err := s.repository.UpdateIndexState(ctx, principal.SchoolID, id, IndexProcessing, item.IndexProvider, "", item.ChunkCount, nil); err != nil {
+		return ItemRef{}, err
+	}
+	s.enqueue(principal.SchoolID, item.ID)
+	updated, err := s.repository.Get(ctx, principal.SchoolID, id)
+	if err != nil {
+		return ItemRef{}, err
+	}
+	return updated.Ref(), nil
+}
+
+// ReindexAll 把本校全部文件重新加入索引队列，返回入队数量。
+func (s *Service) ReindexAll(ctx context.Context, principal auth.Principal) (int, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return 0, err
+	}
+	if s.indexer == nil {
+		return 0, ErrIndexing
+	}
+	ids, err := s.repository.ListFileIDs(ctx, principal.SchoolID)
+	if err != nil {
+		return 0, err
+	}
+	for _, id := range ids {
+		s.indexer.Enqueue(principal.SchoolID, id)
+	}
+	return len(ids), nil
+}
+
+// IndexStats 返回本校云盘文件在各索引状态上的数量分布。
+func (s *Service) IndexStats(ctx context.Context, principal auth.Principal) (map[string]int, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return nil, err
+	}
+	return s.repository.IndexStats(ctx, principal.SchoolID)
+}
+
+func (s *Service) enqueue(schoolID uuid.UUID, itemID string) {
+	if s.indexer == nil {
+		return
+	}
+	parsed, err := uuid.Parse(itemID)
+	if err != nil {
+		return
+	}
+	s.indexer.Enqueue(schoolID, parsed)
 }
 
 func (s *Service) breadcrumbs(ctx context.Context, schoolID uuid.UUID, parentID *uuid.UUID) ([]Breadcrumb, error) {

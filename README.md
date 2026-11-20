@@ -1,6 +1,6 @@
 # School Exam Studio
 
-单学校部署的中小学智能题库与组卷系统。提供学校初始化、JWT 认证、题目管理、富文本公式、组卷、A4 打印、教师管理、题目审核、CSV 全量事务导入，以及可替代教师重复操作的 AI Agent 工作台。PDF、Word 与图片资料直接交给 AI Agent 阅读，图片由多模态模型识别，不依赖 OCR。
+单学校部署的中小学智能题库与组卷系统。提供学校初始化、JWT 认证、题目管理、富文本公式、组卷、A4 打印、教师管理、题目审核、CSV 全量事务导入，以及可替代教师重复操作的 AI Agent 工作台。PDF、Word 与图片资料直接交给 AI Agent 阅读，图片由多模态模型识别，不依赖 OCR；学校云盘中的资料上传后自动向量化，AI 可按语义检索并引用原文。
 
 ## 技术架构
 
@@ -74,6 +74,11 @@ export AI_SETTINGS_SECRET=''
 export AI_UPLOAD_DIR='./data/ai-uploads'
 # 学校云盘文件落盘目录；生产环境需持久化并备份
 export CLOUD_UPLOAD_DIR='./data/cloud-drive'
+# 云盘资料自动向量化：留空远程地址/Key 时使用内置本地哈希向量，离线可用
+export EMBEDDING_BASE_URL=''
+export EMBEDDING_API_KEY=''
+export EMBEDDING_MODEL='text-embedding-3-small'
+export EMBEDDING_LOCAL_DIMENSIONS='256'
 # API 启动时默认自动执行迁移；设为 false 可关闭
 export AUTO_MIGRATE='true'
 # API 启动会自动迁移；也可在部署前手动执行 go run cmd/migrate/main.go
@@ -117,11 +122,11 @@ pnpm dev
 
 **内置工具**（`GET /api/v1/ai/tools` 可供外部 Agent 发现，`POST /api/v1/ai/tools/:name` 可直接执行）
 
-`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`read_attachment`、`extract_questions`、`import_document_questions`、`create_questions`、`update_draft`、`list_papers`、`get_paper`、`paper_audit`、`update_paper_draft`、`bank_stats`、`find_duplicates`、`review_queue`、`search_similar_questions`。
+`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`read_attachment`、`search_cloud`、`extract_questions`、`import_document_questions`、`create_questions`、`update_draft`、`list_papers`、`get_paper`、`paper_audit`、`update_paper_draft`、`bank_stats`、`find_duplicates`、`review_queue`、`search_similar_questions`。
 
 **内置技能**（`GET /api/v1/ai/skills`，`POST /api/v1/ai/skills/:id/run` 一键执行）
 
-文档阅读、文档智能录题、整卷拆题、题库体检与整理、课时练习生成、期末复习卷、错题变式包、题库覆盖度分析、重复题排查、试卷质检、AI 产出复核、双向细目表组卷、相似题练习包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
+文档阅读、云盘资料问答、文档智能录题、整卷拆题、题库体检与整理、课时练习生成、期末复习卷、错题变式包、题库覆盖度分析、重复题排查、试卷质检、AI 产出复核、双向细目表组卷、相似题练习包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
 
 **业务入口**
 
@@ -131,6 +136,10 @@ pnpm dev
 **文档阅读**
 
 上传 PDF、Word 或图片后点击“文档阅读”，Agent 会先确认附件类型，再用 `read_attachment` 分段读取正文；图片作为视觉输入直接提供给多模态模型，模型直接阅读其中的文字、公式与表格，不需要 OCR。适合快速摘要试卷、教案、教材章节，或按原文回答问题。
+
+**云盘资料语义检索**
+
+学校云盘中的文件上传后会自动进入后台队列：抽取文本、按段落切分并写入向量索引，列表会显示“向量化中 / 已向量化 / 不支持向量化 / 向量化失败”与失败原因。AI 通过 `search_cloud` 按语义查找教案、试卷与教材片段，返回文件名、原文片段与相似度；云盘页面提供同样的检索入口和“重建索引”按钮。PDF、DOCX、TXT、Markdown、CSV 可自动抽取文本；PPT、Excel、图片与扫描版 PDF 暂不向量化，转换为可复制文本后重建即可。默认使用内置本地哈希向量，离线环境也能工作；配置 OpenAI 兼容的 `/embeddings` 服务后可切换为语义向量。
 
 **文档智能录题**
 
@@ -147,6 +156,7 @@ pnpm dev
 
 - `AI_UPLOAD_DIR`：附件落盘目录，默认 `./data/ai-uploads`；生产环境必须持久化并纳入备份。
 - `CLOUD_UPLOAD_DIR`：学校云盘落盘目录，默认 `./data/cloud-drive`；单文件上限 50 MiB，仅教师/管理员可访问。
+- `EMBEDDING_BASE_URL`、`EMBEDDING_API_KEY`、`EMBEDDING_MODEL`：云盘向量化使用的 OpenAI 兼容 `/embeddings` 服务；留空时使用内置本地哈希向量（`EMBEDDING_LOCAL_DIMENSIONS` 默认 256，范围 64-1024）。切换向量模型后旧向量不会混用，需要在云盘页面点击“重建索引”或调用 `POST /api/v1/cloud/reindex`。
 - `AI_ALLOW_LOCAL_FALLBACK`：默认 `false`。模型重试与故障转移均失败时是否回退本地引擎；开启后响应会标注 `provider=fallback` 与降级原因。
 - 管理员仍可在 `/admin/settings` 配置全校共享模型；学校配置优先于环境变量，API Key 加密存储且不会返回前端。
 - 旧的一次性 Agent 运行接口 `/api/v1/ai/agent/runs` 保留，历史运行记录与审计仍可查询。

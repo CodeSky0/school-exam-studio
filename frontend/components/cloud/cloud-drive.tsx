@@ -7,22 +7,32 @@ import {
   DownloadIcon,
   FileTextIcon,
   HomeIcon,
+  MagnifyingGlassIcon,
   PlusIcon,
+  ReloadIcon,
   TrashIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
 import {
   CLOUD_ACCEPT,
   CLOUD_MAX_BYTES,
+  cloudIndexHint,
+  cloudIndexLabel,
+  cloudIndexTone,
   cloudItemExtension,
   cloudKindLabel,
   cloudQueryKeys,
   createCloudFolder,
   deleteCloudItem,
   downloadCloudFile,
+  formatCloudScore,
   listCloudItems,
+  reindexAllCloudFiles,
+  reindexCloudItem,
+  searchCloudFiles,
   uploadCloudFile,
   type CloudItem,
+  type CloudSearch,
 } from "@/lib/cloud";
 import { formatBytes } from "@/lib/ai-chat";
 import { cn } from "@/lib/utils";
@@ -65,6 +75,11 @@ export function CloudDrive() {
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResult, setSearchResult] = useState<CloudSearch | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   const listQuery = useQuery({
     queryKey: cloudQueryKeys.list(currentID),
@@ -104,6 +119,42 @@ export function CloudDrive() {
     onError: (error) => setActionError(errorMessage(error)),
   });
 
+  const reindexMutation = useMutation({
+    mutationFn: (id: string) => reindexCloudItem(id),
+    onSuccess: () => {
+      setActionError("");
+      setNotice("已加入向量化队列，稍后自动完成");
+      void queryClient.invalidateQueries({ queryKey: cloudQueryKeys.list(currentID) });
+    },
+    onError: (error) => setActionError(errorMessage(error)),
+  });
+
+  const reindexAllMutation = useMutation({
+    mutationFn: () => reindexAllCloudFiles(),
+    onSuccess: (result) => {
+      setActionError("");
+      setNotice(`已加入向量化队列：${result.queued} 个文件`);
+      void queryClient.invalidateQueries({ queryKey: cloudQueryKeys.list(currentID) });
+    },
+    onError: (error) => setActionError(errorMessage(error)),
+  });
+
+  async function handleSearch() {
+    const query = searchQuery.trim();
+    if (!query || searching) return;
+    setSearchOpen(true);
+    setSearching(true);
+    setSearchError("");
+    setSearchResult(null);
+    try {
+      setSearchResult(await searchCloudFiles(query, 12));
+    } catch (error) {
+      setSearchError(errorMessage(error));
+    } finally {
+      setSearching(false);
+    }
+  }
+
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const selected = Array.from(files);
@@ -120,7 +171,7 @@ export function CloudDrive() {
         await uploadCloudFile(selected[index], currentID);
         setUploading({ done: index + 1, total: selected.length });
       }
-      setNotice(`已上传 ${selected.length} 个文件`);
+      setNotice(`已上传 ${selected.length} 个文件，正在后台自动向量化`);
     } catch (error) {
       setActionError(errorMessage(error));
     } finally {
@@ -140,7 +191,7 @@ export function CloudDrive() {
       <PageHeader
         eyebrow="共享资料库"
         title="云盘"
-        description="教师与管理员共用的学校云盘。上传 PDF、Word、PPT 等资料，供下载与 AI 助手引用。"
+        description="教师与管理员共用的学校云盘。上传 PDF、Word、PPT 等资料后自动向量化，供 AI 助手语义检索与引用。"
         actions={(
           <>
             <Button type="button" variant="outline" onClick={() => { setFolderOpen(true); setActionError(""); }}>
@@ -164,6 +215,38 @@ export function CloudDrive() {
           </>
         )}
       />
+
+      <form
+        className="mb-4 flex flex-wrap items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSearch();
+        }}
+      >
+        <div className="relative min-w-0 flex-1">
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-6" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="语义搜索云盘资料，例如：一元二次方程教案"
+            className="pl-9"
+            maxLength={200}
+            aria-label="搜索云盘资料"
+          />
+        </div>
+        <Button type="submit" disabled={searching || !searchQuery.trim()}>
+          <MagnifyingGlassIcon />{searching ? "检索中…" : "检索"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={reindexAllMutation.isPending}
+          onClick={() => reindexAllMutation.mutate()}
+          title="重新解析并向量化本校全部云盘文件"
+        >
+          <ReloadIcon />{reindexAllMutation.isPending ? "排队中…" : "重建索引"}
+        </Button>
+      </form>
 
       <div className="mb-4 flex flex-wrap items-center gap-1.5 text-copy-13 text-neutral-7" aria-label="当前位置">
         <button type="button" onClick={() => setCurrentID("")} className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-neutral-2 hover:text-neutral-10", currentID === "" && "text-neutral-10")}>
@@ -227,8 +310,27 @@ export function CloudDrive() {
                   <span className="mt-0.5 block text-caption-10 text-neutral-6">
                     {cloudKindLabel(item)}{item.is_folder ? "" : ` · ${formatBytes(item.size_bytes)}`} · {cloudItemExtension(item) || "—"}
                   </span>
+                  {!item.is_folder && cloudIndexLabel(item) ? (
+                    <span className={cn("mt-0.5 flex flex-wrap items-center gap-1.5 text-caption-10", cloudIndexTone(item))}>
+                      {cloudIndexLabel(item)}
+                      {cloudIndexHint(item) ? <span className="max-w-64 truncate text-neutral-5" title={cloudIndexHint(item)}>· {cloudIndexHint(item)}</span> : null}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {!item.is_folder && (item.index_status === "failed" || item.index_status === "unsupported") ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`重建 ${item.name} 的向量索引`}
+                      title="重建向量索引"
+                      disabled={reindexMutation.isPending}
+                      onClick={() => reindexMutation.mutate(item.id)}
+                    >
+                      <ReloadIcon />
+                    </Button>
+                  ) : null}
                   {!item.is_folder ? (
                     <Button type="button" variant="ghost" size="icon" aria-label={`下载 ${item.name}`} title="下载" disabled={downloadMutation.isPending} onClick={() => downloadMutation.mutate(item)}>
                       <DownloadIcon />
@@ -286,6 +388,42 @@ export function CloudDrive() {
             if (event.key === "Enter" && folderName.trim() && !createFolderMutation.isPending) createFolderMutation.mutate(folderName.trim());
           }}
         />
+      </Dialog>
+
+      <Dialog
+        open={searchOpen}
+        title="云盘语义检索"
+        description={searchResult ? `检索「${searchResult.query}」，扫描 ${searchResult.chunks_scanned} 个已索引片段` : "正在检索已向量化的云盘资料"}
+        onClose={() => { if (!searching) setSearchOpen(false); }}
+        isPending={searching}
+        footer={(
+          <Button type="button" variant="outline" disabled={searching} onClick={() => setSearchOpen(false)}>关闭</Button>
+        )}
+      >
+        {searching ? (
+          <p className="py-8 text-center text-copy-13 text-neutral-6">正在检索云盘向量索引…</p>
+        ) : searchError ? (
+          <p className="py-8 text-center text-copy-13 text-error">{searchError}</p>
+        ) : !searchResult?.index_available ? (
+          <p className="py-8 text-center text-copy-13 text-neutral-6">向量检索暂不可用，请确认后端已启用云盘索引。</p>
+        ) : searchResult.hits.length === 0 ? (
+          <p className="py-8 text-center text-copy-13 text-neutral-6">没有找到相关片段。可尝试更换关键词，或等待文件完成向量化。</p>
+        ) : (
+          <ul className="space-y-3">
+            {searchResult.hits.map((hit) => (
+              <li key={`${hit.item_id}-${hit.chunk_index}`} className="rounded-lg border border-border bg-neutral-1 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-2 text-copy-13 font-medium text-neutral-9">
+                    <FileTextIcon className="size-3.5 shrink-0 text-neutral-6" />
+                    <span className="truncate">{hit.name}</span>
+                  </span>
+                  <span className="shrink-0 text-caption-10 text-neutral-6">{formatCloudScore(hit.score)}</span>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap text-copy-13 leading-6 text-neutral-7">{hit.excerpt}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </Dialog>
 
       <ConfirmDialog
