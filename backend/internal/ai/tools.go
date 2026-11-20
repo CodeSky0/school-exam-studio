@@ -368,7 +368,7 @@ func (s *Service) toolReadAttachment(ctx context.Context, toolContext ToolContex
 	if len(ids) == 0 {
 		ids = toolContext.AttachmentIDs
 	}
-	attachments, err := s.loadAttachments(ctx, toolContext.Principal, ids)
+	attachments, err := s.resolveAttachments(ctx, toolContext.Principal, ids, toolContext.AttachmentIDs)
 	if err != nil {
 		return ToolResult{}, err
 	}
@@ -467,7 +467,7 @@ func (s *Service) toolExtractQuestions(ctx context.Context, toolContext ToolCont
 	if len(ids) == 0 {
 		ids = toolContext.AttachmentIDs
 	}
-	attachments, err := s.loadAttachments(ctx, toolContext.Principal, ids)
+	attachments, err := s.resolveAttachments(ctx, toolContext.Principal, ids, toolContext.AttachmentIDs)
 	if err != nil {
 		return ToolResult{}, err
 	}
@@ -501,7 +501,7 @@ func (s *Service) toolImportDocument(ctx context.Context, toolContext ToolContex
 	if len(ids) == 0 {
 		ids = toolContext.AttachmentIDs
 	}
-	attachments, err := s.loadAttachments(ctx, toolContext.Principal, ids)
+	attachments, err := s.resolveAttachments(ctx, toolContext.Principal, ids, toolContext.AttachmentIDs)
 	if err != nil {
 		return ToolResult{}, err
 	}
@@ -689,21 +689,63 @@ func (s *Service) loadAttachments(ctx context.Context, principal auth.Principal,
 		return nil, validationError("attachment_ids", "每轮最多使用 5 个附件")
 	}
 	items := make([]Attachment, 0, len(ids))
+	var firstErr error
 	for _, raw := range ids {
 		id, err := uuid.Parse(strings.TrimSpace(raw))
 		if err != nil {
-			return nil, validationError("attachment_ids", "附件ID格式不正确")
+			if firstErr == nil {
+				firstErr = validationError("attachment_ids", "附件ID格式不正确")
+			}
+			continue
 		}
 		item, err := s.repo.GetAttachment(ctx, principal, id)
 		if err != nil {
-			return nil, err
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
 		if item.Status == AttachmentStatusFailed {
-			return nil, validationError("attachment_ids", fmt.Sprintf("附件《%s》解析失败：%s", item.Name, item.Error))
+			if firstErr == nil {
+				firstErr = validationError("attachment_ids", fmt.Sprintf("附件《%s》解析失败：%s", item.Name, item.Error))
+			}
+			continue
 		}
 		items = append(items, item)
 	}
+	if len(items) == 0 && firstErr != nil {
+		return nil, firstErr
+	}
 	return uniqueAttachments(items), nil
+}
+
+// resolveAttachments 在模型传入的附件 ID 非法或不存在时，回退到本轮实际附件，避免整次工具调用失败。
+func (s *Service) resolveAttachments(ctx context.Context, principal auth.Principal, requested, fallback []string) ([]Attachment, error) {
+	if len(requested) == 0 {
+		requested = fallback
+	}
+	items, err := s.loadAttachments(ctx, principal, requested)
+	if len(items) > 0 {
+		return items, nil
+	}
+	if len(fallback) > 0 && !sameAttachmentIDs(requested, fallback) {
+		if fallbackItems, _ := s.loadAttachments(ctx, principal, fallback); len(fallbackItems) > 0 {
+			return fallbackItems, nil
+		}
+	}
+	return items, err
+}
+
+func sameAttachmentIDs(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if strings.TrimSpace(left[index]) != strings.TrimSpace(right[index]) {
+			return false
+		}
+	}
+	return true
 }
 
 func combinedAttachmentText(items []Attachment) string {

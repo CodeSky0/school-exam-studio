@@ -9,38 +9,83 @@ import (
 
 var (
 	splitNumberLine    = regexp.MustCompile(`^\s*(?:第\s*(\d{1,3})\s*题|(\d{1,3})\s*[.、．)）]\s*)(.*)$`)
+	splitDecimalLine   = regexp.MustCompile(`^\s*\d{1,3}\.\d`)
 	splitOptionLine    = regexp.MustCompile(`^\s*([A-D])\s*[.、．)）]\s*(.+?)\s*$`)
 	splitInlineOption  = regexp.MustCompile(`(?:^|\s)([A-D])\s*[.、．)）]\s*`)
 	splitAnswerLine    = regexp.MustCompile(`^\s*(?:【答案】|参考答案|答案)\s*[:：]?\s*(.*)$`)
 	splitExplainLine   = regexp.MustCompile(`^\s*(?:【解析】|解析|详解|分析)\s*[:：]?\s*(.*)$`)
 	splitSectionHeader = regexp.MustCompile(`^\s*[一二三四五六七八九十]+\s*[、.．]\s*.*(选择|判断|填空|解答|计算|简答|应用|阅读|作文|作图)`)
+	splitAnswerHeader  = regexp.MustCompile(`^\s*(?:【\s*)?(?:参考答案|答案)(?:[与及]?(?:解析|详解))?\s*(?:】)?\s*[:：]?\s*$`)
+	splitAnswerItem    = regexp.MustCompile(`^\s*(\d{1,3})\s*[.、．)）]\s*(.+?)\s*$`)
+	splitAnswerRange   = regexp.MustCompile(`^\s*(\d{1,3})\s*[-—~～至]\s*(\d{1,3})\s*[:：]?\s*([A-Da-d]{2,})\s*$`)
 	splitAnswerLetters = regexp.MustCompile(`[A-D]`)
 	splitChoiceTag     = regexp.MustCompile(`[（(]\s*[)）]`)
 )
 
 type splitBlock struct {
-	number string
-	lines  []string
+	number      string
+	sectionType string
+	lines       []string
+}
+
+type splitAnswer struct {
+	answer      string
+	explanation string
 }
 
 // SplitQuestions 将文档纯文本切分为题目草稿。切分保持确定性，不调用模型。
 func SplitQuestions(text string, defaults Defaults) []DraftQuestion {
 	lines := strings.Split(normalizeText(text), "\n")
 	blocks := make([]splitBlock, 0, 16)
+	answers := make(map[string]splitAnswer)
 	sectionType := ""
 	current := -1
+	inAnswers := false
+	lastAnswerNumber := ""
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
-			if current >= 0 {
+			if !inAnswers && current >= 0 {
 				blocks[current].lines = append(blocks[current].lines, "")
+			}
+			continue
+		}
+		if splitAnswerHeader.MatchString(trimmed) {
+			inAnswers = true
+			lastAnswerNumber = ""
+			current = -1
+			continue
+		}
+		if inAnswers {
+			if splitSectionHeader.MatchString(trimmed) && !splitNumberLine.MatchString(trimmed) {
+				lastAnswerNumber = ""
+				continue
+			}
+			if matched := parseAnswerSectionLine(trimmed, answers); matched {
+				if match := splitAnswerItem.FindStringSubmatch(trimmed); match != nil {
+					lastAnswerNumber = match[1]
+				}
+				continue
+			}
+			if lastAnswerNumber != "" {
+				entry := answers[lastAnswerNumber]
+				if entry.explanation == "" {
+					entry.explanation = trimmed
+				} else {
+					entry.explanation += "\n" + trimmed
+				}
+				answers[lastAnswerNumber] = entry
 			}
 			continue
 		}
 		if splitSectionHeader.MatchString(trimmed) && !splitNumberLine.MatchString(trimmed) {
 			sectionType = sectionQuestionType(trimmed)
-			if current >= 0 && len(blocks[current].lines) > 0 {
-				current = -1
+			current = -1
+			continue
+		}
+		if splitDecimalLine.MatchString(line) {
+			if current >= 0 {
+				blocks[current].lines = append(blocks[current].lines, line)
 			}
 			continue
 		}
@@ -49,7 +94,7 @@ func SplitQuestions(text string, defaults Defaults) []DraftQuestion {
 			if number == "" {
 				number = match[2]
 			}
-			blocks = append(blocks, splitBlock{number: number, lines: []string{match[3]}})
+			blocks = append(blocks, splitBlock{number: number, sectionType: sectionType, lines: []string{match[3]}})
 			current = len(blocks) - 1
 			continue
 		}
@@ -64,7 +109,7 @@ func SplitQuestions(text string, defaults Defaults) []DraftQuestion {
 	}
 	result := make([]DraftQuestion, 0, len(blocks))
 	for index, block := range blocks {
-		item, ok := buildDraft(block, index, sectionType, defaults)
+		item, ok := buildDraft(block, index, defaults)
 		if !ok {
 			continue
 		}
@@ -73,6 +118,70 @@ func SplitQuestions(text string, defaults Defaults) []DraftQuestion {
 			item.Confidence = 0.55
 		}
 		result = append(result, item)
+	}
+	applyAnswerSection(result, answers)
+	return result
+}
+
+func parseAnswerSectionLine(line string, answers map[string]splitAnswer) bool {
+	if match := splitAnswerRange.FindStringSubmatch(line); match != nil {
+		start, startErr := strconv.Atoi(match[1])
+		end, endErr := strconv.Atoi(match[2])
+		letters := []rune(strings.ToUpper(match[3]))
+		if startErr == nil && endErr == nil && end >= start && len(letters) > 0 {
+			for number, index := start, 0; number <= end && index < len(letters); number, index = number+1, index+1 {
+				answers[strconv.Itoa(number)] = splitAnswer{answer: string(letters[index])}
+			}
+			return true
+		}
+	}
+	match := splitAnswerItem.FindStringSubmatch(line)
+	if match == nil {
+		return false
+	}
+	answer, explanation := splitAnswerAndExplanation(match[2])
+	if answer == "" {
+		return false
+	}
+	answers[match[1]] = splitAnswer{answer: answer, explanation: explanation}
+	return true
+}
+
+func applyAnswerSection(items []DraftQuestion, answers map[string]splitAnswer) {
+	for index := range items {
+		entry, ok := answers[items[index].Number]
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(items[index].Answer) == "" {
+			answer, warning := normalizeDraftAnswer(items[index].QuestionType, entry.answer, items[index].Options)
+			if answer != "" {
+				items[index].Answer = answer
+				items[index].Warnings = removeDraftWarning(items[index].Warnings, "未识别到答案")
+				items[index].Warnings = removeDraftWarning(items[index].Warnings, "答案与选项不匹配")
+				if items[index].Confidence < 0.95 {
+					items[index].Confidence += 0.2
+					if items[index].Confidence > 0.95 {
+						items[index].Confidence = 0.95
+					}
+				}
+			} else if warning != "" {
+				items[index].Warnings = append(items[index].Warnings, warning)
+			}
+		}
+		if strings.TrimSpace(items[index].Explanation) == "" && entry.explanation != "" {
+			items[index].Explanation = plainToHTML(entry.explanation)
+		}
+	}
+}
+
+func removeDraftWarning(warnings []string, keyword string) []string {
+	result := make([]string, 0, len(warnings))
+	for _, warning := range warnings {
+		if strings.Contains(warning, keyword) {
+			continue
+		}
+		result = append(result, warning)
 	}
 	return result
 }
@@ -121,7 +230,8 @@ func sectionQuestionType(header string) string {
 	}
 }
 
-func buildDraft(block splitBlock, index int, sectionType string, defaults Defaults) (DraftQuestion, bool) {
+func buildDraft(block splitBlock, index int, defaults Defaults) (DraftQuestion, bool) {
+	sectionType := block.sectionType
 	contentLines := make([]string, 0, len(block.lines))
 	optionLines := make([]string, 0, 4)
 	answerText := ""
@@ -134,12 +244,9 @@ func buildDraft(block splitBlock, index int, sectionType string, defaults Defaul
 			continue
 		}
 		if match := splitAnswerLine.FindStringSubmatch(trimmed); match != nil {
-			value := strings.TrimSpace(match[1])
-			if explanation := splitInlineExplanation(value); explanation != "" {
-				if explanationText == "" {
-					explanationText = explanation
-				}
-				value = strings.TrimSpace(strings.Split(value, "解析")[0])
+			value, explanation := splitAnswerAndExplanation(strings.TrimSpace(match[1]))
+			if explanation != "" && explanationText == "" {
+				explanationText = explanation
 			}
 			if answerText == "" {
 				answerText = value
@@ -219,17 +326,54 @@ func buildDraft(block splitBlock, index int, sectionType string, defaults Defaul
 	}, true
 }
 
-func splitInlineExplanation(value string) string {
-	index := strings.Index(value, "解析")
-	if index < 0 {
-		return ""
+func splitAnswerAndExplanation(value string) (string, string) {
+	value = strings.TrimSpace(value)
+	for _, marker := range []string{"【解析】", "【详解】", "解析：", "解析:", "解析", "详解：", "详解:", "详解"} {
+		index := strings.Index(value, marker)
+		if index < 0 {
+			continue
+		}
+		answer := strings.TrimSpace(value[:index])
+		explanation := strings.TrimSpace(strings.TrimLeft(value[index+len(marker):], " ：:】"))
+		return answer, explanation
 	}
-	return strings.TrimSpace(strings.TrimLeft(value[index+len("解析"):], "：: "))
+	return value, ""
 }
 
 func parseOptions(lines []string, content string) []Option {
 	options := make([]Option, 0, 4)
 	seen := map[string]bool{}
+	source := strings.Join(lines, "\n")
+	if strings.TrimSpace(source) == "" {
+		source = content
+	}
+	// 优先解析同一行内的多个选项：A. 甲 B. 乙 C. 丙 D. 丁
+	matches := splitInlineOption.FindAllStringSubmatchIndex(source, -1)
+	if len(matches) >= 2 {
+		for index, match := range matches {
+			key := strings.ToUpper(source[match[2]:match[3]])
+			if seen[key] {
+				continue
+			}
+			end := len(source)
+			if index+1 < len(matches) {
+				end = matches[index+1][0]
+			}
+			value := strings.TrimSpace(source[match[1]:end])
+			value = strings.TrimSpace(strings.TrimLeft(value, " ,，;；"))
+			if value == "" {
+				continue
+			}
+			seen[key] = true
+			options = append(options, Option{Key: key, Content: plainToHTML(limitOptionText(value))})
+			if len(options) == 4 {
+				break
+			}
+		}
+		if len(options) >= 2 {
+			return options
+		}
+	}
 	for _, line := range lines {
 		match := splitOptionLine.FindStringSubmatch(line)
 		if match == nil {
@@ -241,31 +385,6 @@ func parseOptions(lines []string, content string) []Option {
 		}
 		seen[key] = true
 		options = append(options, Option{Key: key, Content: plainToHTML(limitOptionText(strings.TrimSpace(match[2])))})
-	}
-	if len(options) >= 2 {
-		return options
-	}
-	// 同一行内联选项：A. 甲 B. 乙 C. 丙 D. 丁
-	matches := splitInlineOption.FindAllStringSubmatchIndex(content, -1)
-	if len(matches) < 2 {
-		return options
-	}
-	for index, match := range matches {
-		key := strings.ToUpper(content[match[2]:match[3]])
-		end := len(content)
-		if index+1 < len(matches) {
-			end = matches[index+1][0]
-		}
-		value := strings.TrimSpace(content[match[1]:end])
-		value = strings.TrimSpace(strings.TrimLeft(value, " ,，;；"))
-		if value == "" || seen[key] {
-			continue
-		}
-		seen[key] = true
-		options = append(options, Option{Key: key, Content: plainToHTML(limitOptionText(value))})
-		if len(options) == 4 {
-			break
-		}
 	}
 	return options
 }

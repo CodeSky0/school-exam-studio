@@ -87,3 +87,73 @@ func TestSplitQuestionsKeepsInlineOptions(t *testing.T) {
 		t.Fatalf("answer = %q", items[0].Answer)
 	}
 }
+
+func TestSplitQuestionsParsesOptionsOnOneOptionLine(t *testing.T) {
+	text := "1. 题干（ ）\nA．甲 B．乙 C．丙 D．丁\n答案：B"
+	items := SplitQuestions(text, Defaults{})
+	if len(items) != 1 {
+		t.Fatalf("items = %d", len(items))
+	}
+	if len(items[0].Options) != 4 {
+		t.Fatalf("options = %d", len(items[0].Options))
+	}
+	if items[0].Answer != "B" {
+		t.Fatalf("answer = %q", items[0].Answer)
+	}
+}
+
+func TestSplitQuestionsKeepsSectionTypePerBlock(t *testing.T) {
+	text := "一、选择题\n1. 第一题（ ）\nA. 甲\nB. 乙\nC. 丙\nD. 丁\n答案：A\n2. 第二题（ ）\nA. 甲\nB. 乙\nC. 丙\nD. 丁\n答案：B\n二、填空题\n3. 第三题 ____\n答案：12"
+	items := SplitQuestions(text, Defaults{})
+	if len(items) != 3 {
+		t.Fatalf("items = %d", len(items))
+	}
+	if items[0].QuestionType != "single_choice" || items[1].QuestionType != "single_choice" {
+		t.Fatalf("choice types = %q, %q", items[0].QuestionType, items[1].QuestionType)
+	}
+	if items[2].QuestionType != "fill_blank" {
+		t.Fatalf("fill type = %q", items[2].QuestionType)
+	}
+}
+
+func TestSplitQuestionsReadsAnswerSection(t *testing.T) {
+	text := "一、选择题\n1. 第一题（ ）\nA. 甲\nB. 乙\nC. 丙\nD. 丁\n2. 第二题（ ）\nA. 甲\nB. 乙\nC. 丙\nD. 丁\n参考答案\n1. A\n2. B\n解析：乙符合题意。"
+	items := SplitQuestions(text, Defaults{})
+	if len(items) != 2 {
+		t.Fatalf("items = %d", len(items))
+	}
+	if items[0].Answer != "A" || items[1].Answer != "B" {
+		t.Fatalf("answers = %q, %q", items[0].Answer, items[1].Answer)
+	}
+	if !strings.Contains(items[1].Explanation, "乙符合题意") {
+		t.Fatalf("explanation = %q", items[1].Explanation)
+	}
+	if strings.Contains(strings.Join(items[0].Warnings, " "), "未识别到答案") {
+		t.Fatalf("warnings = %#v", items[0].Warnings)
+	}
+}
+
+func TestSplitQuestionsReadsCompactAnswerRange(t *testing.T) {
+	text := "一、选择题\n1. 第一题（ ）\nA. 甲\nB. 乙\nC. 丙\nD. 丁\n2. 第二题（ ）\nA. 甲\nB. 乙\nC. 丙\nD. 丁\n参考答案\n1-2 AB"
+	items := SplitQuestions(text, Defaults{})
+	if len(items) != 2 {
+		t.Fatalf("items = %d", len(items))
+	}
+	if items[0].Answer != "A" || items[1].Answer != "B" {
+		t.Fatalf("answers = %q, %q", items[0].Answer, items[1].Answer)
+	}
+}
+
+func TestSplitQuestionsSplitsInlineExplanationMarker(t *testing.T) {
+	text := "1. 第一题（ ）\nA. 甲\nB. 乙\nC. 丙\nD. 丁\n答案：A【解析】甲符合题意。"
+	items := SplitQuestions(text, Defaults{})
+	if len(items) != 1 {
+		t.Fatalf("items = %d", len(items))
+	}
+	if items[0].Answer != "A" {
+		t.Fatalf("answer = %q", items[0].Answer)
+	}
+	if strings.Contains(items[0].Explanation, "】") || !strings.Contains(items[0].Explanation, "甲符合题意") {
+		t.Fatalf("explanation = %q", items[0].Explanation)
+	}
+}

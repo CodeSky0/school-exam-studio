@@ -225,7 +225,9 @@ func previewAttachmentContext(attachments []AttachmentRef, limit int) string {
 	for _, item := range attachments {
 		builder.WriteString("- ")
 		builder.WriteString(item.Name)
-		builder.WriteString("（")
+		builder.WriteString("（id=")
+		builder.WriteString(item.ID)
+		builder.WriteString("，")
 		builder.WriteString(item.Kind)
 		if item.Kind == AttachmentKindImage {
 			builder.WriteString("，图片已作为视觉输入提供，可直接阅读")
