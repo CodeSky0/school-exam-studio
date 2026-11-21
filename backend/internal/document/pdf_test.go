@@ -142,6 +142,39 @@ func TestExtractPDFUsesPerFontUnicodeMap(t *testing.T) {
 	}
 }
 
+func TestExtractPDFReadsAllBFCharBlocks(t *testing.T) {
+	cmap := "/CIDInit /ProcSet findresource begin\nbegincmap\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n" +
+		"1 beginbfchar\n<0001> <4E2D>\nendbfchar\n1 beginbfchar\n<0002> <6587>\nendbfchar\nendcmap\n"
+	content := "BT /F1 12 Tf 72 720 Td <0001> Tj <0002> Tj ET"
+	objects := pdfBaseObjects(6, "/Font << /F1 4 0 R >>")
+	objects[4] = "<< /Type /Font /Subtype /Type0 /BaseFont /Test /Encoding /Identity-H /ToUnicode 7 0 R >>"
+	objects[6] = pdfStreamObject("", content)
+	objects[7] = pdfStreamObject("", cmap)
+	result, err := Extract("blocks.pdf", "application/pdf", assemblePDF(objects))
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+	if !strings.Contains(result.Text, "中文") {
+		t.Fatalf("expected mappings from every bfchar block, got %q", result.Text)
+	}
+}
+
+func TestExtractPDFKeepsMappedTextWhenCMapIsPartial(t *testing.T) {
+	cmap := "/CIDInit /ProcSet findresource begin\nbegincmap\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n1 beginbfchar\n<0001> <4E2D>\nendbfchar\nendcmap\n"
+	content := "BT /F1 12 Tf 72 720 Td <0001> Tj <0002> Tj ET"
+	objects := pdfBaseObjects(6, "/Font << /F1 4 0 R >>")
+	objects[4] = "<< /Type /Font /Subtype /Type0 /BaseFont /Test /Encoding /Identity-H /ToUnicode 7 0 R >>"
+	objects[6] = pdfStreamObject("", content)
+	objects[7] = pdfStreamObject("", cmap)
+	result, err := Extract("partial.pdf", "application/pdf", assemblePDF(objects))
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+	if !strings.Contains(result.Text, "中") {
+		t.Fatalf("expected mapped text to survive partial CMap, got %q", result.Text)
+	}
+}
+
 func TestExtractPDFFallsBackToIdentityUnicode(t *testing.T) {
 	content := "BT /F1 12 Tf 72 720 Td <4F60> Tj <597D> Tj ET"
 	objects := pdfBaseObjects(6, "/Font << /F1 4 0 R >>")

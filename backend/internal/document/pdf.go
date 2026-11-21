@@ -872,18 +872,28 @@ func isPDFUnsignedInteger(value []byte) bool {
 func parsePDFCMap(stream []byte) pdfCMap {
 	text := string(stream)
 	result := pdfCMap{codes: map[string]string{}}
-	if index := strings.Index(text, "beginbfchar"); index >= 0 {
-		if end := strings.Index(text[index:], "endbfchar"); end >= 0 {
-			for _, pair := range pdfBFCharPair.FindAllStringSubmatch(text[index:index+end], -1) {
-				key := strings.ToLower(pair[1])
-				if value := utf16HexToString(pair[2]); value != "" {
-					result.codes[key] = value
-					if len(key) > 2 {
-						result.twoByte = true
-					}
+	// ToUnicode 表常被拆成多个 beginbfchar 块（例如每 100 个字形一组），
+	// 逐块解析，避免只读到第一组后其余文字回退成字形编码而乱码。
+	for offset := 0; offset < len(text); {
+		index := strings.Index(text[offset:], "beginbfchar")
+		if index < 0 {
+			break
+		}
+		index += offset
+		end := strings.Index(text[index:], "endbfchar")
+		if end < 0 {
+			break
+		}
+		for _, pair := range pdfBFCharPair.FindAllStringSubmatch(text[index:index+end], -1) {
+			key := strings.ToLower(pair[1])
+			if value := utf16HexToString(pair[2]); value != "" {
+				result.codes[key] = value
+				if len(key) > 2 {
+					result.twoByte = true
 				}
 			}
 		}
+		offset = index + end + len("endbfchar")
 	}
 	for offset := 0; offset < len(text); {
 		index := strings.Index(text[offset:], "beginbfrange")
@@ -1417,7 +1427,9 @@ func decodeCMapWidth(raw []byte, cmap *pdfCMap, width int) (string, bool) {
 			mapped++
 		}
 	}
-	if total == 0 || mapped == 0 || mapped*2 < total {
+	// 只要命中任意一个映射就采用 CMap 结果。部分 PDF 的 ToUnicode 只覆盖部分字形，
+	// 若因覆盖率不足整段回退成 CID 解码，会把已映射的文字也变成乱码。
+	if total == 0 || mapped == 0 {
 		return "", false
 	}
 	return builder.String(), true
