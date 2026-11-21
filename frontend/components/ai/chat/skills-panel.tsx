@@ -1,30 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ChevronDownIcon,
-  FileTextIcon,
-  LightningBoltIcon,
-  LockClosedIcon,
-  LoopIcon,
-  MagicWandIcon,
-  ReaderIcon,
   GearIcon,
+  LightningBoltIcon,
 } from "@radix-ui/react-icons";
 import type { AIStatus } from "@/lib/ai";
 import type { Skill, ToolDescriptor } from "@/lib/ai-chat";
 import { cn } from "@/lib/utils";
+import { SkillIcon } from "./skill-icon";
 
-function skillIcon(icon: string) {
-  switch (icon) {
-    case "file": return <FileTextIcon className="size-4" />;
-    case "book": return <ReaderIcon className="size-4" />;
-    case "split": return <MagicWandIcon className="size-4" />;
-    case "shield": return <LockClosedIcon className="size-4" />;
-    case "repeat": return <LoopIcon className="size-4" />;
-    default: return <MagicWandIcon className="size-4" />;
-  }
-}
+const CATEGORY_FILTERS = [
+  { key: "all", label: "全部" },
+  { key: "document", label: "文档" },
+  { key: "question", label: "题库" },
+  { key: "paper", label: "试卷" },
+  { key: "analytics", label: "分析" },
+  { key: "review", label: "复核" },
+] as const;
 
 function prettyParameters(value: unknown) {
   try {
@@ -44,8 +38,13 @@ export function SkillsPanel({ status, isStatusPending, statusError, skills, tool
   onUseSkill: (skill: Skill) => void;
 }) {
   const [tab, setTab] = useState<"skills" | "tools">("skills");
+  const [category, setCategory] = useState<string>("all");
   const provider = status?.provider ?? "local";
   const providerLabel = provider === "llm" ? "大模型" : provider === "local_fallback" ? "本地降级" : "本地引擎";
+  const visibleSkills = useMemo(
+    () => (category === "all" ? skills : skills.filter((skill) => skill.category === category)),
+    [skills, category],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-neutral-1">
@@ -81,10 +80,31 @@ export function SkillsPanel({ status, isStatusPending, statusError, skills, tool
         </button>
       </div>
 
+      {tab === "skills" ? (
+        <div className="flex flex-wrap gap-1 border-b border-border px-2 py-1.5" role="group" aria-label="技能分类筛选">
+          {CATEGORY_FILTERS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              aria-pressed={category === item.key}
+              onClick={() => setCategory(item.key)}
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-caption-10 transition-colors",
+                category === item.key
+                  ? "border-accent/35 bg-accent-soft font-medium text-accent-strong"
+                  : "border-border text-neutral-6 hover:border-accent/25 hover:text-neutral-9",
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {tab === "skills" ? (
           <ul className="grid gap-1.5">
-            {skills.map((skill) => (
+            {visibleSkills.map((skill) => (
               <li key={skill.id}>
                 <button
                   type="button"
@@ -92,7 +112,7 @@ export function SkillsPanel({ status, isStatusPending, statusError, skills, tool
                   className="w-full rounded-md border border-border bg-neutral-1 p-2.5 text-left transition-colors hover:border-accent/35 hover:bg-accent-soft/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
                 >
                   <span className="flex items-center gap-2 text-label-12 font-medium text-neutral-9">
-                    <span className="text-accent-strong">{skillIcon(skill.icon)}</span>
+                    <span className="text-accent-strong"><SkillIcon icon={skill.icon} className="size-3.5" /></span>
                     <span className="min-w-0 flex-1 truncate">{skill.title}</span>
                     {skill.accepts_attachments ? <span className="rounded bg-neutral-3 px-1 py-0.5 text-caption-10 text-neutral-7">附件</span> : null}
                   </span>
@@ -100,6 +120,9 @@ export function SkillsPanel({ status, isStatusPending, statusError, skills, tool
                 </button>
               </li>
             ))}
+            {visibleSkills.length === 0 ? (
+              <li className="rounded-md border border-dashed border-border px-3 py-6 text-center text-caption-10 text-neutral-6">该分类暂无技能</li>
+            ) : null}
           </ul>
         ) : (
           <ul className="grid gap-1.5">

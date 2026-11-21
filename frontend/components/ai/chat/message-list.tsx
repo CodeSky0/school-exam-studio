@@ -2,28 +2,33 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import {
+  BarChartIcon,
   ChatBubbleIcon,
+  EyeOpenIcon,
   FileTextIcon,
-  MagicWandIcon,
-  LockClosedIcon,
-  LoopIcon,
-  ReaderIcon,
+  LayersIcon,
+  TableIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
 import type { ChatMessage, LiveTurn, Skill } from "@/lib/ai-chat";
 import { cn } from "@/lib/utils";
 import { MessageBubble } from "./message-bubble";
+import { SkillIcon } from "./skill-icon";
 
-function skillIcon(icon: string) {
-  switch (icon) {
-    case "file": return <FileTextIcon className="size-4" />;
-    case "book": return <ReaderIcon className="size-4" />;
-    case "split": return <MagicWandIcon className="size-4" />;
-    case "shield": return <LockClosedIcon className="size-4" />;
-    case "repeat": return <LoopIcon className="size-4" />;
-    default: return <MagicWandIcon className="size-4" />;
-  }
+interface SkillGroup {
+  category: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
 }
+
+const SKILL_GROUPS: SkillGroup[] = [
+  { category: "document", label: "文档与资料", description: "阅读、切题、录题与云盘检索", icon: <FileTextIcon className="size-3.5" /> },
+  { category: "question", label: "题库整理", description: "体检、补全、出题与变式", icon: <LayersIcon className="size-3.5" /> },
+  { category: "paper", label: "试卷生成", description: "组卷、质检与双向细目表", icon: <TableIcon className="size-3.5" /> },
+  { category: "analytics", label: "数据分析", description: "覆盖度、重复题与相似题", icon: <BarChartIcon className="size-3.5" /> },
+  { category: "review", label: "产出复核", description: "AI 草稿逐条审核", icon: <EyeOpenIcon className="size-3.5" /> },
+];
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -75,6 +80,58 @@ function liveMessages(turn: LiveTurn | null): ChatMessage[] {
   return messages;
 }
 
+function EmptyWorkspace({ skills, onUseSkill }: { skills: Skill[]; onUseSkill: (skill: Skill) => void }) {
+  const grouped = SKILL_GROUPS.map((group) => ({
+    ...group,
+    items: skills.filter((skill) => skill.category === group.category),
+  })).filter((group) => group.items.length > 0);
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col items-center py-8 text-center">
+      <span className="motion-pop flex size-14 items-center justify-center rounded-2xl border border-accent/25 bg-accent-soft text-accent-strong shadow-sm">
+        <ChatBubbleIcon className="size-7" />
+      </span>
+      <h2 className="mt-4 text-title-20 font-medium text-neutral-10">AI 题库工作台</h2>
+      <p className="mt-1.5 max-w-md text-label-12 leading-5 text-neutral-7">
+        用自然语言完成文档录题、题库体检、智能组卷与校内资料检索。选择下方能力开始，或直接在输入框描述任务。
+      </p>
+      <div className="mt-8 grid w-full gap-6 text-left">
+        {grouped.map((group) => (
+          <section key={group.category} aria-label={group.label}>
+            <header className="flex items-center gap-2">
+              <span className="flex size-6 items-center justify-center rounded-md border border-accent/20 bg-accent-soft/60 text-accent-strong">{group.icon}</span>
+              <span className="text-label-12 font-medium text-neutral-9">{group.label}</span>
+              <span className="text-caption-10 text-neutral-6">{group.description}</span>
+              <span className="ml-auto rounded-full bg-neutral-2 px-1.5 py-0.5 font-mono text-caption-10 text-neutral-6">{group.items.length}</span>
+            </header>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {group.items.map((skill) => (
+                <button
+                  key={skill.id}
+                  type="button"
+                  onClick={() => onUseSkill(skill)}
+                  className="group flex items-start gap-2.5 rounded-lg border border-border bg-neutral-1 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-soft/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                >
+                  <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-neutral-2 text-accent-strong transition-colors group-hover:border-accent/30 group-hover:bg-accent-soft">
+                    <SkillIcon icon={skill.icon} className="size-3.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-copy-13 font-medium text-neutral-9">
+                      {skill.title}
+                      {skill.accepts_attachments ? <UploadIcon className="size-3 text-neutral-6" aria-label="支持附件" /> : null}
+                    </span>
+                    <span className="mt-0.5 block text-label-12 leading-5 text-neutral-7">{skill.description}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MessageList({
   messages, liveTurn, error, skills, scope, onUseSkill,
 }: MessageListProps) {
@@ -96,31 +153,7 @@ export function MessageList({
 
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6" role="log" aria-live="polite" aria-relevant="additions">
-      {isEmpty ? (
-        <div className="mx-auto flex max-w-3xl flex-col items-center py-10 text-center">
-          <span className="flex size-12 items-center justify-center rounded-full border border-accent/25 bg-accent-soft text-accent-strong">
-            <ChatBubbleIcon className="size-6" />
-          </span>
-          <h2 className="mt-4 text-title-20 font-medium text-neutral-10">今天要处理什么？</h2>
-          <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
-            {skills.map((skill) => (
-              <button
-                key={skill.id}
-                type="button"
-                onClick={() => onUseSkill(skill)}
-                className="group rounded-lg border border-border bg-neutral-1 p-3 text-left transition-all hover:border-accent/40 hover:bg-accent-soft/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-              >
-                <span className="flex items-center gap-2 text-copy-13 font-medium text-neutral-9">
-                  <span className="text-accent-strong">{skillIcon(skill.icon)}</span>
-                  {skill.title}
-                  {skill.accepts_attachments ? <UploadIcon className="size-3 text-neutral-6" aria-label="支持附件" /> : null}
-                </span>
-                <span className="mt-1 block text-label-12 leading-5 text-neutral-7">{skill.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {isEmpty ? <EmptyWorkspace skills={skills} onUseSkill={onUseSkill} /> : null}
 
       <div className="mx-auto grid max-w-4xl gap-5">
         {messages.map((message) => <MessageBubble key={message.id} message={message} scope={scope} />)}

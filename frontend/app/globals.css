@@ -295,6 +295,21 @@
   }
 }
 
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
 @utility motion-rise {
   animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: var(--motion-delay, 0ms);
@@ -318,6 +333,11 @@
 
 @utility animate-float {
   animation: float-y 7s ease-in-out infinite;
+  animation-delay: var(--motion-delay, 0ms);
+}
+
+@utility trace-pulse {
+  animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   animation-delay: var(--motion-delay, 0ms);
 }
 
