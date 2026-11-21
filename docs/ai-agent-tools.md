@@ -23,11 +23,8 @@
 | `generate_questions` | 是 | `subject`、`grade`、`category`、`knowledge_point`、`tag`、`count`、`model` | `agent_tool_generate_questions` | 知识点出题，保存为草稿，单次 ≤10 道 |
 | `generate_variants` | 是 | `question_id`、`count`、`model` | `agent_tool_generate_variants` | 原题变式，保存为草稿 |
 | `compose_paper` | 是 | `subject`、`grade`、`category`、`knowledge_point`、`tag`、`count`、`model` | `agent_tool_compose_paper` | 从已发布题目组 100 分试卷草稿 |
-| `list_attachments` | 否 | — | — | 列出本轮附件的类型、状态与文本预览 |
-| `read_attachment` | 否 | `attachment_ids`、`offset`、`limit` | — | 读取 PDF/Word/文本正文并分段；图片标记为视觉输入，不返回图片文本 |
+| `list_attachments` | 否 | — | — | 列出本轮附件的名称、类型、大小与上传状态 |
 | `search_cloud` | 否 | `query`、`limit` | — | 在本校已向量化的云盘资料中语义检索，返回文件名、原文片段与相似度；只读 |
-| `extract_questions` | 否 | `attachment_ids`、`subject`、`grade` | — | PDF/Word/文本切题，仅预览，最多 20 道 |
-| `import_document_questions` | 是 | `attachment_ids`、`subject`、`grade`、`category`、`tags` | `agent_tool_import_document_questions`、每题 `agent_import_question` | 文档切题并写入草稿，缺少答案的题跳过 |
 | `create_questions` | 是 | `subject`、`grade`、`items` | `agent_tool_create_questions` | 结构化题目批量创建草稿，单次 ≤10 道 |
 | `update_draft` | 是 | `question_id`、`category`、`knowledge_points`、`tags`、`difficulty`、`answer`、`explanation` | `agent_tool_update_draft` | 修改草稿；已发布题目只读 |
 | `list_papers` | 否 | `subject`、`grade`、`keyword`、`limit` | — | 列出试卷，返回 ID、题量、总分与时长 |
@@ -47,8 +44,8 @@
 
 ```json
 {
-  "summary": "已从文档导入 2 道题目到草稿题库",
-  "data": {"question_ids": ["..."], "total_detected": 2, "skipped": 0},
+  "summary": "已写入 2 道题目到草稿题库",
+  "data": {"question_ids": ["..."], "total": 2},
   "question_ids": ["..."],
   "warnings": []
 }
@@ -78,10 +75,9 @@
 
 | 技能 ID | 名称 | 接受附件 | 工具组合 |
 |---|---|---|---|
-| `document_reader` | 文档阅读 | 是 | `list_attachments` → `read_attachment` |
+| `document_reader` | 文档阅读 | 是 | —（原始文件随消息直接交给模型） |
 | `cloud_research` | 云盘资料问答 | 否 | `search_cloud` |
-| `document_import` | 文档智能录题 | 是 | `extract_questions` → `import_document_questions` |
-| `paper_split` | 整卷拆题 | 是 | `extract_questions` |
+| `document_import` | 文档智能录题 | 是 | `create_questions` |
 | `bank_cleanup` | 题库体检与整理 | 否 | `bank_audit` → `organize_drafts` |
 | `lesson_practice` | 课时练习生成 | 否 | `generate_questions` |
 | `final_review` | 期末复习卷 | 否 | `compose_paper` |
@@ -100,22 +96,20 @@
 外部 Agent 可以按以下顺序复用同一套能力：
 
 1. `GET /api/v1/ai/tools` 获取工具 Schema。
-2. `POST /api/v1/ai/attachments` 上传文件，得到附件 ID 与解析状态。
+2. `POST /api/v1/ai/attachments` 上传文件，得到附件 ID 与上传状态。
 3. `POST /api/v1/ai/conversations` 创建会话。
 4. `POST /api/v1/ai/conversations/:id/messages` 发送目标与附件 ID，读取返回的 `assistant_message.tool_calls`。
 5. 如需自行编排，可按 Schema 直接构造参数；服务端的权限、草稿限制与审计仍然生效。
 
 ## 4. 附件约束
 
-- 每轮最多 5 个附件；图片 ≤10 MiB，文档 ≤20 MiB。
+- 每轮最多 5 个附件；图片 ≤10 MiB，文档 ≤20 MiB，整轮附件合计 ≤32 MiB。
 - 支持 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、Markdown、CSV。
-- 图片不走 OCR：上传后保留原始文件，状态直接为 `parsed`，发送消息时以 base64 data URL 作为多模态输入交给模型直接阅读。
-- PDF 内置文本流与 ToUnicode 映射抽取；DOCX 解压读取 `word/document.xml`；纯文本直接读取。
-- 扫描版 PDF 无文本层时状态仍为 `parsed`，`text_chars=0`；Agent 会提示改为上传页面图片，由视觉模型直接识别。
-- 视觉输入上限：单张图片 10 MiB，整轮原图合计 16 MiB；超限图片会跳过并在回复中提示。
-- 抽取文本上限 200,000 字符；`read_attachment` 默认每次返回 4,000 字符，可按 `offset` 继续读取。
+- 服务端不再抽取文档文本：上传后保留原始文件，状态直接为 `parsed`；发送消息时图片以 base64 data URL 作为视觉输入、PDF/Word 以 `file` 内容块、纯文本直接内联，交给模型直接阅读。
+- 文档阅读依赖模型的文件输入能力；纯文本模型只能读取 TXT/Markdown/CSV 的内联内容。
+- 超限文件会跳过并在回复中提示；单个文本附件内联上限 100,000 字符。
 - 单题题干 6,000 字符、解析 4,000 字符、选项 1,000 字符。
-- 文件落在 `AI_UPLOAD_DIR`，数据库只存元数据与抽取文本；权限目录 `0750`、文件 `0640`。
+- 文件落在 `AI_UPLOAD_DIR`，数据库只存元数据；权限目录 `0750`、文件 `0640`。
 
 ## 5. 安全边界
 

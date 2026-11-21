@@ -36,11 +36,18 @@ type LLMImageURL struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-// LLMContentPart 是 OpenAI 兼容的多模态内容片段：text 或 image_url。
+// LLMFileData 是 OpenAI 兼容的文件内容块，file_data 支持 data: URL 内联原始文件。
+type LLMFileData struct {
+	Filename string `json:"filename"`
+	FileData string `json:"file_data"`
+}
+
+// LLMContentPart 是 OpenAI 兼容的多模态内容片段：text、image_url 或 file。
 type LLMContentPart struct {
 	Type     string       `json:"type"`
 	Text     string       `json:"text,omitempty"`
 	ImageURL *LLMImageURL `json:"image_url,omitempty"`
+	File     *LLMFileData `json:"file,omitempty"`
 }
 
 type LLMMessage struct {
@@ -52,7 +59,7 @@ type LLMMessage struct {
 	Name       string           `json:"name,omitempty"`
 }
 
-// MarshalJSON 在没有多模态片段时保持 content 为字符串，有图片时输出分段数组。
+// MarshalJSON 在没有多模态片段时保持 content 为字符串，有附件时输出分段数组。
 func (m LLMMessage) MarshalJSON() ([]byte, error) {
 	type messagePayload struct {
 		Role       string        `json:"role"`

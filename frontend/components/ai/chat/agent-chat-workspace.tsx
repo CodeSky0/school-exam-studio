@@ -216,7 +216,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
     if (isSending) return;
     if (!content && attachments.length === 0) return;
     if (uploads.some((item) => item.status === "uploading")) {
-      setActionError("请等待附件解析完成后再发送");
+      setActionError("请等待附件上传完成后再发送");
       return;
     }
     if (uploads.some((item) => item.status === "failed")) {
@@ -241,7 +241,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
     }
     const sentAttachments = attachments;
     setLiveTurn({
-      content: content || "请解析这些附件",
+      content: content || "请查看这些附件",
       startedAt: new Date().toISOString(),
       attachments: sentAttachments,
       toolCalls: [],
@@ -398,7 +398,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
         if (uploadEpochRef.current !== epoch) return;
         if (attachment.status === "failed") {
           setUploads((current) => current.map((item) => item.id === task.id
-            ? { ...item, status: "failed", error: attachment.error ?? "解析失败" }
+            ? { ...item, status: "failed", error: attachment.error ?? "上传失败" }
             : item));
           return;
         }

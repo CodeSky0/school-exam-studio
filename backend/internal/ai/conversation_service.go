@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"school-exam-studio/backend/internal/auth"
-	"school-exam-studio/backend/internal/document"
 	"school-exam-studio/backend/internal/drive"
 )
 
@@ -24,9 +23,13 @@ const (
 	maxLLMToolCalls    = 12
 	maxToolResultChars = 6000
 
-	// 视觉输入上限：单张图片沿用 10 MiB，整轮原图总大小控制在 16 MiB，避免请求体过大。
+	// 视觉输入上限：单张图片沿用 10 MiB。
 	maxVisionImageBytes = 10 << 20
-	maxVisionTotalBytes = 16 << 20
+
+	// 文档直接以 file 内容块发送：单个文件沿用 20 MiB，整轮文件与图片合计不超过 32 MiB。
+	maxAttachmentTotalBytes = 32 << 20
+	// 纯文本附件直接内联到消息中，避免无谓的文件块兼容问题。
+	maxInlineTextRunes = 100000
 )
 
 func (s *Service) CreateConversation(ctx context.Context, principal auth.Principal, title string) (Conversation, error) {
@@ -268,62 +271,15 @@ func (s *Service) parseAttachment(ctx context.Context, principal auth.Principal,
 	if s.attachments == nil {
 		return attachment, nil
 	}
-	if attachment.Kind == AttachmentKindImage {
-		// 图片不再预处理：保留原始文件，在本轮对话中作为多模态输入直接交给模型阅读。
-		attachment.ExtractedText = ""
-		attachment.TextChars = 0
-		attachment.Status = AttachmentStatusParsed
-		attachment.Error = ""
-		return s.persistAttachment(ctx, principal, attachment)
-	}
-	file, err := s.attachments.Open(attachment.StoragePath)
-	if err != nil {
-		return s.failAttachment(ctx, principal, attachment, "附件文件已丢失")
-	}
-	data, readErr := io.ReadAll(io.LimitReader(file, MaxDocBytes+1))
-	_ = file.Close()
-	if readErr != nil {
-		return s.failAttachment(ctx, principal, attachment, "附件读取失败")
-	}
-	var text string
-	switch attachment.Kind {
-	case AttachmentKindPDF, AttachmentKindDocx, AttachmentKindText:
-		result, extractErr := document.Extract(attachment.Name, attachment.MIME, data)
-		if extractErr != nil {
-			return s.failAttachment(ctx, principal, attachment, "文档解析失败："+extractErr.Error())
-		}
-		text = result.Text
-	default:
-		return s.failAttachment(ctx, principal, attachment, "不支持的附件类型")
-	}
-	text = strings.TrimSpace(text)
-	runes := []rune(text)
-	if len(runes) > document.MaxTextChars {
-		text = string(runes[:document.MaxTextChars])
-	}
-	attachment.ExtractedText = text
-	attachment.TextChars = utf8.RuneCountInString(text)
+	// 附件不在服务端抽取文本：PDF/Word 保留原始文件，发送消息时直接交给模型阅读。
+	attachment.ExtractedText = ""
+	attachment.TextChars = 0
 	attachment.Status = AttachmentStatusParsed
 	attachment.Error = ""
-	// 扫描版 PDF 或空文档不会直接失败：Agent 可以提示用户改为上传页面图片，由视觉模型读取。
 	return s.persistAttachment(ctx, principal, attachment)
 }
 
 func (s *Service) persistAttachment(ctx context.Context, principal auth.Principal, attachment Attachment) (Attachment, error) {
-	attachmentID, parseErr := uuid.Parse(attachment.ID)
-	if parseErr != nil {
-		return attachment, parseErr
-	}
-	updated, err := s.repo.UpdateAttachment(ctx, principal, attachmentID, attachment)
-	if err != nil {
-		return attachment, err
-	}
-	return updated, nil
-}
-
-func (s *Service) failAttachment(ctx context.Context, principal auth.Principal, attachment Attachment, message string) (Attachment, error) {
-	attachment.Status = AttachmentStatusFailed
-	attachment.Error = message
 	attachmentID, parseErr := uuid.Parse(attachment.ID)
 	if parseErr != nil {
 		return attachment, parseErr
@@ -561,8 +517,9 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 	return reply, calls, timeline, ProviderLocal, "", warnings
 }
 
-// attachmentImageParts 把本轮图片附件编码为 data URL，作为多模态输入直接交给模型阅读，不经过 OCR。
-func (s *Service) attachmentImageParts(attachments []Attachment) ([]LLMContentPart, []string) {
+// attachmentParts 把本轮附件直接交给模型：图片走视觉输入，PDF/Word 走 file 内容块，纯文本直接内联。
+// 服务端不做文本抽取，避免扫描件或复杂排版在本地解析时丢失内容。
+func (s *Service) attachmentParts(attachments []Attachment) ([]LLMContentPart, []string) {
 	if s.attachments == nil {
 		return nil, nil
 	}
@@ -570,37 +527,63 @@ func (s *Service) attachmentImageParts(attachments []Attachment) ([]LLMContentPa
 	warnings := make([]string, 0)
 	total := 0
 	for _, item := range attachments {
-		if item.Kind != AttachmentKindImage {
-			continue
-		}
 		if item.Status != AttachmentStatusParsed {
-			warnings = append(warnings, fmt.Sprintf("图片《%s》未解析成功，已跳过视觉输入", item.Name))
+			warnings = append(warnings, fmt.Sprintf("附件《%s》未上传成功，已跳过", item.Name))
 			continue
 		}
-		if item.SizeBytes > maxVisionImageBytes {
-			warnings = append(warnings, fmt.Sprintf("图片《%s》超过 %d MiB，已跳过视觉输入", item.Name, maxVisionImageBytes>>20))
+		if item.Kind == AttachmentKindImage {
+			if item.SizeBytes > maxVisionImageBytes {
+				warnings = append(warnings, fmt.Sprintf("图片《%s》超过 %d MiB，已跳过视觉输入", item.Name, maxVisionImageBytes>>20))
+				continue
+			}
+		} else if item.SizeBytes > MaxDocBytes {
+			warnings = append(warnings, fmt.Sprintf("文件《%s》超过 %d MiB，已跳过", item.Name, MaxDocBytes>>20))
 			continue
 		}
-		if total+int(item.SizeBytes) > maxVisionTotalBytes {
-			warnings = append(warnings, fmt.Sprintf("本轮图片总大小超过 %d MiB，后续图片已跳过视觉输入", maxVisionTotalBytes>>20))
+		if total+int(item.SizeBytes) > maxAttachmentTotalBytes {
+			warnings = append(warnings, fmt.Sprintf("本轮附件总大小超过 %d MiB，后续附件已跳过", maxAttachmentTotalBytes>>20))
 			break
 		}
 		file, err := s.attachments.Open(item.StoragePath)
 		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("图片《%s》读取失败，已跳过视觉输入", item.Name))
+			warnings = append(warnings, fmt.Sprintf("附件《%s》读取失败，已跳过", item.Name))
 			continue
 		}
-		data, readErr := io.ReadAll(io.LimitReader(file, maxVisionImageBytes+1))
+		limit := int64(maxVisionImageBytes)
+		if item.Kind != AttachmentKindImage {
+			limit = MaxDocBytes
+		}
+		data, readErr := io.ReadAll(io.LimitReader(file, limit+1))
 		_ = file.Close()
-		if readErr != nil || len(data) == 0 || len(data) > maxVisionImageBytes {
-			warnings = append(warnings, fmt.Sprintf("图片《%s》读取失败或超过大小限制，已跳过视觉输入", item.Name))
+		if readErr != nil || len(data) == 0 || int64(len(data)) > limit {
+			warnings = append(warnings, fmt.Sprintf("附件《%s》读取失败或超过大小限制，已跳过", item.Name))
 			continue
 		}
 		total += len(data)
-		parts = append(parts, LLMContentPart{
-			Type:     "image_url",
-			ImageURL: &LLMImageURL{URL: "data:" + item.MIME + ";base64," + base64.StdEncoding.EncodeToString(data)},
-		})
+		switch item.Kind {
+		case AttachmentKindImage:
+			parts = append(parts, LLMContentPart{
+				Type:     "image_url",
+				ImageURL: &LLMImageURL{URL: "data:" + item.MIME + ";base64," + base64.StdEncoding.EncodeToString(data)},
+			})
+		case AttachmentKindPDF, AttachmentKindDocx:
+			parts = append(parts, LLMContentPart{
+				Type: "file",
+				File: &LLMFileData{
+					Filename: item.Name,
+					FileData: "data:" + item.MIME + ";base64," + base64.StdEncoding.EncodeToString(data),
+				},
+			})
+		case AttachmentKindText:
+			text := string(data)
+			if runes := []rune(text); len(runes) > maxInlineTextRunes {
+				text = string(runes[:maxInlineTextRunes])
+				warnings = append(warnings, fmt.Sprintf("文本《%s》超过 %d 字，已截断", item.Name, maxInlineTextRunes))
+			}
+			parts = append(parts, LLMContentPart{Type: "text", Text: "【附件：" + item.Name + "】\n" + text})
+		default:
+			warnings = append(warnings, fmt.Sprintf("附件《%s》类型不受支持，已跳过", item.Name))
+		}
 	}
 	return parts, warnings
 }
@@ -641,17 +624,17 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 	for _, item := range attachments {
 		refs = append(refs, item.Ref())
 	}
-	userContent := content + previewAttachmentContext(refs, 1500)
+	userContent := content + previewAttachmentContext(refs)
 	if strings.TrimSpace(userContent) == "" {
 		userContent = "请查看本轮附件。"
 	}
-	imageParts, imageWarnings := s.attachmentImageParts(attachments)
-	if len(imageWarnings) > 0 {
-		userContent += "\n\n视觉输入提示：" + strings.Join(imageWarnings, "；")
+	attachmentParts, partWarnings := s.attachmentParts(attachments)
+	if len(partWarnings) > 0 {
+		userContent += "\n\n附件提示：" + strings.Join(partWarnings, "；")
 	}
 	userMessage := LLMMessage{Role: "user", Content: userContent}
-	if len(imageParts) > 0 {
-		userMessage.Parts = append([]LLMContentPart{{Type: "text", Text: userContent}}, imageParts...)
+	if len(attachmentParts) > 0 {
+		userMessage.Parts = append([]LLMContentPart{{Type: "text", Text: userContent}}, attachmentParts...)
 	}
 	messages = append(messages, userMessage)
 	toolContext := ToolContext{Principal: principal, ConversationID: conversation.ID, RunID: runID}

@@ -165,7 +165,7 @@ describe("ai chat helpers", () => {
     const message = chatMessageSchema.parse({
       id: "m1", conversation_id: "c1", role: "assistant", content: "", created_at: "2026-11-17T10:00:00Z",
       tool_calls: [{
-        id: "t1", name: "import_document_questions", label: "文档入库", status: "succeeded", summary: "",
+        id: "t1", name: "create_questions", label: "创建题目", status: "succeeded", summary: "",
         arguments: {}, result: { question_ids: ["q1", "q2"], data: { question_ids: ["q2", "q3"] } },
       }],
     });

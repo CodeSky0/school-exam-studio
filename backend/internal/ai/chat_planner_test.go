@@ -6,23 +6,20 @@ import (
 	"school-exam-studio/backend/internal/auth"
 )
 
-func TestPlannerRoutesDocumentImport(t *testing.T) {
+func TestPlannerRequiresModelForAttachments(t *testing.T) {
 	plan := planChatTurn("把这份 PDF 里的题导入八年级数学题库", []AttachmentRef{
 		{ID: "11111111-1111-1111-1111-111111111111", Kind: AttachmentKindPDF, Status: AttachmentStatusParsed},
 	}, nil, auth.Principal{Role: auth.RoleAdmin})
-	if len(plan.Calls) != 2 {
-		t.Fatalf("calls = %#v", plan.Calls)
-	}
-	if plan.Calls[0].Name != "extract_questions" || plan.Calls[1].Name != "import_document_questions" {
-		t.Fatalf("calls = %#v", plan.Calls)
+	if len(plan.Calls) != 0 || plan.Reply == "" {
+		t.Fatalf("plan = %#v", plan)
 	}
 }
 
-func TestPlannerAsksForSubjectAndGradeBeforeImport(t *testing.T) {
+func TestPlannerRequiresModelForDocxAttachment(t *testing.T) {
 	plan := planChatTurn("导入这些题", []AttachmentRef{
 		{ID: "11111111-1111-1111-1111-111111111111", Kind: AttachmentKindDocx, Status: AttachmentStatusParsed},
 	}, nil, auth.Principal{Role: auth.RoleAdmin})
-	if !plan.Clarify || len(plan.Calls) != 0 {
+	if len(plan.Calls) != 0 || plan.Clarify {
 		t.Fatalf("plan = %#v", plan)
 	}
 }
@@ -80,14 +77,19 @@ func TestValidateToolArgumentsRejectsUnknownField(t *testing.T) {
 	}
 }
 
-func TestToolCatalogCoversDocumentImport(t *testing.T) {
+func TestToolCatalogCoversQuestionCreation(t *testing.T) {
 	names := map[string]bool{}
 	for _, item := range (&Service{}).ToolCatalog(auth.Principal{Role: auth.RoleAdmin}) {
 		names[item.Name] = true
 	}
-	for _, want := range []string{"extract_questions", "import_document_questions", "create_questions", "update_draft", "compose_paper"} {
+	for _, want := range []string{"list_attachments", "create_questions", "update_draft", "compose_paper"} {
 		if !names[want] {
 			t.Fatalf("missing tool %s", want)
+		}
+	}
+	for _, removed := range []string{"extract_questions", "import_document_questions", "read_attachment"} {
+		if names[removed] {
+			t.Fatalf("tool %s should be removed", removed)
 		}
 	}
 }

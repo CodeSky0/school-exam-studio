@@ -52,6 +52,9 @@ func TestSkillCatalogHasDocumentImport(t *testing.T) {
 			if !skill.AcceptsAttachments {
 				t.Fatal("document_import should accept attachments")
 			}
+			if len(skill.RequiredTools) != 1 || skill.RequiredTools[0] != "create_questions" {
+				t.Fatalf("document_import required tools = %v", skill.RequiredTools)
+			}
 		}
 	}
 	if !found {

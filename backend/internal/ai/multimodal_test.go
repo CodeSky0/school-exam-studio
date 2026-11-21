@@ -54,7 +54,7 @@ func TestLLMMessageMarshalContentParts(t *testing.T) {
 	}
 }
 
-func TestAttachmentImagePartsEncodesImagesWithoutOCR(t *testing.T) {
+func TestAttachmentPartsEncodesImagesWithoutOCR(t *testing.T) {
 	store, err := NewAttachmentStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewAttachmentStore: %v", err)
@@ -65,7 +65,7 @@ func TestAttachmentImagePartsEncodesImagesWithoutOCR(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 	service := &Service{attachments: store}
-	parts, warnings := service.attachmentImageParts([]Attachment{{
+	parts, warnings := service.attachmentParts([]Attachment{{
 		ID: uuid.NewString(), Name: stored.Name, MIME: stored.MIME, Kind: AttachmentKindImage,
 		Status: AttachmentStatusParsed, SizeBytes: stored.SizeBytes, StoragePath: stored.StoragePath,
 	}})
@@ -88,9 +88,65 @@ func TestAttachmentImagePartsEncodesImagesWithoutOCR(t *testing.T) {
 	}
 }
 
-func TestAttachmentImagePartsSkipsOversizedImages(t *testing.T) {
+func TestAttachmentPartsSendsPDFAsFile(t *testing.T) {
+	store, err := NewAttachmentStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewAttachmentStore: %v", err)
+	}
+	data := []byte("%PDF-1.7 fake body")
+	stored, err := store.Save(uuid.New(), uuid.New(), "试卷.pdf", "application/pdf", data)
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	service := &Service{attachments: store}
+	parts, warnings := service.attachmentParts([]Attachment{{
+		ID: uuid.NewString(), Name: stored.Name, MIME: stored.MIME, Kind: AttachmentKindPDF,
+		Status: AttachmentStatusParsed, SizeBytes: stored.SizeBytes, StoragePath: stored.StoragePath,
+	}})
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", warnings)
+	}
+	if len(parts) != 1 || parts[0].Type != "file" || parts[0].File == nil {
+		t.Fatalf("parts = %#v", parts)
+	}
+	if parts[0].File.Filename != stored.Name {
+		t.Fatalf("filename = %q", parts[0].File.Filename)
+	}
+	prefix := "data:application/pdf;base64,"
+	if !strings.HasPrefix(parts[0].File.FileData, prefix) {
+		t.Fatalf("file_data prefix = %q", parts[0].File.FileData)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(parts[0].File.FileData, prefix))
+	if err != nil || string(decoded) != string(data) {
+		t.Fatalf("decoded pdf mismatch: %v", err)
+	}
+}
+
+func TestAttachmentPartsInlinesText(t *testing.T) {
+	store, err := NewAttachmentStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewAttachmentStore: %v", err)
+	}
+	stored, err := store.Save(uuid.New(), uuid.New(), "笔记.txt", "text/plain", []byte("第一章 有理数"))
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	service := &Service{attachments: store}
+	parts, warnings := service.attachmentParts([]Attachment{{
+		ID: uuid.NewString(), Name: stored.Name, MIME: stored.MIME, Kind: AttachmentKindText,
+		Status: AttachmentStatusParsed, SizeBytes: stored.SizeBytes, StoragePath: stored.StoragePath,
+	}})
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", warnings)
+	}
+	if len(parts) != 1 || parts[0].Type != "text" || !strings.Contains(parts[0].Text, "第一章 有理数") {
+		t.Fatalf("parts = %#v", parts)
+	}
+}
+
+func TestAttachmentPartsSkipsOversizedImages(t *testing.T) {
 	service := &Service{attachments: &AttachmentStore{root: t.TempDir()}}
-	parts, warnings := service.attachmentImageParts([]Attachment{{
+	parts, warnings := service.attachmentParts([]Attachment{{
 		Name: "big.png", Kind: AttachmentKindImage, Status: AttachmentStatusParsed,
 		SizeBytes: maxVisionImageBytes + 1,
 	}})
@@ -102,7 +158,7 @@ func TestAttachmentImagePartsSkipsOversizedImages(t *testing.T) {
 	}
 }
 
-func TestLocalPlannerExplainsImageNeedsVisionModel(t *testing.T) {
+func TestLocalPlannerExplainsAttachmentsNeedModel(t *testing.T) {
 	plan := planChatTurn("请阅读这张图片", []AttachmentRef{{
 		ID: "image-1", Name: "题目.png", Kind: AttachmentKindImage, Status: AttachmentStatusParsed,
 	}}, nil, testPrincipal())
@@ -129,38 +185,35 @@ func TestDocumentReaderSkillIsDiscoverable(t *testing.T) {
 	if !found.AcceptsAttachments {
 		t.Fatal("document_reader must accept attachments")
 	}
-	required := map[string]bool{}
-	for _, name := range found.RequiredTools {
-		required[name] = true
-	}
-	if !required["read_attachment"] || !required["list_attachments"] {
-		t.Fatalf("required tools = %v", found.RequiredTools)
+	if len(found.RequiredTools) != 0 {
+		t.Fatalf("required tools = %v, want none", found.RequiredTools)
 	}
 }
 
-func TestToolCatalogIncludesReadAttachment(t *testing.T) {
+func TestToolCatalogRemovesDocumentParsingTools(t *testing.T) {
 	service := &Service{}
 	catalog := service.ToolCatalog(testPrincipal())
+	found := map[string]bool{}
 	for _, item := range catalog {
-		if item.Name == "read_attachment" {
-			if item.Category != "document" || item.Writes {
-				t.Fatalf("descriptor = %#v", item)
-			}
-			return
+		found[item.Name] = true
+	}
+	for _, name := range []string{"read_attachment", "extract_questions", "import_document_questions"} {
+		if found[name] {
+			t.Fatalf("%s should be removed from tool catalog", name)
 		}
 	}
-	t.Fatal("read_attachment not found in tool catalog")
+	if !found["list_attachments"] || !found["create_questions"] {
+		t.Fatalf("expected list_attachments and create_questions in catalog, got %v", found)
+	}
 }
 
-func TestValidateToolArgumentsAcceptsReadAttachment(t *testing.T) {
-	if err := validateToolArguments("read_attachment", map[string]any{
-		"attachment_ids": []any{"6f1b0d7e-1f2a-4a4b-9c7d-3f0f3c9a1b2c"},
-		"offset":         float64(0),
-		"limit":          float64(4000),
-	}); err != nil {
-		t.Fatalf("valid args rejected: %v", err)
+func TestValidateToolArgumentsRejectsRemovedTools(t *testing.T) {
+	for _, name := range []string{"read_attachment", "extract_questions", "import_document_questions"} {
+		if err := validateToolArguments(name, map[string]any{}); err == nil {
+			t.Fatalf("%s should be rejected", name)
+		}
 	}
-	if err := validateToolArguments("read_attachment", map[string]any{"unknown": true}); err == nil {
-		t.Fatal("unknown field should be rejected")
+	if err := validateToolArguments("list_attachments", map[string]any{}); err != nil {
+		t.Fatalf("list_attachments rejected: %v", err)
 	}
 }

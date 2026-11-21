@@ -9,16 +9,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"school-exam-studio/backend/internal/auth"
-	"school-exam-studio/backend/internal/document"
 	"school-exam-studio/backend/internal/drive"
 	"school-exam-studio/backend/internal/question"
 )
-
-const maxToolQuestions = 20
 
 // ToolDescriptor 是暴露给前端与外部 Agent 的工具契约。
 type ToolDescriptor struct {
@@ -63,10 +59,7 @@ func (s *Service) toolRegistry() map[string]registeredTool {
 		{descriptor: toolGenerateVariants, run: s.toolGenerateVariants},
 		{descriptor: toolComposePaper, run: s.toolComposePaper},
 		{descriptor: toolListAttachments, run: s.toolListAttachments},
-		{descriptor: toolReadAttachment, run: s.toolReadAttachment},
 		{descriptor: toolSearchCloud, run: s.toolSearchCloud},
-		{descriptor: toolExtractQuestions, run: s.toolExtractQuestions},
-		{descriptor: toolImportDocument, run: s.toolImportDocument},
 		{descriptor: toolCreateQuestions, run: s.toolCreateQuestions},
 		{descriptor: toolUpdateDraft, run: s.toolUpdateDraft},
 		{descriptor: toolListPapers, run: s.toolListPapers},
@@ -94,7 +87,7 @@ func toolCategory(name string) string {
 		return "paper"
 	case "bank_stats", "bank_audit", "find_duplicates", "review_queue", "search_similar_questions":
 		return "analytics"
-	case "list_attachments", "read_attachment", "search_cloud", "extract_questions", "import_document_questions":
+	case "list_attachments", "search_cloud":
 		return "document"
 	default:
 		return "question"
@@ -346,78 +339,21 @@ func (s *Service) toolListAttachments(ctx context.Context, toolContext ToolConte
 	for _, item := range attachments {
 		entry := map[string]any{
 			"id": item.ID, "name": item.Name, "kind": item.Kind,
-			"status": item.Status, "text_chars": item.TextChars,
-			"preview": textPreview(item.ExtractedText, 300),
+			"status": item.Status, "size_bytes": item.SizeBytes,
 		}
 		if item.Kind == AttachmentKindImage {
 			entry["mode"] = "vision"
 			entry["note"] = "图片已作为视觉输入随本轮消息发送，可直接阅读。"
 		} else {
-			entry["mode"] = "text"
+			entry["mode"] = "file"
+			entry["note"] = "原文件已随本轮消息直接发送给模型，可直接阅读其内容。"
 		}
 		items = append(items, entry)
 	}
 	return ToolResult{
 		Summary: fmt.Sprintf("本轮共有 %d 个附件", len(attachments)),
-		Data:    map[string]any{"items": items, "combined_text_chars": combinedTextLength(attachments)},
+		Data:    map[string]any{"items": items},
 	}, nil
-}
-
-func (s *Service) toolReadAttachment(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
-	ids := stringSliceArgument(args, "attachment_ids")
-	if len(ids) == 0 {
-		ids = toolContext.AttachmentIDs
-	}
-	attachments, err := s.resolveAttachments(ctx, toolContext.Principal, ids, toolContext.AttachmentIDs)
-	if err != nil {
-		return ToolResult{}, err
-	}
-	if len(attachments) == 0 {
-		return ToolResult{}, validationError("attachment_ids", "请先上传 PDF、Word、文本或图片附件")
-	}
-	offset := intArgument(args, "offset", 0, 0, document.MaxTextChars)
-	limit := intArgument(args, "limit", 4000, 500, 6000)
-	items := make([]map[string]any, 0, len(attachments))
-	visionCount := 0
-	for _, item := range attachments {
-		if item.Kind == AttachmentKindImage {
-			visionCount++
-			items = append(items, map[string]any{
-				"id": item.ID, "name": item.Name, "kind": item.Kind, "mode": "vision",
-				"chars": 0, "text": "",
-				"note": "图片已作为视觉输入随本轮消息发送，请直接阅读图片中的文字、公式与表格；本工具不返回图片文本。",
-			})
-			continue
-		}
-		runes := []rune(strings.TrimSpace(item.ExtractedText))
-		start := offset
-		if start > len(runes) {
-			start = len(runes)
-		}
-		end := start + limit
-		hasMore := false
-		if end < len(runes) {
-			hasMore = true
-		} else {
-			end = len(runes)
-		}
-		entry := map[string]any{
-			"id": item.ID, "name": item.Name, "kind": item.Kind, "mode": "text",
-			"chars": len(runes), "offset": start, "text": string(runes[start:end]), "has_more": hasMore,
-		}
-		if hasMore {
-			entry["next_offset"] = end
-		}
-		if len(runes) == 0 {
-			entry["note"] = "未抽取到文本层，可能是扫描版 PDF；请提示用户上传页面图片，由视觉模型直接阅读。"
-		}
-		items = append(items, entry)
-	}
-	summary := fmt.Sprintf("已读取 %d 个附件", len(attachments))
-	if visionCount > 0 {
-		summary += fmt.Sprintf("，其中 %d 张图片已作为视觉输入直接提供", visionCount)
-	}
-	return ToolResult{Summary: summary, Data: map[string]any{"items": items}}, nil
 }
 
 // toolSearchCloud 检索学校云盘中已向量化的资料，只读取文本片段，不写入任何数据。
@@ -459,123 +395,6 @@ func (s *Service) toolSearchCloud(ctx context.Context, toolContext ToolContext, 
 			"chunks_scanned": result.ChunksScanned,
 			"hits":           result.Hits,
 		},
-	}, nil
-}
-
-func (s *Service) toolExtractQuestions(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
-	ids := stringSliceArgument(args, "attachment_ids")
-	if len(ids) == 0 {
-		ids = toolContext.AttachmentIDs
-	}
-	attachments, err := s.resolveAttachments(ctx, toolContext.Principal, ids, toolContext.AttachmentIDs)
-	if err != nil {
-		return ToolResult{}, err
-	}
-	if len(attachments) == 0 {
-		return ToolResult{}, validationError("attachment_ids", "请先上传 PDF、Word 或文本文件")
-	}
-	text := combinedAttachmentText(attachments)
-	if strings.TrimSpace(text) == "" {
-		return ToolResult{}, validationError("attachment_ids", "附件没有可提取的文本。图片和扫描版 PDF 可直接交给模型阅读；含文本层的 PDF/Word 请重新上传")
-	}
-	subject := stringArgument(args, "subject")
-	grade := stringArgument(args, "grade")
-	if toolContext.Principal.Role == auth.RoleTeacher {
-		subject = toolContext.Principal.Subject
-	}
-	drafts := document.SplitQuestions(text, document.Defaults{Subject: subject, Grade: grade})
-	if len(drafts) > maxToolQuestions {
-		drafts = drafts[:maxToolQuestions]
-	}
-	if len(drafts) == 0 {
-		return ToolResult{}, fmt.Errorf("未在文档中识别到题目")
-	}
-	return ToolResult{
-		Summary: fmt.Sprintf("已从文档切分 %d 道题目，等待确认后入库", len(drafts)),
-		Data:    map[string]any{"items": drafts, "total": len(drafts)},
-	}, nil
-}
-
-func (s *Service) toolImportDocument(ctx context.Context, toolContext ToolContext, args map[string]any) (ToolResult, error) {
-	ids := stringSliceArgument(args, "attachment_ids")
-	if len(ids) == 0 {
-		ids = toolContext.AttachmentIDs
-	}
-	attachments, err := s.resolveAttachments(ctx, toolContext.Principal, ids, toolContext.AttachmentIDs)
-	if err != nil {
-		return ToolResult{}, err
-	}
-	if len(attachments) == 0 {
-		return ToolResult{}, validationError("attachment_ids", "请先上传 PDF、Word 或文本文件")
-	}
-	subject := strings.TrimSpace(stringArgument(args, "subject"))
-	grade := strings.TrimSpace(stringArgument(args, "grade"))
-	if toolContext.Principal.Role == auth.RoleTeacher {
-		subject = toolContext.Principal.Subject
-	}
-	if subject == "" || grade == "" {
-		return ToolResult{}, validationError("subject", "导入前请提供学科与年级")
-	}
-	category := strings.TrimSpace(stringArgument(args, "category"))
-	tags := stringSliceArgument(args, "tags")
-	tags = dropDuplicateMetadataTags(uniqueStrings(tags), category, nil)
-	text := combinedAttachmentText(attachments)
-	drafts := document.SplitQuestions(text, document.Defaults{Subject: subject, Grade: grade})
-	if len(drafts) > maxToolQuestions {
-		drafts = drafts[:maxToolQuestions]
-	}
-	if len(drafts) == 0 {
-		return ToolResult{}, fmt.Errorf("未在文档中识别到题目")
-	}
-	created := make([]string, 0, len(drafts))
-	warnings := []string{}
-	for index, draft := range drafts {
-		answer := strings.TrimSpace(draft.Answer)
-		if answer == "" {
-			warnings = append(warnings, fmt.Sprintf("第 %s 题缺少答案，已跳过", draft.Number))
-			continue
-		}
-		input := question.Input{
-			Subject:         subject,
-			Grade:           grade,
-			QuestionType:    draft.QuestionType,
-			Difficulty:      draft.Difficulty,
-			Tags:            tags,
-			Category:        category,
-			KnowledgePoints: nil,
-			Content:         draft.Content,
-			Options:         documentOptionsToQuestion(draft.Options),
-			Answer:          answer,
-			Explanation:     draft.Explanation,
-			AIGenerated:     true,
-			AIMeta: map[string]any{
-				"provider":        "document_import",
-				"model":           "",
-				"confidence":      draft.Confidence,
-				"source":          "agent_document_import",
-				"source_question": draft.Number,
-				"review_required": true,
-				"imported_at":     time.Now().UTC().Format(time.RFC3339),
-			},
-		}
-		createdQuestion, createErr := s.questions.Create(ctx, toolContext.Principal, input)
-		if createErr != nil {
-			warnings = append(warnings, fmt.Sprintf("第 %d 题入库失败：%s", index+1, userFacingQuestionError(createErr)))
-			continue
-		}
-		created = append(created, createdQuestion.ID.String())
-		if s.repo != nil {
-			_ = s.repo.CreateAudit(ctx, toolContext.Principal, AuditLog{
-				Action: "agent_import_question", TargetType: "question", TargetID: createdQuestion.ID.String(), RunID: toolContext.RunID,
-				Detail: map[string]any{"source": "document", "attachment_ids": toolContext.AttachmentIDs},
-			})
-		}
-	}
-	return ToolResult{
-		Summary:     fmt.Sprintf("已从文档导入 %d 道题目到草稿题库", len(created)),
-		QuestionIDs: created,
-		Warnings:    warnings,
-		Data:        map[string]any{"question_ids": created, "total_detected": len(drafts), "skipped": len(warnings)},
 	}, nil
 }
 
@@ -748,38 +567,6 @@ func sameAttachmentIDs(left, right []string) bool {
 	return true
 }
 
-func combinedAttachmentText(items []Attachment) string {
-	builder := strings.Builder{}
-	for _, item := range items {
-		text := strings.TrimSpace(item.ExtractedText)
-		if text == "" {
-			continue
-		}
-		builder.WriteString("【附件：")
-		builder.WriteString(item.Name)
-		builder.WriteString("】\n")
-		builder.WriteString(text)
-		builder.WriteString("\n\n")
-	}
-	return builder.String()
-}
-
-func combinedTextLength(items []Attachment) int {
-	total := 0
-	for _, item := range items {
-		total += utf8.RuneCountInString(item.ExtractedText)
-	}
-	return total
-}
-
-func documentOptionsToQuestion(options []document.Option) []question.Option {
-	result := make([]question.Option, 0, len(options))
-	for _, item := range options {
-		result = append(result, question.Option{Key: item.Key, Content: item.Content})
-	}
-	return result
-}
-
 func agentParamsFromArgs(args map[string]any) AgentParams {
 	return AgentParams{
 		Subject:        stringArgument(args, "subject"),
@@ -929,30 +716,27 @@ func stringSliceArgument(args map[string]any, key string) []string {
 
 func validateToolArguments(name string, args map[string]any) error {
 	allowed := map[string]map[string]bool{
-		"search_questions":          {"keyword": true, "subject": true, "grade": true, "status": true, "category": true, "knowledge_point": true, "limit": true},
-		"get_question":              {"question_id": true},
-		"bank_audit":                {"limit": true},
-		"analyze_question":          {"question_id": true, "apply": true, "model": true},
-		"organize_drafts":           {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "question_id": true, "count": true, "model": true},
-		"fill_explanations":         {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "question_id": true, "count": true, "model": true},
-		"generate_questions":        {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "count": true, "model": true},
-		"generate_variants":         {"question_id": true, "count": true, "model": true},
-		"compose_paper":             {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "question_id": true, "count": true, "model": true},
-		"list_attachments":          {},
-		"read_attachment":           {"attachment_ids": true, "offset": true, "limit": true},
-		"search_cloud":              {"query": true, "limit": true},
-		"extract_questions":         {"subject": true, "grade": true, "attachment_ids": true},
-		"import_document_questions": {"subject": true, "grade": true, "category": true, "tags": true, "attachment_ids": true},
-		"create_questions":          {"subject": true, "grade": true, "items": true},
-		"update_draft":              {"question_id": true, "category": true, "knowledge_points": true, "tags": true, "difficulty": true, "answer": true, "explanation": true, "model": true},
-		"list_papers":               {"subject": true, "grade": true, "keyword": true, "limit": true},
-		"get_paper":                 {"paper_id": true},
-		"paper_audit":               {"paper_id": true},
-		"update_paper_draft":        {"paper_id": true, "title": true, "duration_minutes": true, "questions": true},
-		"bank_stats":                {"subject": true, "grade": true, "limit": true},
-		"find_duplicates":           {"limit": true},
-		"review_queue":              {"subject": true, "grade": true, "limit": true},
-		"search_similar_questions":  {"question_id": true, "keyword": true, "subject": true, "grade": true, "limit": true},
+		"search_questions":         {"keyword": true, "subject": true, "grade": true, "status": true, "category": true, "knowledge_point": true, "limit": true},
+		"get_question":             {"question_id": true},
+		"bank_audit":               {"limit": true},
+		"analyze_question":         {"question_id": true, "apply": true, "model": true},
+		"organize_drafts":          {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "question_id": true, "count": true, "model": true},
+		"fill_explanations":        {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "question_id": true, "count": true, "model": true},
+		"generate_questions":       {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "count": true, "model": true},
+		"generate_variants":        {"question_id": true, "count": true, "model": true},
+		"compose_paper":            {"subject": true, "grade": true, "category": true, "knowledge_point": true, "tag": true, "question_id": true, "count": true, "model": true},
+		"list_attachments":         {},
+		"search_cloud":             {"query": true, "limit": true},
+		"create_questions":         {"subject": true, "grade": true, "items": true},
+		"update_draft":             {"question_id": true, "category": true, "knowledge_points": true, "tags": true, "difficulty": true, "answer": true, "explanation": true, "model": true},
+		"list_papers":              {"subject": true, "grade": true, "keyword": true, "limit": true},
+		"get_paper":                {"paper_id": true},
+		"paper_audit":              {"paper_id": true},
+		"update_paper_draft":       {"paper_id": true, "title": true, "duration_minutes": true, "questions": true},
+		"bank_stats":               {"subject": true, "grade": true, "limit": true},
+		"find_duplicates":          {"limit": true},
+		"review_queue":             {"subject": true, "grade": true, "limit": true},
+		"search_similar_questions": {"question_id": true, "keyword": true, "subject": true, "grade": true, "limit": true},
 	}
 	fields, ok := allowed[name]
 	if !ok {
@@ -986,11 +770,6 @@ func validateToolArguments(name string, args map[string]any) error {
 	case "generate_variants":
 		if _, err := uuidArgument(args, "question_id"); err != nil {
 			return err
-		}
-	case "extract_questions", "import_document_questions", "read_attachment":
-		ids := stringSliceArgument(args, "attachment_ids")
-		if len(ids) > MaxAttachments {
-			return validationError("attachment_ids", "每轮最多使用 5 个附件")
 		}
 	case "search_cloud":
 		query := strings.TrimSpace(stringArgument(args, "query"))

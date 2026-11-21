@@ -123,9 +123,9 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 | GET | `/ai/conversations/:id/messages?limit=100` | 教师/管理员 | 消息历史，按时间升序，单页最多 200 条 |
 | POST | `/ai/conversations/:id/messages` | 创建者 | 发送消息并同步执行 Agent，返回用户消息、助手消息与更新后的会话 |
 | POST | `/ai/conversations/:id/messages/stream` | 创建者 | 同一条消息以 SSE 推送：用户消息、工具开始/结束、助手消息与完成事件 |
-| POST | `/ai/attachments` | 教师/管理员 | multipart 字段 `file`，可选 `conversation_id`；上传后同步解析文本，并自动归档到学校云盘（按 SHA256 去重） |
-| POST | `/ai/attachments/cloud` | 教师/管理员 | body `{"cloud_file_ids":["..."]}`；把云盘文件复制为对话附件，单次最多 5 个，仅支持可解析格式 |
-| GET | `/ai/attachments/:id` | 上传者/管理员 | 附件摘要：类型、状态、文本预览、字符数 |
+| POST | `/ai/attachments` | 教师/管理员 | multipart 字段 `file`，可选 `conversation_id`；上传后直接标记 `parsed` 并自动归档到学校云盘（按 SHA256 去重），不做服务端文本抽取 |
+| POST | `/ai/attachments/cloud` | 教师/管理员 | body `{"cloud_file_ids":["..."]}`；把云盘文件复制为对话附件，单次最多 5 个，仅支持 AI 可直接阅读的格式 |
+| GET | `/ai/attachments/:id` | 上传者/管理员 | 附件摘要：名称、类型、状态、大小 |
 | GET | `/ai/attachments/:id/content` | 上传者/管理员 | 原始文件流，`inline` 展示，仅浏览器会话可访问 |
 | GET | `/ai/tools` | 教师/管理员 | 工具目录：名称、标签、说明、JSON Schema、是否写操作 |
 | GET | `/ai/skills` | 教师/管理员 | 内置技能目录：提示词、所需工具、是否接受附件 |
@@ -175,16 +175,16 @@ data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","
 {
   "id": "msg_...",
   "role": "assistant",
-  "content": "已完成：从文档切分 12 道题并导入 10 道草稿。",
-  "provider": "local",
+  "content": "已读取文件并写入 10 道草稿题。",
+  "provider": "openai-compatible",
   "tool_calls": [
     {
-      "name": "extract_questions",
-      "label": "文档切题",
+      "name": "create_questions",
+      "label": "创建题目",
       "status": "succeeded",
-      "arguments": {"attachment_ids": ["5f8e..."]},
-      "summary": "已从文档切分 12 道题目，等待确认后入库",
-      "result": {"data": {"total": 12}, "question_ids": []},
+      "arguments": {"subject": "数学", "grade": "八年级", "items": ["..."]},
+      "summary": "已写入 10 道题目到草稿题库",
+      "result": {"data": {"total": 10}, "question_ids": ["..."]},
       "started_at": "2026-11-17T09:00:00Z",
       "finished_at": "2026-11-17T09:00:00.120Z"
     }
@@ -192,7 +192,7 @@ data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","
 }
 ```
 
-附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。解析状态为 `uploaded`、`parsed`、`failed`；失败原因在 `error` 中返回。图片不做 OCR，上传后直接标记 `parsed`，发送消息时以多模态输入交给模型。扫描版 PDF 没有文本层时仍为 `parsed`（`text_chars=0`），可改传页面图片由模型直接阅读。上传成功的附件会自动归档到学校云盘根目录；相同内容按 SHA256 去重。
+附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB，整轮附件合计 ≤32 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。上传后状态直接为 `parsed`，服务端不抽取文本：发送消息时图片以视觉输入、PDF/Word 以 `file` 内容块、纯文本直接内联交给模型。上传成功的附件会自动归档到学校云盘根目录；相同内容按 SHA256 去重。
 
 ## 学校云盘
 
@@ -213,12 +213,12 @@ data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","
 
 文件节点包含 `index_status`（`pending`、`processing`、`ready`、`unsupported`、`failed`）、`index_error`、`index_provider`、`chunk_count` 与 `indexed_at`。默认使用内置本地哈希向量；配置 `EMBEDDING_BASE_URL`、`EMBEDDING_API_KEY` 与 `EMBEDDING_MODEL` 后改用 OpenAI 兼容的 `/embeddings` 服务。切换向量模型后需调用重建接口，搜索结果只使用当前 provider 的向量，避免维度混用。
 
-AI 工作台输入框的“+”可选择“本地上传”或“从云盘选择”；云盘选择会通过 `/ai/attachments/cloud` 复制为对话附件，PPT/Excel 等 AI 暂不解析的格式在选择器内禁用。AI 还可通过 `search_cloud` 工具检索已向量化的云盘资料。
+AI 工作台输入框的“+”可选择“本地上传”或“从云盘选择”；云盘选择会通过 `/ai/attachments/cloud` 复制为对话附件，PPT/Excel 等 AI 暂不能直接阅读的格式在选择器内禁用。AI 还可通过 `search_cloud` 工具检索已向量化的云盘资料。
 
 Agent 运行策略：
 
 1. 模型可用时使用 OpenAI 兼容 function calling，最多 4 轮、8 次工具调用；工具结果回填模型后再生成最终回复。
-2. 模型不可用时使用确定性本地规划器，规则覆盖文档导入、体检、整理、补解析、出题、变式、组卷、检索。
+2. 模型不可用时使用确定性本地规划器，规则覆盖体检、整理、补解析、出题、变式、组卷、检索；附件阅读需要配置多模态模型。
 3. 模型在工具执行后中断时保留已执行结果，不回退重跑，避免重复写入。
 4. 所有写工具只作用于草稿；教师学科与调用参数不一致时拒绝执行。
 

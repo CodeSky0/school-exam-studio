@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"school-exam-studio/backend/internal/question"
 )
 
-func TestConversationFlowWithDocumentImport(t *testing.T) {
+func TestConversationFlowWithAttachmentWithoutServerParsing(t *testing.T) {
 	client := platformtest.Open(t)
 	platformtest.EnsureFixtures(t, client)
 	ctx := context.Background()
@@ -40,7 +41,7 @@ func TestConversationFlowWithDocumentImport(t *testing.T) {
 		Role: auth.RoleTeacher, Subject: "语文", SessionVersion: 1,
 	}
 
-	conversation, err := service.CreateConversation(ctx, teacher, "文档导入测试")
+	conversation, err := service.CreateConversation(ctx, teacher, "附件测试")
 	if err != nil {
 		t.Fatalf("CreateConversation: %v", err)
 	}
@@ -52,8 +53,9 @@ func TestConversationFlowWithDocumentImport(t *testing.T) {
 	if attachment.Status != AttachmentStatusParsed {
 		t.Fatalf("attachment status = %s error = %s", attachment.Status, attachment.Error)
 	}
-	if attachment.TextChars == 0 {
-		t.Fatal("expected extracted text")
+	// 附件不再在服务端抽取文本，原文件在发送时直接交给模型。
+	if attachment.TextChars != 0 || attachment.ExtractedText != "" {
+		t.Fatalf("unexpected extracted text: chars=%d text=%q", attachment.TextChars, attachment.ExtractedText)
 	}
 
 	result, err := service.SendMessage(ctx, teacher, mustUUID(t, conversation.ID), SendMessageInput{
@@ -66,33 +68,18 @@ func TestConversationFlowWithDocumentImport(t *testing.T) {
 	if result.AssistantMessage.Status != MessageStatusSucceeded {
 		t.Fatalf("assistant status = %s error = %s", result.AssistantMessage.Status, result.AssistantMessage.Error)
 	}
-	if len(result.AssistantMessage.ToolCalls) != 2 {
-		t.Fatalf("tool calls = %#v", result.AssistantMessage.ToolCalls)
+	if len(result.AssistantMessage.ToolCalls) != 0 {
+		t.Fatalf("local engine must not parse attachments, tool calls = %#v", result.AssistantMessage.ToolCalls)
 	}
-	if result.AssistantMessage.ToolCalls[0].Name != "extract_questions" || result.AssistantMessage.ToolCalls[1].Name != "import_document_questions" {
-		t.Fatalf("tool call names = %s, %s", result.AssistantMessage.ToolCalls[0].Name, result.AssistantMessage.ToolCalls[1].Name)
-	}
-	if result.AssistantMessage.ToolCalls[1].Status != ToolStatusSucceeded {
-		t.Fatalf("import failed: %s", result.AssistantMessage.ToolCalls[1].Error)
-	}
-	if len(result.AssistantMessage.ToolCalls[1].Result) == 0 {
-		t.Fatal("expected tool result payload")
-	}
-	ids := messageQuestionIDsForTest(result.AssistantMessage.ToolCalls[1])
-	if len(ids) != 2 {
-		t.Fatalf("imported IDs = %#v", ids)
+	if !strings.Contains(result.AssistantMessage.Content, "多模态模型") {
+		t.Fatalf("reply = %q", result.AssistantMessage.Content)
 	}
 	questions, err := client.Question.Query().Where(entquestion.SchoolIDEQ(platformtest.SchoolA)).All(ctx)
 	if err != nil {
 		t.Fatalf("query questions: %v", err)
 	}
-	if len(questions) != 2 {
-		t.Fatalf("questions = %d", len(questions))
-	}
-	for _, item := range questions {
-		if item.Status != question.StatusDraft || item.Subject != "数学" || item.Grade != "八年级" || !item.AiGenerated {
-			t.Fatalf("unexpected question: status=%s subject=%s grade=%s ai=%v", item.Status, item.Subject, item.Grade, item.AiGenerated)
-		}
+	if len(questions) != 0 {
+		t.Fatalf("questions = %d, want 0", len(questions))
 	}
 
 	loadedConversation, messages, err := service.GetConversation(ctx, teacher, mustUUID(t, conversation.ID))
@@ -102,8 +89,11 @@ func TestConversationFlowWithDocumentImport(t *testing.T) {
 	if loadedConversation.MessageCount != 2 || len(messages) != 2 {
 		t.Fatalf("conversation count=%d messages=%d", loadedConversation.MessageCount, len(messages))
 	}
-	if messages[1].Role != MessageRoleAssistant || len(messages[1].ToolCalls) != 2 {
+	if messages[1].Role != MessageRoleAssistant {
 		t.Fatalf("assistant message = %#v", messages[1])
+	}
+	if len(messages[0].Attachments) != 1 || messages[0].Attachments[0].Name != "exam.txt" {
+		t.Fatalf("user attachments = %#v", messages[0].Attachments)
 	}
 
 	if _, _, err := service.GetConversation(ctx, otherTeacher, mustUUID(t, conversation.ID)); !errors.Is(err, ErrForbidden) {
@@ -226,44 +216,6 @@ func TestFirstTurnAttachmentIsBoundToConversation(t *testing.T) {
 	if _, err := service.GetAttachment(ctx, teacher, mustUUID(t, attachment.ID)); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("attachment after delete = %v, want not found", err)
 	}
-}
-
-func messageQuestionIDsForTest(call ToolCall) []string {
-	ids := make([]string, 0)
-	switch values := call.Result["question_ids"].(type) {
-	case []string:
-		ids = append(ids, values...)
-	case []any:
-		for _, item := range values {
-			if value, ok := item.(string); ok {
-				ids = append(ids, value)
-			}
-		}
-	}
-	data, _ := call.Result["data"].(map[string]any)
-	if data == nil {
-		return ids
-	}
-	switch values := data["question_ids"].(type) {
-	case []string:
-		ids = append(ids, values...)
-	case []any:
-		for _, item := range values {
-			if value, ok := item.(string); ok {
-				ids = append(ids, value)
-			}
-		}
-	}
-	seen := make(map[string]bool, len(ids))
-	unique := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if seen[id] {
-			continue
-		}
-		seen[id] = true
-		unique = append(unique, id)
-	}
-	return unique
 }
 
 func mustUUID(t *testing.T, value string) uuid.UUID {

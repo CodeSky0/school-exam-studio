@@ -23,7 +23,7 @@ interface SkillGroup {
 }
 
 const SKILL_GROUPS: SkillGroup[] = [
-  { category: "document", label: "文档与资料", description: "阅读、切题、录题与云盘检索", icon: <FileTextIcon className="size-3.5" /> },
+  { category: "document", label: "文档与资料", description: "直接阅读文档、录题与云盘检索", icon: <FileTextIcon className="size-3.5" /> },
   { category: "question", label: "题库整理", description: "体检、补全、出题与变式", icon: <LayersIcon className="size-3.5" /> },
   { category: "paper", label: "试卷生成", description: "组卷、质检与双向细目表", icon: <TableIcon className="size-3.5" /> },
   { category: "analytics", label: "数据分析", description: "覆盖度、重复题与相似题", icon: <BarChartIcon className="size-3.5" /> },

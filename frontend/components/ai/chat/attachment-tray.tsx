@@ -35,7 +35,7 @@ export function AttachmentTray({ attachments, uploads, onRemove, onDismissUpload
             <span className="block max-w-40 truncate text-label-12 font-medium text-neutral-9">{attachment.name}</span>
             <span className="block text-caption-10 text-neutral-6">
               {attachmentKindLabel(attachment)} · {formatBytes(attachment.size_bytes)}
-              {attachment.status === "failed" ? " · 解析失败" : attachment.text_chars > 0 ? ` · ${attachment.text_chars} 字` : ""}
+              {attachment.status === "failed" ? " · 上传失败" : ""}
             </span>
           </span>
           <button
@@ -58,7 +58,7 @@ export function AttachmentTray({ attachments, uploads, onRemove, onDismissUpload
           <span className="min-w-0">
             <span className="block max-w-40 truncate text-neutral-8">{task.name}</span>
             <span className={task.status === "failed" ? "block text-caption-10 text-error" : "block text-caption-10 text-neutral-6"}>
-              {task.status === "uploading" ? "正在解析…" : task.error ?? "上传失败"}
+              {task.status === "uploading" ? "正在上传…" : task.error ?? "上传失败"}
             </span>
           </span>
           {task.status === "failed" ? (

@@ -1,7 +1,6 @@
 package ai
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -28,17 +27,6 @@ type ChatTurnPlan struct {
 func planChatTurn(content string, attachments []AttachmentRef, prior []ChatMessage, principal auth.Principal) ChatTurnPlan {
 	goal := strings.TrimSpace(content)
 	lower := strings.ToLower(goal)
-	attachmentIDs := make([]string, 0, len(attachments))
-	hasDocument := false
-	hasImage := false
-	for _, item := range attachments {
-		attachmentIDs = append(attachmentIDs, item.ID)
-		if item.Kind == AttachmentKindImage {
-			hasImage = true
-		} else {
-			hasDocument = true
-		}
-	}
 	subject := detectSubject(goal)
 	if principal.Role == auth.RoleTeacher {
 		subject = principal.Subject
@@ -54,36 +42,7 @@ func planChatTurn(content string, attachments []AttachmentRef, prior []ChatMessa
 	knowledgePoint := firstNonEmpty(extractQuoted(goal), matchKnowledgePoint(goal))
 
 	if len(attachments) > 0 {
-		if hasImage && !hasDocument {
-			return ChatTurnPlan{Reply: "内置本地引擎无法直接识别图片。请在 /admin/settings 配置支持图片输入的多模态模型后重试，或上传含文本层的 PDF/Word 文档。"}
-		}
-		importIntent := containsAny(lower, "导入", "入库", "录题", "加入题库", "存到题库", "保存到题库", "录入题库")
-		if importIntent {
-			if subject == "" || grade == "" {
-				return ChatTurnPlan{
-					Clarify: true,
-					Reply:   "我可以把附件中的题目导入草稿题库。请补充学科和年级，例如“把这份试卷按八年级数学导入题库”。",
-				}
-			}
-			calls := make([]PlannedToolCall, 0, 2)
-			if hasDocument {
-				calls = append(calls, PlannedToolCall{Name: "extract_questions", Arguments: map[string]any{
-					"subject": subject, "grade": grade, "attachment_ids": attachmentIDs,
-				}})
-			}
-			calls = append(calls, PlannedToolCall{Name: "import_document_questions", Arguments: map[string]any{
-				"subject": subject, "grade": grade, "attachment_ids": attachmentIDs,
-			}})
-			return ChatTurnPlan{Calls: calls}
-		}
-		if hasDocument {
-			return ChatTurnPlan{Calls: []PlannedToolCall{{Name: "extract_questions", Arguments: map[string]any{
-				"subject": subject, "grade": grade, "attachment_ids": attachmentIDs,
-			}}}}
-		}
-		if hasImage {
-			return ChatTurnPlan{Calls: []PlannedToolCall{{Name: "list_attachments", Arguments: map[string]any{}}}}
-		}
+		return ChatTurnPlan{Reply: "内置本地引擎无法直接阅读文档或图片。请在 /admin/settings 配置支持文件或图片输入的多模态模型后重试；也可以把需要处理的文字直接粘贴到对话中。"}
 	}
 
 	if strings.Contains(lower, "体检") || strings.Contains(lower, "质检") || strings.Contains(lower, "题库检查") || strings.Contains(lower, "质量检查") {
@@ -147,7 +106,7 @@ func planChatTurn(content string, attachments []AttachmentRef, prior []ChatMessa
 		}
 	}
 	return ChatTurnPlan{
-		Reply: "我可以调用题库工具帮你：文档智能录题、整卷拆题、文档阅读、云盘资料检索、题库体检、重复题排查、整理草稿、补答案解析、知识点出题、生成变式、相似题检索、智能组卷。\n\n" +
+		Reply: "我可以调用题库工具帮你：文档阅读、文档智能录题、云盘资料检索、题库体检、重复题排查、整理草稿、补答案解析、知识点出题、生成变式、相似题检索、智能组卷。\n\n" +
 			"试试直接说目标，例如：“把这份 Word 里的题导入八年级数学题库”“体检一下题库”“在云盘里找一元二次函数的教案”“给八年级数学出 3 道一元一次方程题”。",
 	}
 }
@@ -225,7 +184,7 @@ func summarizeToolCalls(calls []ToolCall) string {
 	return builder.String()
 }
 
-func previewAttachmentContext(attachments []AttachmentRef, limit int) string {
+func previewAttachmentContext(attachments []AttachmentRef) string {
 	if len(attachments) == 0 {
 		return ""
 	}
@@ -239,23 +198,14 @@ func previewAttachmentContext(attachments []AttachmentRef, limit int) string {
 		builder.WriteString("，")
 		builder.WriteString(item.Kind)
 		if item.Kind == AttachmentKindImage {
-			builder.WriteString("，图片已作为视觉输入提供，可直接阅读")
+			builder.WriteString("，已作为视觉输入直接提供")
 		} else {
-			builder.WriteString("，")
-			builder.WriteString(fmt.Sprintf("%d 字符", item.TextChars))
-			if item.TextChars == 0 && item.Status == AttachmentStatusParsed {
-				builder.WriteString("，未抽取到文本层")
-			}
+			builder.WriteString("，原文件已作为文件输入直接提供")
 		}
 		if item.Status != AttachmentStatusParsed {
-			builder.WriteString("，解析失败")
+			builder.WriteString("，上传未完成")
 		}
 		builder.WriteString("）\n")
-		if preview := textPreview(item.TextPreview, limit); preview != "" {
-			builder.WriteString("  预览：")
-			builder.WriteString(preview)
-			builder.WriteString("\n")
-		}
 	}
 	return builder.String()
 }

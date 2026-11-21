@@ -112,7 +112,7 @@ pnpm dev
 
 - 会话、消息与工具调用全部写入 PostgreSQL，刷新或换设备后继续。
 - 支持一次发送最多 5 个附件：PNG/JPEG/WebP（≤10 MiB）、PDF、DOCX、TXT、Markdown、CSV（≤20 MiB），支持粘贴与拖拽。
-- 图片不再走 OCR：原始图片在本轮消息中以多模态输入直接发送给模型阅读；PDF/DOCX 在后端抽取文本层，扫描版 PDF 可改传页面图片由模型直接识别。
+- 图片与文档不再在服务端做文本抽取：原始图片作为视觉输入、PDF/Word 作为文件输入随本轮消息直接发送给模型，TXT/Markdown/CSV 直接内联到消息中；需使用支持文件输入的多模态模型。
 - 发送后模型逐 Token 流式输出；Agent 在模型与工具之间多轮循环，每个工具的开始与结束实时显示，可随时停止。
 - 每条助手消息按时间顺序记录模型思考与工具调用，并自动折叠为一行摘要（运行时长与工具次数）；展开后可查看工具名、参数、状态、耗时、返回摘要与原始 JSON，最终答复始终显示在折叠区之后。
 - 模型输出长度不设业务上限，请求不发送 `max_tokens`，由模型按自身能力生成完整回复。
@@ -122,11 +122,11 @@ pnpm dev
 
 **内置工具**（`GET /api/v1/ai/tools` 可供外部 Agent 发现，`POST /api/v1/ai/tools/:name` 可直接执行）
 
-`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`read_attachment`、`search_cloud`、`extract_questions`、`import_document_questions`、`create_questions`、`update_draft`、`list_papers`、`get_paper`、`paper_audit`、`update_paper_draft`、`bank_stats`、`find_duplicates`、`review_queue`、`search_similar_questions`。
+`search_questions`、`get_question`、`bank_audit`、`analyze_question`、`organize_drafts`、`fill_explanations`、`generate_questions`、`generate_variants`、`compose_paper`、`list_attachments`、`search_cloud`、`create_questions`、`update_draft`、`list_papers`、`get_paper`、`paper_audit`、`update_paper_draft`、`bank_stats`、`find_duplicates`、`review_queue`、`search_similar_questions`。
 
 **内置技能**（`GET /api/v1/ai/skills`，`POST /api/v1/ai/skills/:id/run` 一键执行）
 
-文档阅读、云盘资料问答、文档智能录题、整卷拆题、题库体检与整理、课时练习生成、期末复习卷、错题变式包、题库覆盖度分析、重复题排查、试卷质检、AI 产出复核、双向细目表组卷、相似题练习包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
+文档阅读、云盘资料问答、文档智能录题、题库体检与整理、课时练习生成、期末复习卷、错题变式包、题库覆盖度分析、重复题排查、试卷质检、AI 产出复核、双向细目表组卷、相似题练习包。技能是前端一键提示词 + 工具组合模板，不绕过权限与审计。
 
 **业务入口**
 
@@ -135,7 +135,7 @@ pnpm dev
 
 **文档阅读**
 
-上传 PDF、Word 或图片后点击“文档阅读”，Agent 会先确认附件类型，再用 `read_attachment` 分段读取正文；图片作为视觉输入直接提供给多模态模型，模型直接阅读其中的文字、公式与表格，不需要 OCR。适合快速摘要试卷、教案、教材章节，或按原文回答问题。
+上传 PDF、Word 或图片后点击“文档阅读”，原始文件会随消息直接交给模型：PDF/Word 以文件内容块发送，图片以视觉输入发送，模型直接阅读正文、公式与表格，不需要服务端解析或 OCR。适合快速摘要试卷、教案、教材章节，或按原文回答问题。所选模型需支持对应的文件/图片输入。
 
 **云盘资料语义检索**
 
@@ -143,14 +143,14 @@ pnpm dev
 
 **文档智能录题**
 
-上传 PDF/Word/图片后说“把这份试卷按八年级数学导入题库”，Agent 会先 `extract_questions` 预览切分结果，再调用 `import_document_questions` 写入草稿题库；缺少答案的题会被跳过并在工具结果中列出。单次最多导入 20 道题。扫描版 PDF 没有文本层时，可上传页面图片，让模型直接读取后再切题。
+上传 PDF/Word/图片后说“把这份试卷按八年级数学导入题库”，模型会直接阅读文件内容，先按题号列出识别结果供确认，再调用 `create_questions` 写入草稿题库。单次最多写入 10 道题，缺少答案的题目会单独列出并跳过。
 
 **安全边界**
 
 - AI 只自动修改草稿；已发布题目只读。
 - 教师只能操作自己的草稿，管理员可检索本校题库，但写入仅限本人草稿。
 - 所有 AI 写入记录 `ai_audit_logs`，生成内容标记待人工复核。
-- 单次批量最多 10 道题，出题最多 10 道，文档导入最多 20 道。
+- 单次批量最多 10 道题，出题最多 10 道。
 
 **配置**
 

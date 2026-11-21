@@ -61,7 +61,7 @@ export type CloudSearch = z.infer<typeof cloudSearchSchema>;
 export const CLOUD_ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.csv,image/png,image/jpeg,image/webp,image/gif";
 export const CLOUD_MAX_BYTES = 50 * 1024 * 1024;
 
-// AI 工作台只解析这些格式；云盘中的 PPT/Excel 等仍可正常下载与归档。
+// AI 工作台可直接接收这些格式；云盘中的 PPT/Excel 等仍可正常下载与归档。
 const AI_COMPATIBLE_EXTENSIONS = [".pdf", ".docx", ".txt", ".md", ".csv", ".png", ".jpg", ".jpeg", ".webp", ".gif"];
 
 export function listCloudItems(parentID = "") {

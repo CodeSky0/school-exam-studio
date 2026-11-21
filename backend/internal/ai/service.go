@@ -136,8 +136,7 @@ func (s *Service) Status(ctx context.Context, principal auth.Principal) Status {
 			"题库体检与重复题检测",
 			"AI Agent 批量整理题库与智能组卷",
 			"AI Agent 多轮对话、持久化会话与工具调用时间线",
-			"PDF/Word/图片文档阅读与智能切题入库",
-			"图片由多模态模型直接阅读，不依赖 OCR sidecar",
+			"PDF/Word/图片直接交由多模态模型阅读，不依赖服务端文档解析",
 			"云盘资料上传后自动向量化，支持语义检索与原文引用",
 			"内置技能目录与外部 Agent 工具发现",
 		},
@@ -146,7 +145,7 @@ func (s *Service) Status(ctx context.Context, principal auth.Principal) Status {
 			"教师只能操作自己的草稿，管理员可操作本校草稿",
 			"所有变更写入审计日志",
 			"AI 生成内容标记为待人工复核",
-			"对话附件保存在配置的上传目录，图片仅在本轮对话中作为多模态输入发送给模型",
+			"对话附件保存在配置的上传目录，原始文件仅在本轮对话中直接发送给模型",
 			"模型在工具执行后中断时不会重复执行已完成的写操作",
 		},
 	}

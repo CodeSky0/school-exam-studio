@@ -148,7 +148,7 @@ function MessageAttachments({ message }: { message: ChatMessage }) {
                 <span className="block max-w-52 truncate text-label-12 font-medium text-neutral-9">{attachment.name}</span>
                 <span className="block text-caption-10 text-neutral-6">
                   {attachmentKindLabel(attachment)} · {formatBytes(attachment.size_bytes)}
-                  {attachment.status === "failed" ? ` · ${attachment.error ?? "解析失败"}` : attachment.text_chars > 0 ? ` · 已解析 ${attachment.text_chars} 字` : ""}
+                  {attachment.status === "failed" ? ` · ${attachment.error ?? "上传失败"}` : ""}
                 </span>
               </span>
             </span>

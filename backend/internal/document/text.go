@@ -23,32 +23,7 @@ type Result struct {
 	Warnings  []string
 }
 
-type Option struct {
-	Key     string `json:"key"`
-	Content string `json:"content"`
-}
-
-type Defaults struct {
-	Subject string `json:"subject"`
-	Grade   string `json:"grade"`
-}
-
-// DraftQuestion 是从文档中切分出的题目候选，尚未写入题库。
-type DraftQuestion struct {
-	Number        string   `json:"number"`
-	Content       string   `json:"content"`
-	Answer        string   `json:"answer"`
-	Explanation   string   `json:"explanation"`
-	QuestionType  string   `json:"question_type"`
-	Category      string   `json:"category"`
-	Options       []Option `json:"options"`
-	Difficulty    int      `json:"difficulty"`
-	Confidence    float64  `json:"confidence"`
-	Warnings      []string `json:"warnings,omitempty"`
-	SourceExcerpt string   `json:"source_excerpt,omitempty"`
-}
-
-// Extract 根据文件名与 MIME 抽取文本层。图片由多模态模型直接阅读，不在此处理。
+// Extract 根据文件名与 MIME 抽取文本层，仅用于云盘向量化。图片由多模态模型直接阅读，不在此处理。
 func Extract(name, mime string, data []byte) (Result, error) {
 	if len(data) == 0 {
 		return Result{}, ErrEmpty

@@ -50,28 +50,13 @@ var (
 	}
 	toolListAttachments = ToolDescriptor{
 		Name: "list_attachments", Label: "查看附件", Writes: false,
-		Description: "列出本轮附件的类型、解析状态与文本预览。",
+		Description: "列出本轮附件的名称、类型与大小。附件原文件已随消息直接提供给模型，无需先调用工具读取。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
-	}
-	toolReadAttachment = ToolDescriptor{
-		Name: "read_attachment", Label: "阅读附件", Writes: false,
-		Description: "读取本轮 PDF/Word/文本附件正文，支持 offset 分段翻页读取长文档（返回 has_more 与 next_offset 时继续用下一页 offset 调用）。图片附件已作为视觉输入直接提供，本工具不返回图片文本。不会写入题库。",
-		Parameters:  json.RawMessage(`{"type":"object","properties":{"attachment_ids":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0,"maximum":200000},"limit":{"type":"integer","minimum":500,"maximum":6000}},"additionalProperties":false}`),
 	}
 	toolSearchCloud = ToolDescriptor{
 		Name: "search_cloud", Label: "检索云盘资料", Writes: false,
 		Description: "按关键词或问题语义检索学校云盘中已自动向量化的资料，返回最相关的文件名称、原文片段与相似度。适合引用教案、试卷、教材章节或核对校内资料，不写入任何数据。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":20}},"required":["query"],"additionalProperties":false}`),
-	}
-	toolExtractQuestions = ToolDescriptor{
-		Name: "extract_questions", Label: "文档切题", Writes: false,
-		Description: "从本轮 PDF、Word、文本附件中抽取文本并切分为题目草稿，只预览不入库。",
-		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"attachment_ids":{"type":"array","items":{"type":"string"}}},"additionalProperties":false}`),
-	}
-	toolImportDocument = ToolDescriptor{
-		Name: "import_document_questions", Label: "文档入库", Writes: true,
-		Description: "从本轮 PDF、Word、文本附件中切题并批量写入草稿题库；缺少答案的题目会被跳过。",
-		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"category":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}},"attachment_ids":{"type":"array","items":{"type":"string"}}},"required":["subject","grade"],"additionalProperties":false}`),
 	}
 	toolCreateQuestions = ToolDescriptor{
 		Name: "create_questions", Label: "创建题目", Writes: true,

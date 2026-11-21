@@ -83,7 +83,7 @@ export function CloudPicker({ open, maxSelectable, onClose, onAttached }: CloudP
     <Dialog
       open={open}
       title="从云盘选择"
-      description={`选择可被 AI 解析的资料，最多 ${maxSelectable} 个。PPT、Excel 等格式请下载后使用。`}
+      description={`选择可交给 AI 阅读的资料，最多 ${maxSelectable} 个。PPT、Excel 等格式请下载后使用。`}
       onClose={() => { if (!attachMutation.isPending) onClose(); }}
       isPending={attachMutation.isPending}
       className="sm:max-w-2xl"
