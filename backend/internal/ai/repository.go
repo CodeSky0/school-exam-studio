@@ -75,7 +75,7 @@ func (r *Repository) GetRun(ctx context.Context, principal auth.Principal, id uu
 		}
 		return AgentRun{}, err
 	}
-	if principal.Role == auth.RoleTeacher && entity.CreatorID != principal.UserID {
+	if entity.CreatorID != principal.UserID {
 		return AgentRun{}, ErrForbidden
 	}
 	return runFromEnt(entity), nil
@@ -94,10 +94,10 @@ func (r *Repository) ListRuns(ctx context.Context, principal auth.Principal, lim
 	if limit > 100 {
 		limit = 100
 	}
-	query := r.client.AIRun.Query().Where(airun.SchoolIDEQ(principal.SchoolID))
-	if principal.Role == auth.RoleTeacher {
-		query = query.Where(airun.CreatorIDEQ(principal.UserID))
-	}
+	query := r.client.AIRun.Query().Where(
+		airun.SchoolIDEQ(principal.SchoolID),
+		airun.CreatorIDEQ(principal.UserID),
+	)
 	entities, err := query.
 		Order(
 			airun.ByCreatedAt(entsql.OrderDesc()),

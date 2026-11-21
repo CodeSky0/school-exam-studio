@@ -109,8 +109,17 @@ func TestConversationFlowWithDocumentImport(t *testing.T) {
 	if _, _, err := service.GetConversation(ctx, otherTeacher, mustUUID(t, conversation.ID)); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("other teacher read = %v", err)
 	}
-	if _, messages, err := service.GetConversation(ctx, admin, mustUUID(t, conversation.ID)); err != nil || len(messages) != 2 {
-		t.Fatalf("admin read = %v", err)
+	if _, _, err := service.GetConversation(ctx, admin, mustUUID(t, conversation.ID)); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("admin read should be forbidden, got %v", err)
+	}
+	adminList, err := service.ListConversations(ctx, admin, 30)
+	if err != nil {
+		t.Fatalf("ListConversations admin: %v", err)
+	}
+	for _, item := range adminList {
+		if item.ID == conversation.ID {
+			t.Fatal("admin must not see other users' conversations")
+		}
 	}
 	if _, err := service.GetAttachment(ctx, otherTeacher, mustUUID(t, attachment.ID)); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("other teacher attachment read = %v", err)

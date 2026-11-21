@@ -94,10 +94,10 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
     queryFn: () => listConversations(40),
   });
   const conversations = conversationsQuery.data?.items ?? [];
-  // 管理员能看到全校会话，默认只落在自己创建的会话上，避免一进来就是别人的只读对话。
+  // 会话历史仅本人可见：后端只返回当前用户创建的会话。
   const activeConversation = activeID
     ? conversations.find((item) => item.id === activeID)
-    : conversations.find((item) => item.creator_id === user.id);
+    : conversations[0];
   const effectiveActiveID = activeConversation?.id ?? "";
   const messagesQuery = useQuery({
     queryKey: aiChatQueryKeys.messages(effectiveActiveID),
@@ -112,7 +112,6 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
   const skills = skillsQuery.data?.items ?? [];
   const tools = toolsQuery.data?.items ?? [];
   const effectiveModel = model || statusQuery.data?.default_model || "";
-  const readOnly = Boolean(activeConversation && activeConversation.creator_id !== user.id);
   const isSending = liveTurn?.status === "running" || creating;
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -214,7 +213,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
 
   async function handleSend() {
     const content = draft.trim();
-    if (isSending || readOnly) return;
+    if (isSending) return;
     if (!content && attachments.length === 0) return;
     if (uploads.some((item) => item.status === "uploading")) {
       setActionError("请等待附件解析完成后再发送");
@@ -447,7 +446,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-copy-13 font-medium text-neutral-9">{headerTitle}</p>
-            <p className="truncate text-caption-10 text-neutral-6">{readOnly ? "只读" : scope === "admin" ? "管理员" : user.subject}</p>
+            <p className="truncate text-caption-10 text-neutral-6">{scope === "admin" ? "管理员" : user.subject}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -501,7 +500,7 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
             messages={messages}
             liveTurn={liveTurn}
             error={error}
-            skills={readOnly ? [] : skills}
+            skills={skills}
             scope={scope}
             onUseSkill={useSkill}
           />
@@ -520,9 +519,8 @@ export function AgentChatWorkspace({ user }: { user: CurrentUser }) {
             onDismissUpload={(id) => setUploads((current) => current.filter((item) => item.id !== id))}
             onUploadFiles={handleUploadFiles}
             onPickFromCloud={() => { setActionError(""); setCloudPickerOpen(true); }}
-            skills={readOnly ? [] : skills}
+            skills={skills}
             onUseSkill={useSkill}
-            readOnly={readOnly}
           />
         </section>
 

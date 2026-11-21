@@ -14,11 +14,9 @@ import (
 	"school-exam-studio/backend/internal/auth"
 )
 
+// canReadConversation 会话历史仅创建者本人可读；管理员也不再共享本校他人的对话记录。
 func canReadConversation(principal auth.Principal, entity *ent.AIConversation) bool {
-	if principal.Role == auth.RoleAdmin {
-		return entity.SchoolID == principal.SchoolID
-	}
-	return entity.CreatorID == principal.UserID
+	return entity.SchoolID == principal.SchoolID && entity.CreatorID == principal.UserID
 }
 
 func canWriteConversation(principal auth.Principal, entity *ent.AIConversation) bool {
@@ -80,10 +78,8 @@ func (r *Repository) ListConversations(ctx context.Context, principal auth.Princ
 	query := r.client.AIConversation.Query().Where(
 		aiconversation.SchoolIDEQ(principal.SchoolID),
 		aiconversation.DeletedAtIsNil(),
+		aiconversation.CreatorIDEQ(principal.UserID),
 	)
-	if principal.Role != auth.RoleAdmin {
-		query = query.Where(aiconversation.CreatorIDEQ(principal.UserID))
-	}
 	entities, err := query.
 		Order(
 			aiconversation.ByPinned(entsql.OrderDesc()),

@@ -43,7 +43,7 @@ func TestConversationPermissions(t *testing.T) {
 	if canReadConversation(otherTeacher, conversation) || canWriteConversation(otherTeacher, conversation) {
 		t.Fatal("other teacher must not access conversation")
 	}
-	if !canReadConversation(admin, conversation) || canWriteConversation(admin, conversation) {
-		t.Fatal("admin can read but not write another user's conversation")
+	if canReadConversation(admin, conversation) || canWriteConversation(admin, conversation) {
+		t.Fatal("admin must not access another user's conversation")
 	}
 }

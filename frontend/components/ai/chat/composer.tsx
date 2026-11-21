@@ -30,12 +30,11 @@ interface ComposerProps {
   onPickFromCloud: () => void;
   skills: Skill[];
   onUseSkill: (skill: Skill) => void;
-  readOnly?: boolean;
 }
 
 export function Composer({
   value, onChange, onSubmit, onCancel, attachments, uploads, isSending, models, model, onModelChange,
-  onRemoveAttachment, onDismissUpload, onUploadFiles, onPickFromCloud, skills, onUseSkill, readOnly = false,
+  onRemoveAttachment, onDismissUpload, onUploadFiles, onPickFromCloud, skills, onUseSkill,
 }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +44,7 @@ export function Composer({
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const uploading = uploads.some((item) => item.status === "uploading");
   const full = attachments.length >= MAX_ATTACHMENTS;
-  const canSend = (value.trim().length > 0 || attachments.length > 0) && !isSending && !uploading && !readOnly;
+  const canSend = (value.trim().length > 0 || attachments.length > 0) && !isSending && !uploading;
 
   useEffect(() => {
     if (!attachMenuOpen) return;
@@ -106,18 +105,15 @@ export function Composer({
         </div>
       ) : null}
       <AttachmentTray attachments={attachments} uploads={uploads} onRemove={onRemoveAttachment} onDismissUpload={onDismissUpload} />
-      {readOnly ? (
-        <p className="border-b border-border bg-neutral-2/60 px-3 py-1.5 text-caption-10 text-neutral-7">只读对话</p>
-      ) : null}
       <div className="px-3 py-2.5">
         <Textarea
           ref={textareaRef}
           value={value}
           rows={1}
           maxLength={8000}
-          placeholder={readOnly ? "只读对话" : isSending ? "正在执行…" : "描述任务，或粘贴、拖入图片与文件…"}
+          placeholder={isSending ? "正在执行…" : "描述任务，或粘贴、拖入图片与文件…"}
           aria-label="消息内容"
-          disabled={isSending || readOnly}
+          disabled={isSending}
           onChange={(event) => onChange(event.target.value)}
           onCompositionStart={() => { composingRef.current = true; }}
           onCompositionEnd={() => { composingRef.current = false; }}
@@ -149,7 +145,7 @@ export function Composer({
                 event.target.value = "";
               }}
             />
-            <Button type="button" size="icon" variant="ghost" aria-label="添加图片、文件或云盘资料" title="添加图片、文件或云盘资料" disabled={full || isSending || readOnly} onClick={() => setAttachMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={attachMenuOpen}>
+            <Button type="button" size="icon" variant="ghost" aria-label="添加图片、文件或云盘资料" title="添加图片、文件或云盘资料" disabled={full || isSending} onClick={() => setAttachMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={attachMenuOpen}>
               <PlusIcon />
             </Button>
             {attachMenuOpen ? (

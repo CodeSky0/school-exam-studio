@@ -118,9 +118,9 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
-| GET | `/ai/conversations?limit=30` | 教师/管理员 | 会话列表，按置顶与最后消息时间排序；教师仅见自己的会话，管理员可见本校会话 |
+| GET | `/ai/conversations?limit=30` | 教师/管理员 | 会话列表，按置顶与最后消息时间排序；仅返回当前用户创建的会话（教师与管理员一致，不再共享本校对话历史） |
 | POST | `/ai/conversations` | 教师/管理员 | 新建会话，可选 `{"title":"..."}`；创建者强制为当前用户 |
-| GET | `/ai/conversations/:id` | 教师/管理员 | 返回 `{"conversation":..., "messages":[...]}`；管理员可读本校会话，教师仅限本人 |
+| GET | `/ai/conversations/:id` | 教师/管理员 | 返回 `{"conversation":..., "messages":[...]}`；仅创建者本人可读，管理员也不再共享本校他人的会话 |
 | PATCH | `/ai/conversations/:id` | 创建者 | 更新 `title` 与/或 `pinned`；管理员也不能修改他人会话 |
 | DELETE | `/ai/conversations/:id` | 创建者 | 软删除会话，题库中已生成的草稿不受影响 |
 | POST | `/ai/conversations/batch/delete` | 创建者 | 批量软删除本人会话，body `{"ids":[...]}`；单次最多 100 个，逐条返回 `deleted` 与 `failed` |
