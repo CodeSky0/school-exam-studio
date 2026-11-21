@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   aiCloudFileIssue,
+  cloudBatchDeleteSchema,
   cloudIndexLabel,
   cloudKindLabel,
   cloudListSchema,
@@ -67,5 +68,10 @@ describe("cloud helpers", () => {
     expect(parsed.index_available).toBe(false);
     expect(parsed.hits[0].score).toBe(0);
     expect(parsed.hits[0].excerpt).toBe("");
+  });
+
+  it("parses batch delete responses", () => {
+    expect(cloudBatchDeleteSchema.parse({ deleted: 5 }).deleted).toBe(5);
+    expect(cloudBatchDeleteSchema.parse({ deleted: 0 }).deleted).toBe(0);
   });
 });

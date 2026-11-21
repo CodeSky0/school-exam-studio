@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -33,6 +34,7 @@ func (h *Handler) Register(group *echo.Group) {
 	group.POST("/cloud/reindex", h.ReindexAll)
 	group.GET("/cloud/index/stats", h.IndexStats)
 	group.POST("/cloud/items/:id/reindex", h.Reindex)
+	group.POST("/cloud/items/batch-delete", h.BatchDelete)
 	group.GET("/cloud/items/:id/download", h.Download)
 	group.DELETE("/cloud/items/:id", h.Delete)
 }
@@ -191,6 +193,37 @@ func (h *Handler) Delete(c echo.Context) error {
 		return driveError(validationError("id", "文件ID格式不正确"))
 	}
 	deleted, err := h.service.Delete(c.Request().Context(), principal, id)
+	if err != nil {
+		return driveError(err)
+	}
+	return c.JSON(http.StatusOK, map[string]int{"deleted": deleted})
+}
+
+// BatchDelete 批量删除云盘条目；不存在的条目会被跳过。
+func (h *Handler) BatchDelete(c echo.Context) error {
+	principal, ok := platformmiddleware.PrincipalFrom(c)
+	if !ok {
+		return unauthorized()
+	}
+	var input BatchDeleteInput
+	if err := decodeDriveJSON(c, &input); err != nil {
+		return err
+	}
+	if len(input.IDs) == 0 {
+		return driveError(validationError("ids", "请选择要删除的文件"))
+	}
+	if len(input.IDs) > maxBatchDeleteItems {
+		return driveError(validationError("ids", "单次最多删除 100 项"))
+	}
+	ids := make([]uuid.UUID, 0, len(input.IDs))
+	for _, raw := range input.IDs {
+		id, err := uuid.Parse(strings.TrimSpace(raw))
+		if err != nil {
+			return driveError(validationError("ids", "文件ID格式不正确"))
+		}
+		ids = append(ids, id)
+	}
+	deleted, err := h.service.DeleteMany(c.Request().Context(), principal, ids)
 	if err != nil {
 		return driveError(err)
 	}

@@ -122,6 +122,11 @@ type CreateFolderInput struct {
 	ParentID string `json:"parent_id"`
 }
 
+// BatchDeleteInput 是批量删除云盘条目的请求体。
+type BatchDeleteInput struct {
+	IDs []string `json:"ids"`
+}
+
 // ReadFile 是供 AI 附件选择的云盘文件快照。
 type ReadFile struct {
 	Name string

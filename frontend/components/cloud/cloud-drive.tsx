@@ -22,6 +22,7 @@ import {
   cloudItemExtension,
   cloudKindLabel,
   cloudQueryKeys,
+  batchDeleteCloudItems,
   createCloudFolder,
   deleteCloudItem,
   downloadCloudFile,
@@ -38,6 +39,7 @@ import { formatBytes } from "@/lib/ai-chat";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { BatchActionBar } from "@/components/ui/batch-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -57,6 +59,28 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "操作失败，请稍后重试";
 }
 
+function SelectBox({ checked, label, onToggle }: { checked: boolean; label: string; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onToggle}
+      className={cn(
+        "flex size-5 shrink-0 items-center justify-center rounded border transition-colors",
+        checked ? "border-accent bg-accent text-white" : "border-border bg-paper hover:border-accent/50",
+      )}
+    >
+      {checked ? (
+        <svg viewBox="0 0 12 12" className="size-3" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="m2.5 6 2.2 2.2L9.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : null}
+    </button>
+  );
+}
+
 function validateFile(file: File) {
   if (file.size > CLOUD_MAX_BYTES) return "文件超过 50 MiB 限制";
   const lower = file.name.toLowerCase();
@@ -72,6 +96,8 @@ export function CloudDrive() {
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<CloudItem | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
@@ -106,6 +132,18 @@ export function CloudDrive() {
     mutationFn: (id: string) => deleteCloudItem(id),
     onSuccess: (result) => {
       setDeleteTarget(null);
+      setActionError("");
+      setNotice(`已删除 ${result.deleted} 项`);
+      void queryClient.invalidateQueries({ queryKey: cloudQueryKeys.list(currentID) });
+    },
+    onError: (error) => setActionError(errorMessage(error)),
+  });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => batchDeleteCloudItems(ids),
+    onSuccess: (result) => {
+      setBatchDeleteOpen(false);
+      setSelected(new Set());
       setActionError("");
       setNotice(`已删除 ${result.deleted} 项`);
       void queryClient.invalidateQueries({ queryKey: cloudQueryKeys.list(currentID) });
@@ -182,9 +220,39 @@ export function CloudDrive() {
 
   function openFolder(item: CloudItem) {
     setCurrentID(item.id);
+    setSelected(new Set());
     setActionError("");
     setNotice("");
   }
+
+  function navigateTo(targetID: string) {
+    setCurrentID(targetID);
+    setSelected(new Set());
+    setActionError("");
+    setNotice("");
+  }
+
+  function toggleSelect(item: CloudItem) {
+    setActionError("");
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(item.id)) {
+        next.delete(item.id);
+      } else {
+        next.add(item.id);
+      }
+      return next;
+    });
+  }
+
+  const allSelected = items.length > 0 && items.every((item) => selected.has(item.id));
+
+  function toggleSelectAll() {
+    setActionError("");
+    setSelected(allSelected ? new Set() : new Set(items.map((item) => item.id)));
+  }
+
+  const selectedCount = selected.size;
 
   return (
     <div className="motion-rise">
@@ -249,7 +317,7 @@ export function CloudDrive() {
       </form>
 
       <div className="mb-4 flex flex-wrap items-center gap-1.5 text-copy-13 text-neutral-7" aria-label="当前位置">
-        <button type="button" onClick={() => setCurrentID("")} className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-neutral-2 hover:text-neutral-10", currentID === "" && "text-neutral-10")}>
+        <button type="button" onClick={() => navigateTo("")} className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-neutral-2 hover:text-neutral-10", currentID === "" && "text-neutral-10")}>
           <HomeIcon className="size-3.5" />全部文件
         </button>
         {breadcrumbs.map((crumb, index) => (
@@ -257,7 +325,7 @@ export function CloudDrive() {
             <ChevronRightIcon className="size-3 text-neutral-5" />
             <button
               type="button"
-              onClick={() => setCurrentID(crumb.id)}
+              onClick={() => navigateTo(crumb.id)}
               className={cn("max-w-52 truncate rounded px-1.5 py-0.5 transition-colors hover:bg-neutral-2 hover:text-neutral-10", index === breadcrumbs.length - 1 && "font-medium text-neutral-10")}
             >
               {crumb.name}
@@ -271,8 +339,24 @@ export function CloudDrive() {
       <StatusMessage message={notice} tone="success" className="mb-4" />
 
       <div className="overflow-hidden rounded-xl border border-border bg-paper shadow-sm">
+        <BatchActionBar count={selectedCount} onClear={() => setSelected(new Set())}>
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            disabled={batchDeleteMutation.isPending}
+            onClick={() => { setBatchDeleteOpen(true); setActionError(""); }}
+          >
+            <TrashIcon />{batchDeleteMutation.isPending ? "删除中…" : "批量删除"}
+          </Button>
+        </BatchActionBar>
         <div className="flex items-center justify-between border-b border-border bg-neutral-2/50 px-4 py-2.5 text-caption-10 uppercase tracking-[0.12em] text-neutral-6">
-          <span>名称</span>
+          <span className="flex items-center gap-2">
+            {items.length > 0 ? (
+              <SelectBox checked={allSelected} label="全选当前目录" onToggle={toggleSelectAll} />
+            ) : null}
+            名称
+          </span>
           <span>大小 / 操作</span>
         </div>
         {listQuery.isPending ? (
@@ -296,6 +380,7 @@ export function CloudDrive() {
           <ul className="divide-y divide-border">
             {items.map((item) => (
               <li key={item.id} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-neutral-2/40">
+                <SelectBox checked={selected.has(item.id)} label={`选择 ${item.name}`} onToggle={() => toggleSelect(item)} />
                 <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-md border", item.is_folder ? "border-accent/20 bg-accent-soft text-accent-strong" : "border-border bg-neutral-2 text-neutral-7")}>
                   {item.is_folder ? <FolderGlyph className="size-5" /> : <FileTextIcon className="size-4" />}
                 </span>
@@ -436,6 +521,16 @@ export function CloudDrive() {
         isPending={deleteMutation.isPending}
         onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={batchDeleteOpen}
+        title="批量删除"
+        description={`将删除选中的 ${selectedCount} 项，选中的文件夹会连同其中全部内容一起删除，此操作不可恢复。`}
+        confirmLabel="批量删除"
+        isPending={batchDeleteMutation.isPending}
+        onConfirm={() => batchDeleteMutation.mutate(Array.from(selected))}
+        onCancel={() => setBatchDeleteOpen(false)}
       />
     </div>
   );

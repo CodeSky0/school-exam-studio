@@ -209,6 +209,7 @@ data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","
 | POST | `/cloud/files` | 教师/管理员 | multipart 字段 `file` 与可选 `parent_id`；成功后返回文件节点并自动排队向量化 |
 | GET | `/cloud/items/:id/download` | 教师/管理员 | 以附件形式下载文件；文件夹不可下载 |
 | DELETE | `/cloud/items/:id` | 教师/管理员 | 递归软删除文件夹及内容并清理向量，返回 `{"deleted":N}` |
+| POST | `/cloud/items/batch-delete` | 教师/管理员 | 批量删除，body `{"ids":["...",...]}`（≤100 项，自动去重）；不存在的条目被跳过，文件夹递归删除，返回 `{"deleted":N}` |
 | GET | `/cloud/search?q=&limit=` | 教师/管理员 | 在本校已向量化资料中做语义检索；`limit` 默认 8、最大 20；返回 `query`、`provider`、`chunks_scanned`、`index_available` 与 `hits[]` |
 | POST | `/cloud/items/:id/reindex` | 教师/管理员 | 重新解析并向量化单个文件，返回 202 与文件节点 |
 | POST | `/cloud/reindex` | 教师/管理员 | 本校全部文件重新入队，返回 `{"queued":N}` |

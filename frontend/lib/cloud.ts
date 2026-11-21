@@ -89,6 +89,16 @@ export function deleteCloudItem(id: string) {
   });
 }
 
+export const cloudBatchDeleteSchema = z.object({ deleted: z.number().int() });
+
+// batchDeleteCloudItems 批量删除云盘条目；后端会跳过不存在的条目并返回实际删除数量。
+export function batchDeleteCloudItems(ids: string[]) {
+  return apiRequest("/api/v1/cloud/items/batch-delete", cloudBatchDeleteSchema, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
 // searchCloudFiles 调用云盘语义检索，返回已向量化资料的原文片段。
 export function searchCloudFiles(query: string, limit = 8) {
   const params = new URLSearchParams({ q: query, limit: String(limit) });

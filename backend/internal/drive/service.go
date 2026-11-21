@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"strings"
 	"unicode"
@@ -14,9 +15,10 @@ import (
 )
 
 const (
-	maxFolderNameRunes = 120
-	maxDeleteDepth     = 5000
-	maxBreadcrumbDepth = 32
+	maxFolderNameRunes   = 120
+	maxDeleteDepth       = 5000
+	maxBreadcrumbDepth   = 32
+	maxBatchDeleteItems  = 100
 )
 
 type Service struct {
@@ -177,6 +179,40 @@ func (s *Service) Delete(ctx context.Context, principal auth.Principal, id uuid.
 	if err := validatePrincipal(principal); err != nil {
 		return 0, err
 	}
+	return s.deleteTree(ctx, principal, id)
+}
+
+// DeleteMany 批量删除云盘条目；不存在的条目会被跳过，返回实际删除数量。
+func (s *Service) DeleteMany(ctx context.Context, principal auth.Principal, ids []uuid.UUID) (int, error) {
+	if err := validatePrincipal(principal); err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, validationError("ids", "请选择要删除的文件")
+	}
+	if len(ids) > maxBatchDeleteItems {
+		return 0, validationError("ids", "单次最多删除 100 项")
+	}
+	seen := make(map[uuid.UUID]bool, len(ids))
+	deleted := 0
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		count, err := s.deleteTree(ctx, principal, id)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				continue
+			}
+			return deleted, err
+		}
+		deleted += count
+	}
+	return deleted, nil
+}
+
+func (s *Service) deleteTree(ctx context.Context, principal auth.Principal, id uuid.UUID) (int, error) {
 	root, err := s.repository.Get(ctx, principal.SchoolID, id)
 	if err != nil {
 		return 0, err
