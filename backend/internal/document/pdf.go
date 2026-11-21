@@ -1010,11 +1010,14 @@ func incrementHex(value string, delta int) string {
 }
 
 type pdfTextLayout struct {
-	builder  strings.Builder
-	lastChar byte
-	placed   bool
-	lineY    float64
-	lastX    float64
+	builder       strings.Builder
+	lastChar      byte
+	placed        bool
+	lineY         float64
+	lineFontSize  float64
+	lastX         float64
+	pendingScript byte
+	lastScript    byte
 }
 
 func (l *pdfTextLayout) Text() string {
@@ -1030,6 +1033,16 @@ func (l *pdfTextLayout) Write(text string) {
 	}
 	if text == "" {
 		return
+	}
+	// 上标/下标用 ^/_ 标记，避免公式被压平成 x2 这类无法搜索的文本。
+	if l.pendingScript != 0 {
+		if l.pendingScript != l.lastScript {
+			l.builder.WriteByte(l.pendingScript)
+		}
+		l.lastScript = l.pendingScript
+		l.pendingScript = 0
+	} else {
+		l.lastScript = 0
 	}
 	l.builder.WriteString(text)
 	l.lastChar = text[len(text)-1]
@@ -1051,41 +1064,44 @@ func (l *pdfTextLayout) Space() {
 	l.lastChar = ' '
 }
 
-func (l *pdfTextLayout) MoveRelative(x, y, fontSize float64) {
-	threshold := math.Max(0.6, fontSize*0.4)
-	if !l.placed {
-		l.placed = true
-		l.lineY = y
-		l.lastX = x
-		return
+func (l *pdfTextLayout) SetFontSize(fontSize float64) {
+	if l.placed && fontSize > l.lineFontSize {
+		l.lineFontSize = fontSize
 	}
-	if math.Abs(y) > threshold {
-		l.NewLine()
-		l.lineY += y
-		l.lastX += x
-		return
-	}
-	if x > math.Max(2, fontSize*1.8) {
-		l.Space()
-	}
-	l.lastX += x
 }
 
 func (l *pdfTextLayout) MoveAbsolute(x, y, fontSize float64) {
-	threshold := math.Max(0.6, fontSize*0.4)
+	// 同一行内混排不同字号（尤其是公式的上下标）时基线会轻微跳动，
+	// 用字号比例作为换行阈值，避免把 x² 拆成 x、2 两行。
+	threshold := math.Max(2.5, fontSize*0.7)
 	if !l.placed {
 		l.placed = true
 		l.lineY = y
+		l.lineFontSize = fontSize
 		l.lastX = x
 		return
 	}
-	if math.Abs(y-l.lineY) > threshold {
+	shift := y - l.lineY
+	script := byte(0)
+	if l.lineFontSize > 0 {
+		switch {
+		case shift > l.lineFontSize*0.15 && shift <= l.lineFontSize*0.8:
+			script = '^'
+		case shift < -l.lineFontSize*0.15 && shift >= -l.lineFontSize*0.8:
+			script = '_'
+		}
+	}
+	if script == 0 && math.Abs(shift) > threshold {
 		l.NewLine()
 		l.lineY = y
+		l.lineFontSize = fontSize
 		l.lastX = x
+		l.pendingScript = 0
+		l.lastScript = 0
 		return
 	}
-	if x-l.lastX > math.Max(2, fontSize*1.8) {
+	l.pendingScript = script
+	if script == 0 && x-l.lastX > math.Max(2, fontSize*1.8) {
 		l.Space()
 	}
 	l.lastX = x
@@ -1098,6 +1114,10 @@ type pdfTextExtractor struct {
 	current       *pdfFont
 	fontSize      float64
 	unmappedFonts int
+	// PDF 的 Td/Tm 是相对文本行矩阵定位；BT 会把行矩阵重置为单位矩阵。
+	// 记录当前行矩阵的平移量，才能还原每个文本块的绝对位置。
+	lineX float64
+	lineY float64
 }
 
 func (e *pdfTextExtractor) lookupFont(name string) *pdfFont {
@@ -1208,6 +1228,7 @@ func (e *pdfTextExtractor) applyPDFOperator(operator string, operands []pdfToken
 		}
 		if size, ok := lastPDFNumber(operands); ok {
 			e.fontSize = size
+			e.layout.SetFontSize(size)
 		}
 		e.current = e.lookupFont(name)
 		if e.current == nil && name != "" {
@@ -1238,12 +1259,17 @@ func (e *pdfTextExtractor) applyPDFOperator(operator string, operands []pdfToken
 		if value, ok := lastPDFString(operands); ok {
 			e.writeString(value)
 		}
+	case "BT":
+		e.lineX = 0
+		e.lineY = 0
 	case "Td", "TD":
 		values, ok := lastPDFNumbers(operands, 2)
 		if !ok {
 			return
 		}
-		e.layout.MoveRelative(values[0], values[1], e.fontSize)
+		e.lineX += values[0]
+		e.lineY += values[1]
+		e.layout.MoveAbsolute(e.lineX, e.lineY, e.fontSize)
 	case "T*":
 		e.layout.NewLine()
 	case "Tm":
@@ -1251,7 +1277,9 @@ func (e *pdfTextExtractor) applyPDFOperator(operator string, operands []pdfToken
 		if !ok {
 			return
 		}
-		e.layout.MoveAbsolute(values[4], values[5], e.fontSize)
+		e.lineX = values[4]
+		e.lineY = values[5]
+		e.layout.MoveAbsolute(e.lineX, e.lineY, e.fontSize)
 	}
 }
 

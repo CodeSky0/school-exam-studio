@@ -175,6 +175,29 @@ func TestExtractPDFKeepsMappedTextWhenCMapIsPartial(t *testing.T) {
 	}
 }
 
+func TestExtractPDFKeepsFormulaOnOneLine(t *testing.T) {
+	// 每个文本块都重新 BT，并使用绝对 Td；上标字号相同、基线抬高。
+	content := "BT /F1 11 Tf 72 720 Td (x) Tj ET\n" +
+		"BT /F1 11 Tf 80 720 Td (+) Tj ET\n" +
+		"BT /F1 11 Tf 88 720 Td (x) Tj ET\n" +
+		"BT /F1 11 Tf 96 726 Td (2) Tj ET\n" +
+		"BT /F1 11 Tf 102 720 Td (=2) Tj ET\n" +
+		"BT /F1 11 Tf 72 700 Td (next line) Tj ET"
+	objects := pdfBaseObjects(6, "/Font << /F1 4 0 R >>")
+	objects[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+	objects[6] = pdfStreamObject("", content)
+	result, err := Extract("formula.pdf", "application/pdf", assemblePDF(objects))
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+	if !strings.Contains(result.Text, "x+x^2=2") {
+		t.Fatalf("expected formula on one line, got %q", result.Text)
+	}
+	if !strings.Contains(result.Text, "x+x^2=2\nnext line") {
+		t.Fatalf("expected following line to stay separate, got %q", result.Text)
+	}
+}
+
 func TestExtractPDFFallsBackToIdentityUnicode(t *testing.T) {
 	content := "BT /F1 12 Tf 72 720 Td <4F60> Tj <597D> Tj ET"
 	objects := pdfBaseObjects(6, "/Font << /F1 4 0 R >>")
