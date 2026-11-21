@@ -36,10 +36,6 @@ func (h *Handler) Register(group *echo.Group) {
 	group.POST("/ai/questions/:id/variants", h.Variants)
 	group.POST("/ai/generate", h.Generate)
 	group.GET("/ai/bank/audit", h.AuditBank)
-	group.POST("/ai/agent/runs", h.CreateRun)
-	group.GET("/ai/agent/runs", h.ListRuns)
-	group.GET("/ai/agent/runs/:id", h.GetRun)
-	group.GET("/ai/audit-logs", h.AuditLogs)
 
 	group.GET("/ai/conversations", h.ListConversations)
 	group.POST("/ai/conversations", h.CreateConversation)
@@ -239,74 +235,6 @@ func (h *Handler) AuditBank(c echo.Context) error {
 		return aiError(err)
 	}
 	return c.JSON(http.StatusOK, result)
-}
-
-func (h *Handler) CreateRun(c echo.Context) error {
-	principal, ok := platformmiddleware.PrincipalFrom(c)
-	if !ok {
-		return unauthorized()
-	}
-	var input AgentRequest
-	if err := decodeAIJSON(c, &input); err != nil {
-		return err
-	}
-	result, err := h.service.ExecuteAgent(c.Request().Context(), principal, input)
-	if err != nil {
-		return aiError(err)
-	}
-	return c.JSON(http.StatusOK, result)
-}
-
-func (h *Handler) ListRuns(c echo.Context) error {
-	principal, ok := platformmiddleware.PrincipalFrom(c)
-	if !ok {
-		return unauthorized()
-	}
-	limit := 20
-	if value := c.QueryParam("limit"); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 1 || parsed > 100 {
-			return apperror.Validation([]apperror.FieldError{{Field: "limit", Message: "limit 必须为1-100"}})
-		}
-		limit = parsed
-	}
-	items, err := h.service.ListRuns(c.Request().Context(), principal, limit)
-	if err != nil {
-		return aiError(err)
-	}
-	return c.JSON(http.StatusOK, map[string]any{"items": items})
-}
-
-func (h *Handler) GetRun(c echo.Context) error {
-	principal, id, err := principalAndID(c)
-	if err != nil {
-		return err
-	}
-	result, err := h.service.GetRun(c.Request().Context(), principal, id)
-	if err != nil {
-		return aiError(err)
-	}
-	return c.JSON(http.StatusOK, result)
-}
-
-func (h *Handler) AuditLogs(c echo.Context) error {
-	principal, ok := platformmiddleware.PrincipalFrom(c)
-	if !ok {
-		return unauthorized()
-	}
-	limit := 50
-	if value := c.QueryParam("limit"); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 1 || parsed > 200 {
-			return apperror.Validation([]apperror.FieldError{{Field: "limit", Message: "limit 必须为1-200"}})
-		}
-		limit = parsed
-	}
-	items, err := h.service.ListAudits(c.Request().Context(), principal, limit)
-	if err != nil {
-		return aiError(err)
-	}
-	return c.JSON(http.StatusOK, map[string]any{"items": items})
 }
 
 func principalAndID(c echo.Context) (platformmiddleware.Principal, uuid.UUID, error) {

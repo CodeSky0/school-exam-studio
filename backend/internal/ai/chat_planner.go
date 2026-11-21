@@ -86,8 +86,17 @@ func planChatTurn(content string, attachments []AttachmentRef, prior []ChatMessa
 		}
 	}
 
-	if strings.Contains(lower, "体检") || strings.Contains(lower, "质检") || strings.Contains(lower, "重复题") || strings.Contains(lower, "题库检查") || strings.Contains(lower, "质量检查") {
+	if strings.Contains(lower, "体检") || strings.Contains(lower, "质检") || strings.Contains(lower, "题库检查") || strings.Contains(lower, "质量检查") {
 		return ChatTurnPlan{Calls: []PlannedToolCall{{Name: "bank_audit", Arguments: map[string]any{}}}}
+	}
+	if containsAny(lower, "重复题", "重复的题", "相似重复", "去重") {
+		return ChatTurnPlan{Calls: []PlannedToolCall{{Name: "find_duplicates", Arguments: map[string]any{}}}}
+	}
+	if containsAny(lower, "云盘", "资料库", "校内资料", "教案", "检索资料", "查资料") {
+		query := firstNonEmpty(extractQuoted(goal), knowledgePoint, strings.TrimSpace(goal))
+		return ChatTurnPlan{Calls: []PlannedToolCall{{Name: "search_cloud", Arguments: filterAgentArgs(map[string]any{
+			"query": query, "limit": 8,
+		})}}}
 	}
 	if containsAny(lower, "补解析", "补答案", "缺少解析", "缺少答案", "补充解析", "补充答案") {
 		return ChatTurnPlan{Calls: []PlannedToolCall{{Name: "fill_explanations", Arguments: filterAgentArgs(map[string]any{
@@ -138,8 +147,8 @@ func planChatTurn(content string, attachments []AttachmentRef, prior []ChatMessa
 		}
 	}
 	return ChatTurnPlan{
-		Reply: "我可以调用题库工具帮你：文档智能录题、整卷拆题、题库体检、整理草稿、补答案解析、知识点出题、生成变式、智能组卷、相似题检索。\n\n" +
-			"试试直接说目标，例如：“把这份 Word 里的题导入八年级数学题库”“体检一下题库”“给八年级数学出 3 道一元一次方程题”。",
+		Reply: "我可以调用题库工具帮你：文档智能录题、整卷拆题、文档阅读、云盘资料检索、题库体检、重复题排查、整理草稿、补答案解析、知识点出题、生成变式、相似题检索、智能组卷。\n\n" +
+			"试试直接说目标，例如：“把这份 Word 里的题导入八年级数学题库”“体检一下题库”“在云盘里找一元二次函数的教案”“给八年级数学出 3 道一元一次方程题”。",
 	}
 }
 

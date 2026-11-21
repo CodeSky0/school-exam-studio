@@ -242,18 +242,6 @@ type Step struct {
 	Warning     string   `json:"warning,omitempty"`
 }
 
-type AgentRequest struct {
-	Goal           string `json:"goal"`
-	Subject        string `json:"subject"`
-	Grade          string `json:"grade"`
-	Category       string `json:"category"`
-	KnowledgePoint string `json:"knowledge_point"`
-	Tag            string `json:"tag"`
-	QuestionID     string `json:"question_id"`
-	Count          int    `json:"count"`
-	Model          string `json:"model,omitempty"`
-}
-
 type AgentRun struct {
 	ID        string         `json:"id"`
 	Goal      string         `json:"goal"`

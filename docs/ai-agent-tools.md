@@ -62,7 +62,7 @@
 
 ### 1.2 执行策略
 
-- 模型可用：OpenAI 兼容 function calling，最多 4 轮、8 次工具调用；工具结果回填模型后生成最终回复。
+- 模型可用：OpenAI 兼容 function calling，最多 6 轮、12 次工具调用；工具结果回填模型后生成最终回复。系统提示词（`backend/internal/ai/agent_prompt.go`）约定了先读后写、失败换法重试与调用预算等策略。
 - 弹性调用：每个模型最多重试 3 次（300ms/900ms 指数退避，尊重 `Retry-After`）；仍失败时按学校启用模型顺序切换，最多 3 个模型。
 - 熔断：同一「学校 + 模型」连续 3 次可重试失败后熔断 60 秒，期间直接跳过；状态见 `GET /ai/status` 的 `models_health`。
 - JSON 修复：模型返回非法 JSON 时追加一次“仅输出合法 JSON”的修复调用。

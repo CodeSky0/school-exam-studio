@@ -5,12 +5,12 @@ import "encoding/json"
 var (
 	toolSearchQuestions = ToolDescriptor{
 		Name: "search_questions", Label: "检索题库", Writes: false,
-		Description: "按关键词、学科、年级、状态、分类或知识点检索题目，返回题目 ID 与摘要。",
+		Description: "按关键词、学科、年级、状态、分类或知识点检索题目，返回题目 ID、摘要与元数据。用于确认题目是否存在、收集题目 ID；需要完整题干或答案时再用 get_question 读取详情。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"keyword":{"type":"string"},"subject":{"type":"string"},"grade":{"type":"string"},"status":{"type":"string","enum":["draft","published","archived"]},"category":{"type":"string"},"knowledge_point":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50}},"additionalProperties":false}`),
 	}
 	toolGetQuestion = ToolDescriptor{
 		Name: "get_question", Label: "读取题目", Writes: false,
-		Description: "读取一道题目的完整内容、选项、答案、解析与元数据。",
+		Description: "读取一道题目的完整内容、选项、答案、解析与元数据。在生成变式、修改草稿或逐条复核前调用，以获取准确的题目 ID 与当前内容。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"question_id":{"type":"string","format":"uuid"}},"required":["question_id"],"additionalProperties":false}`),
 	}
 	toolBankAudit = ToolDescriptor{
@@ -20,7 +20,7 @@ var (
 	}
 	toolAnalyzeQuestion = ToolDescriptor{
 		Name: "analyze_question", Label: "分析题目", Writes: true,
-		Description: "分析题目并生成分类、知识点、标签、答案与解析；草稿可直接写回，已发布题目只读。",
+		Description: "分析一道题目并生成分类、知识点、标签、答案与解析。草稿默认直接写回（apply=true），已发布题目或他人题目只读，仅返回分析结果。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"question_id":{"type":"string","format":"uuid"},"apply":{"type":"boolean"},"model":{"type":"string"}},"required":["question_id"],"additionalProperties":false}`),
 	}
 	toolOrganizeDrafts = ToolDescriptor{
@@ -45,7 +45,7 @@ var (
 	}
 	toolComposePaper = ToolDescriptor{
 		Name: "compose_paper", Label: "智能组卷", Writes: true,
-		Description: "从已发布题目中按学科、年级、知识点与难度分布组一份满分 100 的试卷草稿。",
+		Description: "从已发布题目中按学科、年级、知识点与难度分布组一份满分 100 的试卷草稿。建议先调用 bank_stats 确认目标范围有已发布题目，避免组卷失败。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"category":{"type":"string"},"knowledge_point":{"type":"string"},"tag":{"type":"string"},"count":{"type":"integer","minimum":1,"maximum":10},"model":{"type":"string"}},"required":["grade"],"additionalProperties":false}`),
 	}
 	toolListAttachments = ToolDescriptor{
@@ -55,7 +55,7 @@ var (
 	}
 	toolReadAttachment = ToolDescriptor{
 		Name: "read_attachment", Label: "阅读附件", Writes: false,
-		Description: "读取本轮附件正文：PDF/Word/文本返回抽取文本并支持分段，图片已作为视觉输入直接提供给模型。不会写入题库。",
+		Description: "读取本轮 PDF/Word/文本附件正文，支持 offset 分段翻页读取长文档（返回 has_more 与 next_offset 时继续用下一页 offset 调用）。图片附件已作为视觉输入直接提供，本工具不返回图片文本。不会写入题库。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"attachment_ids":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0,"maximum":200000},"limit":{"type":"integer","minimum":500,"maximum":6000}},"additionalProperties":false}`),
 	}
 	toolSearchCloud = ToolDescriptor{
@@ -75,12 +75,12 @@ var (
 	}
 	toolCreateQuestions = ToolDescriptor{
 		Name: "create_questions", Label: "创建题目", Writes: true,
-		Description: "把结构化题目批量创建为草稿，用于模型直接生成的题目。question_type 必须使用英文枚举值：single_choice（单选题）、multiple_choice（多选题）、true_false（判断题）、fill_blank（填空题）、essay（解答题/主观题），不要填写中文题型名或其他别名。",
+		Description: "把你自己在对话中编写好的结构化题目批量创建为草稿（与 generate_questions 的区别：本工具的题目由你直接产出，不调用出题模型）。question_type 必须使用英文枚举值：single_choice（单选题）、multiple_choice（多选题）、true_false（判断题）、fill_blank（填空题）、essay（解答题/主观题），不要填写中文题型名或其他别名。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"items":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"answer":{"type":"string"},"explanation":{"type":"string"},"question_type":{"type":"string","enum":["single_choice","multiple_choice","true_false","fill_blank","essay"],"description":"single_choice=单选题，multiple_choice=多选题，true_false=判断题，fill_blank=填空题，essay=解答题"},"difficulty":{"type":"integer","minimum":1,"maximum":5},"category":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}},"knowledge_points":{"type":"array","items":{"type":"string"}},"options":{"type":"array","items":{"type":"object","properties":{"key":{"type":"string"},"content":{"type":"string"}},"required":["key","content"]}}},"required":["content","answer","question_type"]}}},"required":["subject","grade","items"],"additionalProperties":false}`),
 	}
 	toolUpdateDraft = ToolDescriptor{
 		Name: "update_draft", Label: "修改草稿", Writes: true,
-		Description: "修改一道草稿题目的分类、知识点、标签、难度、答案或解析；已发布题目只读。",
+		Description: "修改一道草稿题目的分类、知识点、标签、难度、答案或解析；只修改提供的新字段，未提供的字段保持不变。修改前先用 get_question 获取当前内容；已发布题目只读。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"question_id":{"type":"string","format":"uuid"},"category":{"type":"string"},"knowledge_points":{"type":"array","items":{"type":"string"}},"tags":{"type":"array","items":{"type":"string"}},"difficulty":{"type":"integer","minimum":1,"maximum":5},"answer":{"type":"string"},"explanation":{"type":"string"},"model":{"type":"string"}},"required":["question_id"],"additionalProperties":false}`),
 	}
 	toolListPapers = ToolDescriptor{
@@ -100,12 +100,12 @@ var (
 	}
 	toolUpdatePaperDraft = ToolDescriptor{
 		Name: "update_paper_draft", Label: "调整试卷", Writes: true,
-		Description: "替换本人草稿试卷的题目顺序与分值，可同时修改标题与时长；只能修改本人创建的试卷。",
+		Description: "调整本人草稿试卷的题目顺序与分值，可同时修改标题与时长；questions 数组必须包含试卷全部题目。调整前先用 get_paper 获取当前题目列表；只能修改本人创建的草稿试卷。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"paper_id":{"type":"string","format":"uuid"},"title":{"type":"string"},"duration_minutes":{"type":"integer","minimum":1,"maximum":600},"questions":{"type":"array","items":{"type":"object","properties":{"question_id":{"type":"string","format":"uuid"},"assigned_score":{"type":"number"}},"required":["question_id","assigned_score"]}}},"required":["paper_id","questions"],"additionalProperties":false}`),
 	}
 	toolBankStats = ToolDescriptor{
 		Name: "bank_stats", Label: "题库统计", Writes: false,
-		Description: "统计题库在学科、年级、题型、难度与知识点上的分布，并列出覆盖不足的知识点。",
+		Description: "统计题库在学科、年级、题型、难度与知识点上的分布，并列出覆盖不足的知识点。适合作为组卷、出题或覆盖度分析的前置步骤。",
 		Parameters:  json.RawMessage(`{"type":"object","properties":{"subject":{"type":"string"},"grade":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":1000}},"additionalProperties":false}`),
 	}
 	toolFindDuplicates = ToolDescriptor{

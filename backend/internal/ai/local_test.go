@@ -126,36 +126,6 @@ func TestLocalAuditDetectsDuplicatesAndMissingFields(t *testing.T) {
 	}
 }
 
-func TestPlanGoalIntents(t *testing.T) {
-	cases := []struct {
-		goal     string
-		question string
-		intent   string
-		count    int
-	}{
-		{"帮我给数学草稿补标签和解析，共5道", "", IntentOrganizeBank, 5},
-		{"为七年级「二次函数」生成3道变式题", "", IntentGenerateVariants, 3},
-		{"出一份八年级数学试卷，10道题", "", IntentComposePaper, 10},
-		{"帮我体检题库", "", IntentAuditBank, 0},
-		{"对当前题库做一次质量体检，找出重复题和缺少解析的题目", "", IntentAuditBank, 0},
-		{"整理题库", "", IntentTagQuestions, 0},
-		{"分析这道题", uuid.NewString(), IntentAnalyzeQuestion, 0},
-		{"你好", "", IntentUnknown, 0},
-	}
-	for _, testCase := range cases {
-		plan, err := PlanGoal(AgentRequest{Goal: testCase.goal, QuestionID: testCase.question})
-		if err != nil {
-			t.Fatalf("plan %q: %v", testCase.goal, err)
-		}
-		if plan.Intent != testCase.intent {
-			t.Fatalf("goal %q: expected %s, got %s", testCase.goal, testCase.intent, plan.Intent)
-		}
-		if plan.Params.Count != testCase.count {
-			t.Fatalf("goal %q: expected count %d, got %d", testCase.goal, testCase.count, plan.Params.Count)
-		}
-	}
-}
-
 func TestLocalVariantsKeepValidChoiceAnswer(t *testing.T) {
 	engine := NewLocalEngine()
 	items, _ := engine.Variants(QuestionSnapshot{
@@ -195,19 +165,6 @@ func TestLocalGenerateFillBlankSerializesOptionsAsArray(t *testing.T) {
 	}
 	if !strings.Contains(string(encoded), `"options":[]`) {
 		t.Fatalf("empty options must serialize as [], got %s", encoded)
-	}
-}
-
-func TestPlanGoalExtractsKnowledgeAndGrade(t *testing.T) {
-	plan, err := PlanGoal(AgentRequest{Goal: "为七年级「二次函数」生成3道变式题"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if plan.Params.Grade != "七年级" {
-		t.Fatalf("expected 七年级, got %q", plan.Params.Grade)
-	}
-	if plan.Params.KnowledgePoint != "二次函数" {
-		t.Fatalf("expected 二次函数, got %q", plan.Params.KnowledgePoint)
 	}
 }
 

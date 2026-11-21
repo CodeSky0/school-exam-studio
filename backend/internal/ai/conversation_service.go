@@ -617,18 +617,8 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 		})
 	}
 	messages := []LLMMessage{{
-		Role: "system",
-		Content: "你是 School Exam Studio 的题库 AI Agent。你可以通过工具检索、分析、整理、生成题目并组卷；" +
-			"通过文档工具阅读 PDF/Word/图片，并把其中的题目导入题库。所有自动写入只作用于草稿，必须提醒用户人工复核；" +
-			"已发布题目只读。不要编造题目 ID、文件内容或执行结果。回答使用简体中文，先给结论，再列出关键题目 ID 或文件。" +
-			"如果缺少学科、年级、题目 ID 或附件，先向用户澄清，不要猜测。" +
-			"写入题库时，question_type 只能填写以下五个英文字段值之一：single_choice（单选题）、multiple_choice（多选题）、true_false（判断题）、fill_blank（填空题）、essay（解答题/主观题）；" +
-			"禁止使用“单选”“填空”等中文题型名或其他别名，系统只接受上述英文枚举值。" +
-			"回复和题目中的数学公式统一使用 LaTeX：行内公式写成 $...$，独立公式写成 $$...$$。" +
-			"本轮附带的图片已经以视觉输入直接提供给你，请直接阅读图片中的文字、公式与表格，不要要求用户先做 OCR；" +
-			"需要 PDF/Word 全文时调用 read_attachment 分段读取；调用 read_attachment、extract_questions、import_document_questions 时可以省略 attachment_ids，默认使用本轮附件，不要自行编造附件 ID；" +
-			"需要校内教案、试卷或教材资料时调用 search_cloud 检索已向量化的云盘内容，只引用返回的文件名与原文片段，不要编造云盘中没有的内容；" +
-			"如果云盘检索没有结果，明确说明并建议用户上传资料或等待向量化完成。",
+		Role:    "system",
+		Content: chatAgentSystemPrompt,
 	}}
 	start := len(history) - maxLLMHistory
 	if start < 0 {
@@ -716,14 +706,16 @@ func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conv
 			if len(calls) >= maxLLMToolCalls {
 				break
 			}
+			// 部分模型会在工具名前后带入空白字符，清洗后再匹配注册表，避免整次调用失败。
+			toolName := strings.TrimSpace(llmCall.Function.Name)
 			arguments := map[string]any{}
 			if strings.TrimSpace(llmCall.Function.Arguments) != "" {
 				if err := json.Unmarshal([]byte(llmCall.Function.Arguments), &arguments); err != nil {
 					arguments = map[string]any{}
 				}
 			}
-			arguments = withModelArgument(llmCall.Function.Name, arguments, model)
-			call := s.executeToolCall(ctx, principal, toolContext, llmCall.Function.Name, arguments, sink)
+			arguments = withModelArgument(toolName, arguments, model)
+			call := s.executeToolCall(ctx, principal, toolContext, toolName, arguments, sink)
 			calls = append(calls, call)
 			entryTime := time.Now()
 			if call.StartedAt != nil {
@@ -830,14 +822,6 @@ func withModelArgument(name string, arguments map[string]any, model string) map[
 		}
 	}
 	return arguments
-}
-
-func toolNames(calls []ToolCall) []string {
-	names := make([]string, 0, len(calls))
-	for _, call := range calls {
-		names = append(names, call.Label)
-	}
-	return names
 }
 
 // previousTurnToolContext 把上一轮工具结果回填到模型上下文，支持用户说“继续”时接着完成任务。

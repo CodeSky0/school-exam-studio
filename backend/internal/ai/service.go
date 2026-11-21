@@ -444,39 +444,6 @@ func (s *Service) AuditBank(ctx context.Context, principal auth.Principal, limit
 	return s.local.Audit(snapshots), nil
 }
 
-func (s *Service) ListRuns(ctx context.Context, principal auth.Principal, limit int) ([]AgentRun, error) {
-	if err := validatePrincipal(principal); err != nil {
-		return nil, err
-	}
-	if s.repo == nil {
-		return []AgentRun{}, nil
-	}
-	return s.repo.ListRuns(ctx, principal, limit)
-}
-
-func (s *Service) GetRun(ctx context.Context, principal auth.Principal, id uuid.UUID) (AgentRun, error) {
-	if err := validatePrincipal(principal); err != nil {
-		return AgentRun{}, err
-	}
-	if s.repo == nil {
-		return AgentRun{}, ErrNotFound
-	}
-	return s.repo.GetRun(ctx, principal, id)
-}
-
-func (s *Service) ListAudits(ctx context.Context, principal auth.Principal, limit int) ([]AuditLog, error) {
-	if err := validatePrincipal(principal); err != nil {
-		return nil, err
-	}
-	if principal.Role != auth.RoleAdmin {
-		return nil, ErrForbidden
-	}
-	if s.repo == nil {
-		return []AuditLog{}, nil
-	}
-	return s.repo.ListAudits(ctx, principal, limit)
-}
-
 func (s *Service) validateAnalyzeInput(input *AnalyzeInput) error {
 	input.Content = strings.TrimSpace(input.Content)
 	if input.Content == "" {

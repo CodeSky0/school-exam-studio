@@ -159,7 +159,7 @@ pnpm dev
 - `EMBEDDING_BASE_URL`、`EMBEDDING_API_KEY`、`EMBEDDING_MODEL`：云盘向量化使用的 OpenAI 兼容 `/embeddings` 服务；留空时使用内置本地哈希向量（`EMBEDDING_LOCAL_DIMENSIONS` 默认 256，范围 64-1024）。切换向量模型后旧向量不会混用，需要在云盘页面点击“重建索引”或调用 `POST /api/v1/cloud/reindex`。
 - `AI_ALLOW_LOCAL_FALLBACK`：默认 `false`。模型重试与故障转移均失败时是否回退本地引擎；开启后响应会标注 `provider=fallback` 与降级原因。
 - 管理员仍可在 `/admin/settings` 配置全校共享模型；学校配置优先于环境变量，API Key 加密存储且不会返回前端。
-- 旧的一次性 Agent 运行接口 `/api/v1/ai/agent/runs` 保留，历史运行记录与审计仍可查询。
+- 旧的一次性 Agent 运行接口 `/api/v1/ai/agent/runs` 与审计查询 `/api/v1/ai/audit-logs` 已移除；对话与工具写入仍记录运行 ID 与 `ai_audit_logs`，审计可通过数据库查看。
 
 密钥只从环境变量或学校加密配置读取，不写入数据库明文、日志、前端响应或 Git。
 

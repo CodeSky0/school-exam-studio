@@ -107,10 +107,6 @@ OCR 结果必须由教师校对后通过正常题目接口保存，原图不持�
 | POST | `/ai/questions/:id/variants` | 教师/管理员 | 生成题目变式，`strategy` 支持 `numbers`、`context`、`reverse`、`difficulty`；`persist` 为 true 时保存为草稿 |
 | POST | `/ai/generate` | 登录 | 按学科、年级、分类、知识点、标签生成新题；`persist` 为 true 时保存为草稿 |
 | GET | `/ai/bank/audit?limit=500` | 登录 | 题库体检：缺答案/解析/知识点/分类、重复题与分布统计 |
-| POST | `/ai/agent/runs` | 登录 | 提交自然语言目标，Agent 完成意图识别、计划与执行，返回运行报告 |
-| GET | `/ai/agent/runs?limit=20` | 登录 | 最近运行记录；教师仅见自己的运行 |
-| GET | `/ai/agent/runs/:id` | 教师/管理员 | 运行详情；教师仅可读自己的运行 |
-| GET | `/ai/audit-logs?limit=50` | 管理员 | 本校 AI 写入审计日志 |
 
 ### AI Agent 对话
 
