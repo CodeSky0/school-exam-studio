@@ -192,7 +192,7 @@ data: {"type":"tool_finished","tool_call":{"id":"t1","name":"search_questions","
 }
 ```
 
-附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB，整轮附件合计 ≤32 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。上传后状态直接为 `parsed`，服务端不抽取文本：发送消息时图片以视觉输入、PDF/Word 以 `file` 内容块、纯文本直接内联交给模型。上传成功的附件会自动归档到学校云盘根目录；相同内容按 SHA256 去重。
+附件限制：每轮最多 5 个；图片 ≤10 MiB，文档 ≤20 MiB，整轮附件合计 ≤32 MiB；仅接受 PNG/JPEG/WebP/GIF、PDF、DOCX、TXT、MD、CSV。上传后状态直接为 `parsed`；发送消息时由服务端预处理：图片作为视觉输入，TXT/Markdown/CSV 直接内联，PDF/Word 抽取文本，扫描版 PDF 提取内嵌页面图片交给视觉模型。不发送 `file` 内容块，也不依赖 OCR。上传成功的附件会自动归档到学校云盘根目录；相同内容按 SHA256 去重。
 
 ## 学校云盘
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"school-exam-studio/backend/internal/auth"
+	"school-exam-studio/backend/internal/document"
 	"school-exam-studio/backend/internal/drive"
 )
 
@@ -26,10 +27,14 @@ const (
 	// 视觉输入上限：单张图片沿用 10 MiB。
 	maxVisionImageBytes = 10 << 20
 
-	// 文档直接以 file 内容块发送：单个文件沿用 20 MiB，整轮文件与图片合计不超过 32 MiB。
+	// 一轮对话里文本与页面图片的合计上限。
 	maxAttachmentTotalBytes = 32 << 20
-	// 纯文本附件直接内联到消息中，避免无谓的文件块兼容问题。
+	// 纯文本与抽取出的文档文本直接内联到消息中。
 	maxInlineTextRunes = 100000
+	// PDF 文本层不可用时，最多把多少页内嵌图片交给视觉模型。
+	maxPDFImagePages = 20
+	// 少于该字数的 PDF 文本视为不可用，回退到页面图片。
+	minPDFTextRunes = 20
 )
 
 func (s *Service) CreateConversation(ctx context.Context, principal auth.Principal, title string) (Conversation, error) {
@@ -517,8 +522,9 @@ func (s *Service) runChatTurn(ctx context.Context, principal auth.Principal, con
 	return reply, calls, timeline, ProviderLocal, "", warnings
 }
 
-// attachmentParts 把本轮附件直接交给模型：图片走视觉输入，PDF/Word 走 file 内容块，纯文本直接内联。
-// 服务端不做文本抽取，避免扫描件或复杂排版在本地解析时丢失内容。
+// attachmentParts 把本轮附件转成模型可接受的内容块。
+// 模型只接受文本和标准图片：PDF/DOCX 先做本地文本抽取，PDF 文本层不可用时再提取内嵌页面图片，
+// 不再发送服务端不支持的 file 内容块。
 func (s *Service) attachmentParts(attachments []Attachment) ([]LLMContentPart, []string) {
 	if s.attachments == nil {
 		return nil, nil
@@ -531,61 +537,154 @@ func (s *Service) attachmentParts(attachments []Attachment) ([]LLMContentPart, [
 			warnings = append(warnings, fmt.Sprintf("附件《%s》未上传成功，已跳过", item.Name))
 			continue
 		}
-		if item.Kind == AttachmentKindImage {
-			if item.SizeBytes > maxVisionImageBytes {
-				warnings = append(warnings, fmt.Sprintf("图片《%s》超过 %d MiB，已跳过视觉输入", item.Name, maxVisionImageBytes>>20))
-				continue
-			}
-		} else if item.SizeBytes > MaxDocBytes {
-			warnings = append(warnings, fmt.Sprintf("文件《%s》超过 %d MiB，已跳过", item.Name, MaxDocBytes>>20))
-			continue
-		}
-		if total+int(item.SizeBytes) > maxAttachmentTotalBytes {
-			warnings = append(warnings, fmt.Sprintf("本轮附件总大小超过 %d MiB，后续附件已跳过", maxAttachmentTotalBytes>>20))
-			break
-		}
-		file, err := s.attachments.Open(item.StoragePath)
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("附件《%s》读取失败，已跳过", item.Name))
-			continue
-		}
 		limit := int64(maxVisionImageBytes)
 		if item.Kind != AttachmentKindImage {
 			limit = MaxDocBytes
 		}
-		data, readErr := io.ReadAll(io.LimitReader(file, limit+1))
-		_ = file.Close()
-		if readErr != nil || len(data) == 0 || int64(len(data)) > limit {
+		if item.SizeBytes > limit {
+			if item.Kind == AttachmentKindImage {
+				warnings = append(warnings, fmt.Sprintf("图片《%s》超过 %d MiB，已跳过视觉输入", item.Name, limit>>20))
+			} else {
+				warnings = append(warnings, fmt.Sprintf("文件《%s》超过 %d MiB，已跳过", item.Name, limit>>20))
+			}
+			continue
+		}
+		data, ok := s.readAttachment(item, limit)
+		if !ok {
 			warnings = append(warnings, fmt.Sprintf("附件《%s》读取失败或超过大小限制，已跳过", item.Name))
 			continue
 		}
-		total += len(data)
 		switch item.Kind {
 		case AttachmentKindImage:
-			parts = append(parts, LLMContentPart{
-				Type:     "image_url",
-				ImageURL: &LLMImageURL{URL: "data:" + item.MIME + ";base64," + base64.StdEncoding.EncodeToString(data)},
-			})
-		case AttachmentKindPDF, AttachmentKindDocx:
-			parts = append(parts, LLMContentPart{
-				Type: "file",
-				File: &LLMFileData{
-					Filename: item.Name,
-					FileData: "data:" + item.MIME + ";base64," + base64.StdEncoding.EncodeToString(data),
-				},
-			})
-		case AttachmentKindText:
-			text := string(data)
-			if runes := []rune(text); len(runes) > maxInlineTextRunes {
-				text = string(runes[:maxInlineTextRunes])
-				warnings = append(warnings, fmt.Sprintf("文本《%s》超过 %d 字，已截断", item.Name, maxInlineTextRunes))
+			if total+len(data) > maxAttachmentTotalBytes {
+				warnings = append(warnings, fmt.Sprintf("本轮附件总大小超过 %d MiB，后续附件已跳过", maxAttachmentTotalBytes>>20))
+				return parts, warnings
 			}
-			parts = append(parts, LLMContentPart{Type: "text", Text: "【附件：" + item.Name + "】\n" + text})
+			total += len(data)
+			parts = append(parts, imageContentPart(item.MIME, data))
+		case AttachmentKindText:
+			text, textWarnings := inlineAttachmentText(item.Name, "", 0, string(data))
+			warnings = append(warnings, textWarnings...)
+			parts = append(parts, LLMContentPart{Type: "text", Text: text})
+		case AttachmentKindPDF:
+			pdfParts, pdfWarnings, added := s.pdfAttachmentParts(item, data, total)
+			warnings = append(warnings, pdfWarnings...)
+			total += added
+			parts = append(parts, pdfParts...)
+		case AttachmentKindDocx:
+			result, err := document.Extract(item.Name, item.MIME, data)
+			if err != nil {
+				warnings = append(warnings, fmt.Sprintf("文档《%s》无法读取：%s", item.Name, err.Error()))
+				continue
+			}
+			text, textWarnings := inlineAttachmentText(item.Name, "DOCX", result.Pages, result.Text)
+			warnings = append(warnings, result.Warnings...)
+			warnings = append(warnings, textWarnings...)
+			parts = append(parts, LLMContentPart{Type: "text", Text: text})
 		default:
 			warnings = append(warnings, fmt.Sprintf("附件《%s》类型不受支持，已跳过", item.Name))
 		}
 	}
 	return parts, warnings
+}
+
+func (s *Service) readAttachment(item Attachment, limit int64) ([]byte, bool) {
+	file, err := s.attachments.Open(item.StoragePath)
+	if err != nil {
+		return nil, false
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil || len(data) == 0 || int64(len(data)) > limit {
+		return nil, false
+	}
+	return data, true
+}
+
+// pdfAttachmentParts 优先发送文本层；文本不足或不可读时，改为发送内嵌页面图片。
+func (s *Service) pdfAttachmentParts(item Attachment, data []byte, used int) ([]LLMContentPart, []string, int) {
+	warnings := make([]string, 0)
+	result, extractErr := document.Extract(item.Name, item.MIME, data)
+	if extractErr == nil {
+		runes := utf8.RuneCountInString(strings.TrimSpace(result.Text))
+		if runes >= minPDFTextRunes && document.LooksReadable(result.Text) {
+			text, textWarnings := inlineAttachmentText(item.Name, "PDF", result.Pages, result.Text)
+			warnings = append(warnings, result.Warnings...)
+			warnings = append(warnings, textWarnings...)
+			return []LLMContentPart{{Type: "text", Text: text}}, warnings, len(text)
+		}
+	}
+
+	images, imageWarnings := document.ExtractPDFImages(data)
+	pageParts := make([]LLMContentPart, 0, len(images))
+	total := used
+	sent := 0
+	for _, image := range images {
+		if sent >= maxPDFImagePages {
+			warnings = append(warnings, fmt.Sprintf("PDF《%s》页面较多，仅发送前 %d 页图片", item.Name, maxPDFImagePages))
+			break
+		}
+		if len(image.Data) > maxVisionImageBytes {
+			warnings = append(warnings, fmt.Sprintf("PDF《%s》第 %d 页图片超过 %d MiB，已跳过", item.Name, image.Page, maxVisionImageBytes>>20))
+			continue
+		}
+		if total+len(image.Data) > maxAttachmentTotalBytes {
+			warnings = append(warnings, fmt.Sprintf("本轮附件总大小超过 %d MiB，PDF《%s》剩余页面已跳过", maxAttachmentTotalBytes>>20, item.Name))
+			break
+		}
+		total += len(image.Data)
+		pageParts = append(pageParts, imageContentPart(image.MIME, image.Data))
+		sent++
+	}
+	if len(pageParts) == 0 {
+		// 没有可用页面图片时，短但可读的文本仍然比直接报错更有价值。
+		if extractErr == nil && strings.TrimSpace(result.Text) != "" && document.LooksReadable(result.Text) {
+			text, textWarnings := inlineAttachmentText(item.Name, "PDF", result.Pages, result.Text)
+			warnings = append(warnings, result.Warnings...)
+			warnings = append(warnings, textWarnings...)
+			return []LLMContentPart{{Type: "text", Text: text}}, warnings, len(text)
+		}
+		warnings = append(warnings, imageWarnings...)
+		reason := "未提取到可读文本"
+		if extractErr != nil {
+			reason = extractErr.Error()
+		}
+		warnings = append(warnings, fmt.Sprintf("文档《%s》无法读取（%s），也没有可用的页面图片；请上传页面截图或直接粘贴文字", item.Name, reason))
+		return nil, warnings, 0
+	}
+	intro := fmt.Sprintf("【附件：%s（PDF，已转为 %d 页图片）】请直接阅读这些页面图片。", item.Name, sent)
+	parts := make([]LLMContentPart, 0, len(pageParts)+1)
+	parts = append(parts, LLMContentPart{Type: "text", Text: intro})
+	parts = append(parts, pageParts...)
+	return parts, warnings, total - used
+}
+
+func inlineAttachmentText(name, kind string, pages int, text string) (string, []string) {
+	warnings := make([]string, 0)
+	if runes := []rune(text); len(runes) > maxInlineTextRunes {
+		text = string(runes[:maxInlineTextRunes])
+		warnings = append(warnings, fmt.Sprintf("文档《%s》超过 %d 字，已截断", name, maxInlineTextRunes))
+	}
+	header := "【附件：" + name
+	if kind != "" {
+		header += "（" + kind
+		if pages > 0 {
+			header += fmt.Sprintf("，共 %d 页", pages)
+		}
+		header += "）"
+	}
+	header += "】\n"
+	return header + text, warnings
+}
+
+func imageContentPart(mime string, data []byte) LLMContentPart {
+	if mime == "" {
+		mime = "image/png"
+	}
+	return LLMContentPart{
+		Type:     "image_url",
+		ImageURL: &LLMImageURL{URL: "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)},
+	}
 }
 
 func (s *Service) runLLMTurn(ctx context.Context, principal auth.Principal, conversation Conversation, history []ChatMessage, content string, attachments []Attachment, model, runID string, candidate modelCandidate, sink ChatEventSink) (string, []ToolCall, []TimelineEntry, error) {

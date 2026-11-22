@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/ascii85"
 	"fmt"
+	"image/png"
 	"sort"
 	"strings"
 	"testing"
@@ -172,6 +173,35 @@ func TestExtractPDFKeepsMappedTextWhenCMapIsPartial(t *testing.T) {
 	}
 	if !strings.Contains(result.Text, "中") {
 		t.Fatalf("expected mapped text to survive partial CMap, got %q", result.Text)
+	}
+}
+
+func TestExtractPDFImagesFromFlateStream(t *testing.T) {
+	const width, height = 400, 400
+	pixels := make([]byte, width*height*3)
+	for index := range pixels {
+		pixels[index] = 0x80
+	}
+	compressed := zlibCompress(t, pixels)
+	objects := pdfBaseObjects(5, "/XObject << /Im1 4 0 R >>")
+	objects[4] = fmt.Sprintf(
+		"<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length %d >>\nstream\n%s\nendstream",
+		width, height, len(compressed), string(compressed),
+	)
+	objects[5] = pdfStreamObject("", "q Q")
+	images, warnings := ExtractPDFImages(assemblePDF(objects))
+	if len(warnings) != 0 {
+		t.Fatalf("warnings = %v", warnings)
+	}
+	if len(images) != 1 || images[0].MIME != "image/png" {
+		t.Fatalf("images = %#v", images)
+	}
+	decoded, err := png.Decode(bytes.NewReader(images[0].Data))
+	if err != nil {
+		t.Fatalf("decode png: %v", err)
+	}
+	if decoded.Bounds().Dx() != width || decoded.Bounds().Dy() != height {
+		t.Fatalf("bounds = %v", decoded.Bounds())
 	}
 }
 

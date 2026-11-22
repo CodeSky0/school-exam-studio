@@ -1,8 +1,14 @@
 package ai
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"sort"
 	"strings"
 	"testing"
 
@@ -88,12 +94,18 @@ func TestAttachmentPartsEncodesImagesWithoutOCR(t *testing.T) {
 	}
 }
 
-func TestAttachmentPartsSendsPDFAsFile(t *testing.T) {
+func TestAttachmentPartsExtractsPDFText(t *testing.T) {
 	store, err := NewAttachmentStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewAttachmentStore: %v", err)
 	}
-	data := []byte("%PDF-1.7 fake body")
+	data := buildTestPDF(map[int]string{
+		1: "<< /Type /Catalog /Pages 2 0 R >>",
+		2: "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		3: "<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+		4: "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+		5: pdfTestStream("", "BT /F1 12 Tf 72 720 Td (This PDF has a real text layer for the assistant) Tj ET"),
+	})
 	stored, err := store.Save(uuid.New(), uuid.New(), "试卷.pdf", "application/pdf", data)
 	if err != nil {
 		t.Fatalf("Save: %v", err)
@@ -106,20 +118,111 @@ func TestAttachmentPartsSendsPDFAsFile(t *testing.T) {
 	if len(warnings) != 0 {
 		t.Fatalf("unexpected warnings: %v", warnings)
 	}
-	if len(parts) != 1 || parts[0].Type != "file" || parts[0].File == nil {
+	if len(parts) != 1 || parts[0].Type != "text" {
 		t.Fatalf("parts = %#v", parts)
 	}
-	if parts[0].File.Filename != stored.Name {
-		t.Fatalf("filename = %q", parts[0].File.Filename)
+	if !strings.Contains(parts[0].Text, "real text layer") {
+		t.Fatalf("text = %q", parts[0].Text)
 	}
-	prefix := "data:application/pdf;base64,"
-	if !strings.HasPrefix(parts[0].File.FileData, prefix) {
-		t.Fatalf("file_data prefix = %q", parts[0].File.FileData)
+	for _, part := range parts {
+		if part.Type == "file" {
+			t.Fatal("file content part must not be sent")
+		}
 	}
-	decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(parts[0].File.FileData, prefix))
-	if err != nil || string(decoded) != string(data) {
-		t.Fatalf("decoded pdf mismatch: %v", err)
+}
+
+func TestAttachmentPartsSendsPDFPageImageWhenTextLayerMissing(t *testing.T) {
+	store, err := NewAttachmentStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewAttachmentStore: %v", err)
 	}
+	var jpegData bytes.Buffer
+	if err := jpeg.Encode(&jpegData, testPageImage(), &jpeg.Options{Quality: 80}); err != nil {
+		t.Fatalf("encode jpeg: %v", err)
+	}
+	data := buildTestPDF(map[int]string{
+		1: "<< /Type /Catalog /Pages 2 0 R >>",
+		2: "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		3: "<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Im1 4 0 R >> >> /Contents 5 0 R >>",
+		4: fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width 400 /Height 400 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n%s\nendstream", jpegData.Len(), jpegData.String()),
+		5: pdfTestStream("", "q Q"),
+	})
+	stored, err := store.Save(uuid.New(), uuid.New(), "扫描件.pdf", "application/pdf", data)
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	service := &Service{attachments: store}
+	parts, warnings := service.attachmentParts([]Attachment{{
+		ID: uuid.NewString(), Name: stored.Name, MIME: stored.MIME, Kind: AttachmentKindPDF,
+		Status: AttachmentStatusParsed, SizeBytes: stored.SizeBytes, StoragePath: stored.StoragePath,
+	}})
+	if len(parts) != 2 || parts[0].Type != "text" || parts[1].Type != "image_url" || parts[1].ImageURL == nil {
+		t.Fatalf("parts = %#v, warnings = %v", parts, warnings)
+	}
+	if !strings.Contains(parts[1].ImageURL.URL, "data:image/jpeg;base64,") {
+		t.Fatalf("image url = %q", parts[1].ImageURL.URL)
+	}
+}
+
+func TestAttachmentPartsWarnsWhenPDFHasNeitherTextNorImages(t *testing.T) {
+	store, err := NewAttachmentStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewAttachmentStore: %v", err)
+	}
+	data := buildTestPDF(map[int]string{
+		1: "<< /Type /Catalog /Pages 2 0 R >>",
+		2: "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		3: "<< /Type /Page /Parent 2 0 R /Resources << >> /Contents 4 0 R >>",
+		4: pdfTestStream("", "q Q"),
+	})
+	stored, err := store.Save(uuid.New(), uuid.New(), "空.pdf", "application/pdf", data)
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	service := &Service{attachments: store}
+	parts, warnings := service.attachmentParts([]Attachment{{
+		ID: uuid.NewString(), Name: stored.Name, MIME: stored.MIME, Kind: AttachmentKindPDF,
+		Status: AttachmentStatusParsed, SizeBytes: stored.SizeBytes, StoragePath: stored.StoragePath,
+	}})
+	if len(parts) != 0 {
+		t.Fatalf("parts = %#v, want none", parts)
+	}
+	if len(warnings) == 0 || !strings.Contains(strings.Join(warnings, "；"), "无法读取") {
+		t.Fatalf("warnings = %v", warnings)
+	}
+}
+
+func buildTestPDF(objects map[int]string) []byte {
+	numbers := make([]int, 0, len(objects))
+	for number := range objects {
+		numbers = append(numbers, number)
+	}
+	sort.Ints(numbers)
+	var builder strings.Builder
+	builder.WriteString("%PDF-1.5\n")
+	for _, number := range numbers {
+		fmt.Fprintf(&builder, "%d 0 obj\n%s\nendobj\n", number, objects[number])
+	}
+	builder.WriteString("trailer\n<< /Root 1 0 R >>\n%%EOF\n")
+	return []byte(builder.String())
+}
+
+func pdfTestStream(dictionary, data string) string {
+	return fmt.Sprintf("<< %s /Length %d >>\nstream\n%s\nendstream", dictionary, len(data), data)
+}
+
+func testPageImage() image.Image {
+	target := image.NewRGBA(image.Rect(0, 0, 400, 400))
+	for y := 0; y < 400; y++ {
+		for x := 0; x < 400; x++ {
+			value := uint8(0xFF)
+			if x > 40 && x < 360 && y > 40 && y < 360 {
+				value = 0x20
+			}
+			target.Set(x, y, color.RGBA{R: value, G: value, B: value, A: 0xFF})
+		}
+	}
+	return target
 }
 
 func TestAttachmentPartsInlinesText(t *testing.T) {

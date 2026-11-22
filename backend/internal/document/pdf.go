@@ -72,6 +72,7 @@ type pdfPage struct {
 	number   int
 	contents []int
 	fonts    map[string]*pdfFont
+	images   []int
 }
 
 func extractPDF(data []byte) (Result, error) {
@@ -518,7 +519,8 @@ func (d *pdfDocument) pages(fonts map[int]*pdfFont) []pdfPage {
 			if pdfDictName(dictionary, "Type") != "Page" {
 				continue
 			}
-			pages = append(pages, d.makePage(number, dictionary, nil, fonts))
+			resources, _ := d.dictValue(dictionary, "Resources")
+			pages = append(pages, d.makePage(number, dictionary, resources, fonts))
 		}
 	}
 	return pages
@@ -563,9 +565,49 @@ func (d *pdfDocument) makePage(number int, dictionary, resources map[string][]by
 				}
 			}
 		}
+		page.images = d.imageRefs(resources)
 	}
 	page.contents = parsePDFRefs(dictionary["Contents"])
 	return page
+}
+
+// imageRefs 收集页面资源里的位图对象，Form XObject 内的图片也会递归展开。
+func (d *pdfDocument) imageRefs(resources map[string][]byte) []int {
+	refs := make([]int, 0)
+	seen := make(map[int]bool)
+	d.collectImageRefs(resources, 0, seen, &refs)
+	sort.Ints(refs)
+	return refs
+}
+
+func (d *pdfDocument) collectImageRefs(resources map[string][]byte, depth int, seen map[int]bool, refs *[]int) {
+	if resources == nil || depth > 4 {
+		return
+	}
+	xobjects, ok := d.dictValue(resources, "XObject")
+	if !ok {
+		return
+	}
+	for _, value := range xobjects {
+		reference, ok := parsePDFRefValue(value)
+		if !ok || seen[reference] {
+			continue
+		}
+		object := d.objects[reference]
+		if object == nil {
+			continue
+		}
+		seen[reference] = true
+		dictionary := d.objectDict(object)
+		switch pdfDictName(dictionary, "Subtype") {
+		case "Image":
+			*refs = append(*refs, reference)
+		case "Form":
+			if child, ok := d.dictValue(dictionary, "Resources"); ok {
+				d.collectImageRefs(child, depth+1, seen, refs)
+			}
+		}
+	}
 }
 
 func (d *pdfDocument) globalFonts(fonts map[int]*pdfFont) map[string]*pdfFont {
@@ -1651,6 +1693,11 @@ func looksReadablePDFText(value string) bool {
 		}
 	}
 	return total == 0 || readable*10 >= total*6
+}
+
+// LooksReadable 判断抽取出的文本是否足够可信，供附件预处理决定是否回退到页面图片。
+func LooksReadable(value string) bool {
+	return looksReadablePDFText(value)
 }
 
 func readPDFLiteralString(content string, start int) (string, int) {
