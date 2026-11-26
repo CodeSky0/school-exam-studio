@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { adminStorage, apiContext, cleanupQuestionsByTag, teacherStorage, uniqueLabel } from "./helpers";
+import { adminStorage, apiContext, cleanupQuestionsByTag, createQuestion, teacherStorage, uniqueLabel } from "./helpers";
 
 function richTextEditor(page: Page, label: string) {
   return page.locator(`[contenteditable="true"][aria-label="${label}"]`);
@@ -67,6 +67,48 @@ test.describe("题目创建与审核", () => {
       const row = page.getByRole("row", { name: new RegExp(marker) });
       await expect(row).toBeVisible();
       await expect(row).toContainText("5 / 5");
+    } finally {
+      await cleanupQuestionsByTag(teacherApi, adminApi, marker);
+      await teacherApi.dispose();
+      await adminApi.dispose();
+    }
+  });
+
+  test("390px 题目摘要可展开答案解析，操作可见且筛选焦点稳定", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const marker = uniqueLabel("移动");
+    const teacherApi = await apiContext(teacherStorage);
+    const adminApi = await apiContext(adminStorage);
+
+    try {
+      await createQuestion(teacherApi, {
+        tags: [marker],
+        content: `<p>${marker} 求方程 $x^2=4$ 的正根</p>`,
+      });
+
+      await page.goto("/teacher/questions");
+      await page.locator("#filter-tag").fill(marker);
+      const applyButton = page.getByRole("button", { name: "应用筛选" });
+      await applyButton.click();
+
+      const card = page.locator("article", { hasText: marker });
+      await expect(card).toBeVisible();
+      await expect(card.getByRole("button", { name: "编辑" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "删除" })).toBeVisible();
+      await expect(card).toContainText("数学 · 七年级");
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      );
+      expect(overflow, "移动题目列表不应横向溢出").toBe(false);
+      await expect(applyButton).toBeFocused();
+
+      const toggle = card.getByRole("button", { name: "查看详情" });
+      await toggle.click();
+      await expect(card.getByRole("heading", { name: "答案", exact: true })).toBeVisible();
+      await expect(card.getByRole("heading", { name: "解析", exact: true })).toBeVisible();
+      await expect(card.getByRole("button", { name: "收起详情" })).toBeFocused();
+      await card.getByRole("button", { name: "收起详情" }).click();
+      await expect(card.getByRole("heading", { name: "答案", exact: true })).toBeHidden();
     } finally {
       await cleanupQuestionsByTag(teacherApi, adminApi, marker);
       await teacherApi.dispose();

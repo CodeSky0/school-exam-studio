@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import {
   adminStorage,
   apiContext,
@@ -7,6 +7,19 @@ import {
   registerTeacherAccount,
   uniqueLabel,
 } from "./helpers";
+
+async function expectDialogLabelBinding(page: Page, dialog: Locator, title: string) {
+  const labelledBy = await dialog.getAttribute("aria-labelledby");
+  expect(labelledBy, "确认框必须通过 aria-labelledby 引用标题").toBeTruthy();
+  const titleElement = page.locator(`[id="${labelledBy}"]`);
+  await expect(titleElement).toHaveCount(1);
+  await expect(titleElement).toHaveText(title);
+  const duplicateIds = await page.evaluate(() => {
+    const ids = Array.from(document.querySelectorAll("[id]")).map((element) => element.id);
+    return ids.filter((id, index) => ids.indexOf(id) !== index);
+  });
+  expect(duplicateIds, "文档内 ID 不得重复").toEqual([]);
+}
 
 test.describe("教师管理与学校设置", () => {
   test.use({ storageState: adminStorage });
@@ -81,5 +94,59 @@ test.describe("教师管理与学校设置", () => {
     await page.locator("#school-name").fill(original);
     await page.getByRole("button", { name: "保存学校名称" }).click();
     await expect(page.getByText("学校名称已保存")).toBeVisible();
+  });
+
+  test("禁用与重置确认框的标题引用唯一且各自指向本对话框", async ({ page }) => {
+    const meta = readMeta();
+    test.skip(!meta.schoolCode, "未记录学校代码，无法注册专用教师");
+    const email = `${uniqueLabel("dialog")}@example.com`;
+    await registerTeacherAccount(meta.schoolCode as string, email, "DialogE2E!2026Secure");
+
+    await page.goto("/admin/teachers");
+    const row = page.getByRole("row", { name: new RegExp(email) });
+    await row.getByRole("button", { name: "禁用" }).click();
+    const disableDialog = page.getByRole("dialog", { name: "禁用这个教师账号？" });
+    await expect(disableDialog).toBeVisible();
+    await expectDialogLabelBinding(page, disableDialog, "禁用这个教师账号？");
+    await disableDialog.getByRole("button", { name: "取消" }).click();
+    await expect(disableDialog).toBeHidden();
+
+    await row.getByRole("button", { name: "重置密码" }).click();
+    const resetDialog = page.getByRole("dialog", { name: "重置这个教师的密码？" });
+    await expect(resetDialog).toBeVisible();
+    await expectDialogLabelBinding(page, resetDialog, "重置这个教师的密码？");
+    await resetDialog.getByRole("button", { name: "取消" }).click();
+    await expect(resetDialog).toBeHidden();
+  });
+
+  test("390px 教师摘要记录直接提供启禁用与重置密码操作", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const meta = readMeta();
+    test.skip(!meta.schoolCode, "未记录学校代码，无法注册专用教师");
+    const email = `${uniqueLabel("mobile")}@example.com`;
+    await registerTeacherAccount(meta.schoolCode as string, email, "MobileE2E!2026Secure");
+
+    await page.goto("/admin/teachers");
+    const card = page.locator("article", { hasText: email });
+    await expect(card).toBeVisible();
+    await expect(card.getByRole("button", { name: "禁用" })).toBeVisible();
+    await expect(card.getByRole("button", { name: "重置密码" })).toBeVisible();
+    await expect(card).toContainText("数学");
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(overflow, "移动教师列表不应横向溢出").toBe(false);
+
+    await card.getByRole("button", { name: "禁用" }).click();
+    const disableDialog = page.getByRole("dialog", { name: "禁用这个教师账号？" });
+    await expect(disableDialog).toBeVisible();
+    await disableDialog.getByRole("button", { name: "取消" }).click();
+    await expect(disableDialog).toBeHidden();
+
+    await card.getByRole("button", { name: "重置密码" }).click();
+    const resetDialog = page.getByRole("dialog", { name: "重置这个教师的密码？" });
+    await expect(resetDialog).toBeVisible();
+    await resetDialog.getByRole("button", { name: "取消" }).click();
+    await expect(resetDialog).toBeHidden();
   });
 });

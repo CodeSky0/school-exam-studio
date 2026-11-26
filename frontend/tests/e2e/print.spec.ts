@@ -55,6 +55,12 @@ test.describe("A4 打印", () => {
       await expect(page.locator(".paper-seal")).toBeVisible();
       await expect(page.locator(".paper-question")).toHaveCount(2);
 
+      const screenRatio = await sheet.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width / rect.height;
+      });
+      expect(screenRatio, "屏幕预览应保持 A4 纸张比例").toBeCloseTo(210 / 297, 1);
+
       const pageSize = await page.evaluate(() => {
         const pageRules: string[] = [];
         for (const styleSheet of Array.from(document.styleSheets)) {
@@ -89,6 +95,56 @@ test.describe("A4 打印", () => {
       expect(width).toBeLessThan(596);
       expect(height).toBeGreaterThan(840);
       expect(height).toBeLessThan(843);
+    } finally {
+      await removePaper(teacherApi, paperId);
+      await cleanupQuestionsByTag(teacherApi, adminApi, marker);
+      await teacherApi.dispose();
+      await adminApi.dispose();
+    }
+  });
+
+  test("390px 屏幕预览不压缩纸张，舞台可横向滚动且根节点不溢出", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const marker = uniqueLabel("移动打印");
+    const teacherApi = await apiContext(teacherStorage);
+    const adminApi = await apiContext(adminStorage);
+    let paperId: string | null = null;
+
+    try {
+      const question = await createQuestion(teacherApi, {
+        tags: [marker],
+        content: `<p>${marker} 计算 $0.10+0.20$ 的结果。</p>`,
+        question_type: "fill_blank",
+        options: [],
+        answer: "<p>0.30</p>",
+      });
+      await publishQuestion(adminApi, question.id);
+      const paper = await createPaper(teacherApi, {
+        title: `${marker} 移动预览`,
+        questions: [{ question_id: question.id, assigned_score: "0.30" }],
+      });
+      paperId = paper.id;
+
+      await page.goto(`/teacher/papers/${paper.id}/print`);
+      const stage = page.locator(".paper-preview-stage");
+      const sheet = page.locator(".paper-sheet");
+      await expect(sheet).toBeVisible();
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      );
+      expect(overflow, "移动打印页根节点不应横向溢出").toBe(false);
+
+      const stageScrollable = await stage.evaluate(
+        (element) => element.scrollWidth > element.clientWidth,
+      );
+      expect(stageScrollable, "预览舞台应可横向滚动").toBe(true);
+
+      const ratio = await sheet.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width / rect.height;
+      });
+      expect(ratio, "窄屏下纸张仍保持完整 A4 比例").toBeCloseTo(210 / 297, 1);
     } finally {
       await removePaper(teacherApi, paperId);
       await cleanupQuestionsByTag(teacherApi, adminApi, marker);

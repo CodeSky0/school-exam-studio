@@ -121,10 +121,10 @@ func main() {
 		SecureCookie:    cfg.SecureCookie,
 		TrustProxy:      cfg.TrustProxy,
 		LoginLimiter: platformmiddleware.NewRedisRateLimiter(
-			redisClient, "login", 10, 15*time.Minute,
+			redisClient, "login", cfg.LoginRateLimit, 15*time.Minute,
 		),
 		RegisterLimiter: platformmiddleware.NewRedisRateLimiter(
-			redisClient, "register", 5, 15*time.Minute,
+			redisClient, "register", cfg.RegisterRateLimit, 15*time.Minute,
 		),
 	})
 	errCh := make(chan error, 1)

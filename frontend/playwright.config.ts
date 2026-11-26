@@ -40,6 +40,9 @@ export default defineConfig({
         OCR_URL: process.env.E2E_OCR_URL ?? "http://localhost:8001",
         JWT_SECRET: process.env.E2E_JWT_SECRET ?? "e2e-local-secret-key-0123456789abcdef",
         CORS_ORIGIN: process.env.E2E_APP_ORIGIN ?? "http://localhost:3000",
+        // 端到端会在同一 IP 上注册多个专用教师，调高限流阈值避免误伤；生产默认值不变。
+        RATE_LIMIT_LOGIN: process.env.E2E_RATE_LIMIT_LOGIN ?? "500",
+        RATE_LIMIT_REGISTER: process.env.E2E_RATE_LIMIT_REGISTER ?? "500",
       },
     },
     {

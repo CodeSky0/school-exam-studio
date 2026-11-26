@@ -30,6 +30,10 @@ type Config struct {
 	EmbeddingAPIKey          string
 	EmbeddingModel           string
 	EmbeddingLocalDimensions int
+
+	// 登录/注册限流阈值（15 分钟滑动窗口，按 IP；登录另按邮箱）。
+	LoginRateLimit    int
+	RegisterRateLimit int
 }
 
 func Load() (Config, error) {
@@ -54,6 +58,8 @@ func Load() (Config, error) {
 		EmbeddingAPIKey:          strings.TrimSpace(os.Getenv("EMBEDDING_API_KEY")),
 		EmbeddingModel:           envOr("EMBEDDING_MODEL", "text-embedding-3-small"),
 		EmbeddingLocalDimensions: envInt("EMBEDDING_LOCAL_DIMENSIONS", 256),
+		LoginRateLimit:           envInt("RATE_LIMIT_LOGIN", 10),
+		RegisterRateLimit:        envInt("RATE_LIMIT_REGISTER", 5),
 	}
 	if cfg.AIEncryptKey == "" {
 		cfg.AIEncryptKey = cfg.JWTSecret
@@ -66,6 +72,9 @@ func Load() (Config, error) {
 	}
 	if len(cfg.JWTSecret) < 32 {
 		return Config{}, errors.New("JWT_SECRET must contain at least 32 bytes")
+	}
+	if cfg.LoginRateLimit <= 0 || cfg.RegisterRateLimit <= 0 {
+		return Config{}, errors.New("RATE_LIMIT_LOGIN and RATE_LIMIT_REGISTER must be positive")
 	}
 	return cfg, nil
 }

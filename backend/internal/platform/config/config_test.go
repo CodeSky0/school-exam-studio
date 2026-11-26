@@ -64,3 +64,29 @@ func TestLoadTrustProxy(t *testing.T) {
 		t.Fatalf("TRUST_PROXY was not enabled: %+v", cfg)
 	}
 }
+
+func TestLoadRateLimitDefaultsAndOverrides(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://user:password@localhost:5432/school_db?sslmode=disable")
+	t.Setenv("REDIS_URL", "redis://localhost:6379")
+	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.LoginRateLimit != 10 || cfg.RegisterRateLimit != 5 {
+		t.Fatalf("unexpected rate limit defaults: %+v", cfg)
+	}
+	t.Setenv("RATE_LIMIT_LOGIN", "500")
+	t.Setenv("RATE_LIMIT_REGISTER", "500")
+	cfg, err = config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.LoginRateLimit != 500 || cfg.RegisterRateLimit != 500 {
+		t.Fatalf("rate limit overrides were not honored: %+v", cfg)
+	}
+	t.Setenv("RATE_LIMIT_REGISTER", "0")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "RATE_LIMIT_REGISTER") {
+		t.Fatalf("expected RATE_LIMIT_REGISTER error, got %v", err)
+	}
+}
