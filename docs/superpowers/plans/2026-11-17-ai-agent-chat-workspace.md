@@ -100,7 +100,7 @@ README.md                      新功能与环境变量
   - `Repository.CreateAttachment(ctx, principal, Attachment) (Attachment, error)`
   - `Repository.GetAttachment(ctx, principal, id uuid.UUID) (Attachment, error)`
 
-- [ ] **Step 1: 写迁移**
+- [x] **Step 1: 写迁移**
 
 `000004_ai_chat.up.sql` 建立三张表，字段与 Ent schema 完全一致：
 
@@ -174,7 +174,7 @@ CREATE TABLE ai_attachments (
 索引：`(school_id, creator_id, pinned DESC, last_message_at DESC)`、`(school_id, conversation_id, created_at)`、`(school_id, sha256)`。
 `000004_ai_chat.down.sql` 逆序删表。
 
-- [ ] **Step 2: 写 Ent schema 并生成**
+- [x] **Step 2: 写 Ent schema 并生成**
 
 三个 schema 使用 `TenantMixin`，字段与迁移一一对应。`AIAttachment` 的 `storage_path`、`extracted_text` 不返回 JSON（在 DTO 中单独控制）。
 
@@ -186,7 +186,7 @@ go build ./...
 
 Expected: `ent/aiconversation.go`、`ent/aimessage.go`、`ent/aiattachment.go` 及子包生成，编译通过；`git diff` 不应改动既有实体。
 
-- [ ] **Step 3: 写 repository**
+- [x] **Step 3: 写 repository**
 
 实现 CRUD；列表排序为 `pinned DESC, last_message_at DESC, id DESC`；`AppendMessage` 在同一事务内插入消息并把 `message_count + 1`、`last_message_at` 更新到会话。权限规则：
 
@@ -200,14 +200,14 @@ func canWriteConversation(principal auth.Principal, entity *ent.AIConversation) 
 }
 ```
 
-- [ ] **Step 4: 单测纯映射函数**
+- [x] **Step 4: 单测纯映射函数**
 
 `conversation_repository_test.go` 覆盖 `toolCallsToMaps`/`mapsToToolCalls` 往返、`canRead/canWrite` 角色矩阵。不连接数据库。
 
 Run: `go test ./internal/ai -run 'TestConversation|TestToolCallMapping' -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/migrations backend/ent backend/internal/ai
@@ -235,7 +235,7 @@ git commit -m "feat(ai): add conversation, message and attachment persistence"
   - `document.SplitQuestions(text string, defaults Defaults) []DraftQuestion`
   - `type DraftQuestion struct { Number string; Content, Answer, Explanation, QuestionType, Category string; Options []Option; Confidence float64; Warnings []string }`
 
-- [ ] **Step 1: 写失败测试（DOCX / 切分器）**
+- [x] **Step 1: 写失败测试（DOCX / 切分器）**
 
 用标准库构造最小 DOCX zip：
 
@@ -254,24 +254,24 @@ func TestSplitQuestionsRecognizesNumberedItemsAndAnswers(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [x] **Step 2: 运行确认失败**
 
 Run: `go test ./internal/document -v`
 Expected: FAIL（包/函数不存在）
 
-- [ ] **Step 3: 实现提取器**
+- [x] **Step 3: 实现提取器**
 
 - `docx.go`：`archive/zip` 读取 `word/document.xml`；`encoding/xml` 流式解析 `w:p`、`w:t`、`w:tab`、`w:br`、`w:tbl`；段落用 `\n` 合并；跳过 `w:instrText`。
 - `pdf.go`：解析 `%PDF` 对象，支持 `FlateDecode` 与直接流；从内容流识别 `Tj`、`TJ`、`'`、`"`；解析字体的 `ToUnicode` CMap 的 `bfchar`/`bfrange`；按页 `BT/ET` 与 `Td/TD/T*` 断行。提取文本少于 20 字符时返回 `Warnings: ["未提取到可读文本，可能是扫描件，请上传图片或转为图片后 OCR"]`。
 - `text.go`：按扩展名/MIME 分派；`.txt/.md/.csv` 直接 UTF-8（失败尝试 GB18030 不可用则不新增依赖，返回明确错误）；超过 200k 字符截断并标记 `Truncated`。
 - `splitter.go`：按 `1.`、`1、`、`（1）`、`第1题` 切分；识别 `答案[:：]`、`解析[:：]`、`【答案】`、选项行 `A.`/`A、`；自动识别选择/判断/填空/解答；无编号时按空行分块并在 `Warnings` 提示。
 
-- [ ] **Step 4: 运行测试**
+- [x] **Step 4: 运行测试**
 
 Run: `go test ./internal/document -v`
 Expected: PASS（PDF 测试使用内联合成的最小文本 PDF，断言英文与中文映射）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/internal/document
@@ -301,13 +301,13 @@ git commit -m "feat(document): extract pdf/docx text and split questions"
   - `store.Remove(storagePath string) error`
   - `Config.AIUploadDir string`，环境变量 `AI_UPLOAD_DIR`，默认 `./data/ai-uploads`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 覆盖 PNG magic bytes 接受、`.exe` 拒绝、超限拒绝、文件名清洗（`../`、空名）、sha256 稳定、`kind` 推断。
 
 Run: `go test ./internal/ai -run TestAttachmentStore -v` → FAIL
 
-- [ ] **Step 2: 实现**
+- [x] **Step 2: 实现**
 
 - 允许类型：`image/png|jpeg|webp|gif`、`application/pdf`、DOCX MIME、`text/plain|text/markdown|text/csv`。
 - 不信任客户端 MIME：以 magic bytes 为准（PNG `89 50 4E 47`、JPEG `FF D8 FF`、PDF `%PDF`、ZIP + `word/` 条目）。
@@ -322,16 +322,16 @@ type ImageRecognizer interface {
 
 `Options.OCR ImageRecognizer`、`Options.UploadDir string`。
 
-- [ ] **Step 3: 接线**
+- [x] **Step 3: 接线**
 
 `main.go` 在创建 OCR client 后构建 AI Service（调整顺序），传入 `OCR: ocrClient`、`UploadDir: cfg.AIUploadDir`。`docker-compose.yml` 为 API 增加 `ai_uploads` 命名卷。
 
-- [ ] **Step 4: 测试与构建**
+- [x] **Step 4: 测试与构建**
 
 Run: `go test ./internal/ai -run TestAttachmentStore -v && go build ./...`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -am "feat(ai): store attachments and extract text safely"
@@ -374,7 +374,7 @@ git commit -am "feat(ai): store attachments and extract text safely"
 | `import_document_questions` | 是（草稿） | 文档题目批量入库 |
 | `create_questions` | 是（草稿） | 由模型给定结构化题目批量创建 |
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 测试参数校验与 catalog：
 
@@ -387,7 +387,7 @@ func TestToolCatalogCoversAllCapabilities(t *testing.T) {
 func TestImportQuestionsRejectsPublishedTargets(t *testing.T) { ... }
 ```
 
-- [ ] **Step 2: 实现注册表**
+- [x] **Step 2: 实现注册表**
 
 - 参数解码严格：拒绝未知字段；`limit` 1..50；`count` 1..10；`question_id` UUID；`attachment_ids` 最多 5 个且必须属于当前用户。
 - 写工具必须调用 `s.agentAudit` 或等价的 `CreateAudit`，`target_type` 使用 `question`/`paper`/`attachment`。
@@ -396,12 +396,12 @@ func TestImportQuestionsRejectsPublishedTargets(t *testing.T) { ... }
 - 教师学科固定：args 中学科与 `principal.Subject` 不一致时直接拒绝。
 - `create_questions` 只接受完整结构化字段，复用 `persistGenerated` 的校验逻辑。
 
-- [ ] **Step 3: 运行测试**
+- [x] **Step 3: 运行测试**
 
 Run: `go test ./internal/ai -run 'TestTool|TestImport' -v`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/internal/ai
@@ -431,7 +431,7 @@ git commit -m "feat(ai): add auditable agent tool registry and document import"
   - `type SendMessageResult struct { Conversation Conversation; UserMessage ChatMessage; AssistantMessage ChatMessage }`
   - `func (s *Service) ParseUploadedAttachment(ctx, principal, id uuid.UUID) (Attachment, error)`
 
-- [ ] **Step 1: 写本地规划器失败测试**
+- [x] **Step 1: 写本地规划器失败测试**
 
 ```go
 func TestPlannerRoutesDocumentIntent(t *testing.T) {
@@ -441,13 +441,13 @@ func TestPlannerRoutesDocumentIntent(t *testing.T) {
 func TestPlannerExplainsUnknownWithoutTools(t *testing.T) { ... }
 ```
 
-- [ ] **Step 2: 实现本地规划器**
+- [x] **Step 2: 实现本地规划器**
 
 规则顺序：附件意图 → 写操作意图 → 查询意图 → 帮助。最多 3 次工具调用；`import` 前先 `extract_questions` 预览；无附件却要求导入时返回澄清问题而不是报错。回复使用中文，列出工具名、数量、题目 ID（最多 10 个）。
 
 上下文：取最近 6 条消息，仅将用户文本与附件摘要传给规划器；不在工具参数中注入系统提示。
 
-- [ ] **Step 3: 扩展 LLM 客户端支持 tools**
+- [x] **Step 3: 扩展 LLM 客户端支持 tools**
 
 ```go
 type LLMTool struct { Type string `json:"type"`; Function LLMFunction `json:"function"` }
@@ -458,7 +458,7 @@ func (c *LLMClient) ChatTools(ctx context.Context, messages []LLMMessage, tools 
 
 保持 `CompleteJSON` 行为不变；用 httptest 验证请求体含 `tools` 与 `tool_choice=auto`、响应解析 `tool_calls`。
 
-- [ ] **Step 4: 实现对话编排**
+- [x] **Step 4: 实现对话编排**
 
 `SendMessage` 流程：
 
@@ -471,12 +471,12 @@ func (c *LLMClient) ChatTools(ctx context.Context, messages []LLMMessage, tools 
 5. 插入 assistant 消息（含全部 tool_calls 与结果摘要），更新会话标题（首条用户消息前 30 字）与计数。
 6. 失败也持久化 assistant 消息（`status=failed`、`error`），保证历史完整。
 
-- [ ] **Step 5: 运行测试**
+- [x] **Step 5: 运行测试**
 
 Run: `go test ./internal/ai -run 'TestPlanner|TestChatTools|TestSendMessageValidation' -v`
 Expected: PASS（不依赖数据库的部分）
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git commit -am "feat(ai): add conversational agent runtime with tool calling"
@@ -504,11 +504,11 @@ git commit -am "feat(ai): add conversational agent runtime with tool calling"
   - `GET /api/v1/ai/attachments/:id`、`GET /api/v1/ai/attachments/:id/content`
   - `GET /api/v1/ai/tools`、`GET /api/v1/ai/skills`
 
-- [ ] **Step 1: 写 handler 路由测试**
+- [x] **Step 1: 写 handler 路由测试**
 
 用 `echo.New()` + 伪造 principal 中间件，断言未认证 401、非法 UUID 400、未知字段 400、列表默认 limit 30。
 
-- [ ] **Step 2: 实现 handler**
+- [x] **Step 2: 实现 handler**
 
 - 上传使用 `multipart`，先 `http.MaxBytesReader` 限制 21 MiB，再读文件；`Content-Disposition` 用 `inline`，设置 `X-Content-Type-Options: nosniff`、`Cache-Control: private, max-age=300`。
 - 附件内容端点仅允许本人（管理员可读本校）访问。
@@ -525,12 +525,12 @@ type Skill struct {
 
 内置 6 个：`document_import`、`paper_split`、`bank_cleanup`、`lesson_practice`、`final_review`、`variant_pack`。
 
-- [ ] **Step 3: 验证**
+- [x] **Step 3: 验证**
 
 Run: `go test ./internal/ai -run TestConversationHandler -v && go build ./...`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -am "feat(ai): expose conversation, attachment, tool and skill APIs"
@@ -561,11 +561,11 @@ git commit -am "feat(ai): expose conversation, attachment, tool and skill APIs"
 - Consumes: Task 6 API
 - Produces: `AgentChatWorkspace({ user })`
 
-- [ ] **Step 1: 写 Zod schema 与失败测试**
+- [x] **Step 1: 写 Zod schema 与失败测试**
 
 覆盖：会话字段、tool call 状态、附件 kind、未知工具参数容忍、`formatToolStatus`、`attachmentAccept`。测试先失败。
 
-- [ ] **Step 2: 实现 `lib/ai-chat.ts`**
+- [x] **Step 2: 实现 `lib/ai-chat.ts`**
 
 ```ts
 export const toolCallSchema = z.object({
@@ -588,7 +588,7 @@ export const chatMessageSchema = z.object({
 
 API：`listConversations`、`createConversation`、`updateConversation`、`deleteConversation`、`listMessages`、`sendMessage`、`uploadAttachment`、`fetchAttachmentBlob`、`listTools`、`listSkills`。上传用 `FormData`。
 
-- [ ] **Step 3: 实现 UI**
+- [x] **Step 3: 实现 UI**
 
 布局：
 
@@ -608,16 +608,16 @@ md: 会话列表折叠为顶部按钮；右栏收进 Sheet/Dialog
 - 模型选择复用 `/ai/status`；显示 `provider=local` 徽标。
 - 无障碍：`aria-live="polite"` 消息流、工具卡片 `aria-expanded`、焦点管理、`prefers-reduced-motion`。
 
-- [ ] **Step 4: 路由与导航**
+- [x] **Step 4: 路由与导航**
 
 三个页面渲染同一组件；`/ai` 用当前用户角色决定 scope，管理员额外显示审计日志入口。导航文案改为「AI 助手」，保留 `/ai` 路径。
 
-- [ ] **Step 5: 校验**
+- [x] **Step 5: 校验**
 
 Run: `pnpm test --run lib/ai-chat.test.ts && pnpm typecheck && pnpm lint`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend
@@ -636,14 +636,14 @@ git commit -m "feat(ai): replace workspace with conversational agent UI"
 - Modify: `docker-compose.yml`
 - Create: `docs/ai-agent-tools.md`（工具/技能契约、外部 agent 接入说明）
 
-- [ ] **Step 1: 更新文档**
+- [x] **Step 1: 更新文档**
 
 - README 增加「AI Agent 对话工作台」章节：会话、附件、工具调用、文档录题、技能、本地降级、`AI_UPLOAD_DIR`。
 - `docs/api.md` 增加所有新端点的请求/响应示例与权限表。
 - `docs/ai-agent-tools.md` 列出工具名、参数 JSON Schema、写操作审计动作、技能映射；说明可通过 `GET /api/v1/ai/tools` 让外部 Agent 发现能力。
 - `docs/deployment.md` 说明上传目录持久化与备份、反向代理 `client_max_body_size 25m`。
 
-- [ ] **Step 2: 全量回归**
+- [x] **Step 2: 全量回归**
 
 ```bash
 cd backend && export PATH=$PATH:/usr/local/go/bin
@@ -653,7 +653,7 @@ cd ../frontend && pnpm lint && pnpm typecheck && pnpm test --run && pnpm build
 
 Expected: 全部 PASS；无 TEST_DATABASE_URL 的集成测试如因环境跳过，记录在交付说明中。
 
-- [ ] **Step 3: 手工冒烟（可用环境）**
+- [x] **Step 3: 手工冒烟（可用环境）**
 
 启动 Postgres/Redis/OCR 后：
 1. 新建会话 → 发送「体检题库」→ 看到工具卡片与结果。
@@ -662,7 +662,7 @@ Expected: 全部 PASS；无 TEST_DATABASE_URL 的集成测试如因环境跳过�
 4. 刷新后会话历史、工具调用完整恢复。
 5. 发布题在整理操作中保持只读。
 
-- [ ] **Step 4: 推送 GitHub**
+- [x] **Step 4: 推送 GitHub**
 
 当前环境 `github.com:443` 不可达（`api.github.com` 与 `codeload.github.com` 可达）。推送使用 GitHub Git Data API，基于远端 `main` 当前 commit 创建新 tree/commit 并更新 ref，保留历史：
 
@@ -674,7 +674,7 @@ Expected: 全部 PASS；无 TEST_DATABASE_URL 的集成测试如因环境跳过�
 
 推送后 `GET /commits/{sha}` 校验文件数量与关键文件内容。
 
-- [ ] **Step 5: 完成**
+- [x] **Step 5: 完成**
 
 在最终回复中提供：提交 SHA、变更摘要、验证结果、未覆盖项（如需要真实模型/扫描 PDF 的能力边界）。
 

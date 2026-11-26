@@ -72,7 +72,7 @@
 - Produces: `migrator.Up(string) error` 和 `platformtest.Open(t *testing.T) *ent.Client`。
 - Produces: `GET /healthz`，返回 `{"status":"ok"}`；数据库未就绪时 `/readyz` 返回 503。
 
-- [ ] **Step 1: 安装项目所需工具并写失败配置测试**
+- [x] **Step 1: 安装项目所需工具并写失败配置测试**
 
 安装 Go 1.25 或更新稳定版，使用 Corepack 激活 pnpm 10，安装 GitHub CLI；Docker 不可用时安装真实本地 PostgreSQL 16 和 Redis 供验证，同时在最终报告注明 Compose 未运行原因。GitHub 授权必须由用户通过本机 `gh auth login` 完成，随后执行以下命令建立远端并推送已有设计提交：
 
@@ -95,12 +95,12 @@ func TestLoadRequiresStrongJWTSecret(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试并确认失败**
+- [x] **Step 2: 运行测试并确认失败**
 
 Run: `cd backend && go test ./internal/platform/config -run TestLoadRequiresStrongJWTSecret -v`
 Expected: FAIL，因为 `config.Load` 尚不存在。
 
-- [ ] **Step 3: 实现配置、服务骨架和真实 PostgreSQL 模型**
+- [x] **Step 3: 实现配置、服务骨架和真实 PostgreSQL 模型**
 
 ```go
 type Config struct {
@@ -135,13 +135,13 @@ Ent 模型实现已确认设计中的全部字段。`School` 不含 `school_id`�
 
 Compose 使用 PostgreSQL 16、Redis 7 和 OCR 构建上下文，数据库与模型使用命名卷，OCR 仅发布 `127.0.0.1:8001:8000`。API 启动只注册健康检查；后续任务在同一 `api` 分组追加路由。
 
-- [ ] **Step 4: 生成 Ent 并验证迁移与服务**
+- [x] **Step 4: 生成 Ent 并验证迁移与服务**
 
 Run: `cd backend && go generate ./ent && go test ./... && go vet ./...`
 Run: `cd backend && go run cmd/migrate/main.go && go run cmd/api/main.go`
 Expected: 测试和 vet 通过；迁移版本为 1；`/healthz` 返回 200，`/readyz` 在 PostgreSQL 正常时返回 200。
 
-- [ ] **Step 5: 提交并推送**
+- [x] **Step 5: 提交并推送**
 
 ```bash
 git add docker-compose.yml .env.example backend
@@ -171,7 +171,7 @@ git push origin main
 - Produces: `POST /api/v1/init`、`GET /api/v1/init/status`、`POST /api/v1/auth/register`、`POST /api/v1/auth/login`、`POST /api/v1/auth/logout`、`GET /api/v1/auth/me`、`POST /api/v1/auth/change-password`。
 - Produces: `Principal{UserID, SchoolID uuid.UUID, Role string, SessionVersion int}`，后续 Handler 只能通过 `middleware.PrincipalFrom(c)` 获取租户和角色。
 
-- [ ] **Step 1: 写认证和单学校初始化失败测试**
+- [x] **Step 1: 写认证和单学校初始化失败测试**
 
 ```go
 func TestInitializeOnlyOnce(t *testing.T) {
@@ -190,12 +190,12 @@ func TestInitializeOnlyOnce(t *testing.T) {
 
 另写登录测试验证 bcrypt 错误密码使用相同外部错误，禁用用户和错误会话版本被认证中间件拒绝。
 
-- [ ] **Step 2: 运行后端认证测试并确认失败**
+- [x] **Step 2: 运行后端认证测试并确认失败**
 
 Run: `cd backend && go test ./internal/auth -v`
 Expected: FAIL，因为认证 Service 和错误类型尚未实现。
 
-- [ ] **Step 3: 实现事务认证和真实页面**
+- [x] **Step 3: 实现事务认证和真实页面**
 
 初始化使用 `SELECT pg_advisory_xact_lock(...)`，在事务内检查学校数量并创建学校与管理员。学校代码由 `crypto/rand` 生成 8 位数字。注册查询代码对应学校并创建 active 教师。JWT 使用 HS256、两小时过期、用户/学校/角色/会话版本声明；Cookie 为 HttpOnly、SameSite Strict，生产环境 Secure。修改请求校验 Origin，登录和注册使用 Redis 滑动窗口限流。
 
@@ -211,13 +211,13 @@ export const registerSchema = z.object({
 });
 ```
 
-- [ ] **Step 4: 验证注册登录闭环**
+- [x] **Step 4: 验证注册登录闭环**
 
 Run: `cd backend && go test ./... && go vet ./...`
 Run: `cd frontend && pnpm install && pnpm lint && pnpm typecheck && pnpm test --run && pnpm build`
 Expected: 全部通过；浏览器实际完成初始化、教师注册、登录和退出，数据库分别存在学校、管理员和教师记录。
 
-- [ ] **Step 5: 提交并推送**
+- [x] **Step 5: 提交并推送**
 
 ```bash
 git add backend frontend
@@ -244,7 +244,7 @@ git push origin main
 - Produces: `ResolvePublished(context.Context, Principal, []uuid.UUID) ([]Question, error)`，只返回本校已发布题目，供购物车恢复校验。
 - Produces: 测试辅助 `platformtest.Question(...)`、`QuestionCount(...)`、`TeacherPrincipal(...)` 及两校固定 UUID `SchoolA/SchoolB/TeacherA/TeacherB`。
 
-- [ ] **Step 1: 写 XSS 与跨学校失败测试**
+- [x] **Step 1: 写 XSS 与跨学校失败测试**
 
 ```go
 func TestTeacherCannotDeleteOtherSchoolDraft(t *testing.T) {
@@ -260,23 +260,23 @@ func TestTeacherCannotDeleteOtherSchoolDraft(t *testing.T) {
 
 消毒测试输入 `<p>已知<script>alert(1)</script>$x^2$</p>`，断言脚本被移除、段落和公式定界符保留；教师列表测试断言只返回自己的全部状态及他人 published，管理员返回本校全部状态。
 
-- [ ] **Step 2: 运行题目测试并确认失败**
+- [x] **Step 2: 运行题目测试并确认失败**
 
 Run: `cd backend && go test ./internal/question -v`
 Expected: FAIL，因为题目 Repository 和消毒器尚未实现。
 
-- [ ] **Step 3: 实现题目服务**
+- [x] **Step 3: 实现题目服务**
 
 使用 bluemonday 自定义白名单，仅保留段落、换行、基础排版、列表、表格和 TipTap 数学节点所需属性；删除脚本、事件属性、iframe 和危险 URL。选项逐字段消毒，标签去空白、去重并限制数量。
 
 Repository 的每条查询先加 `school_id`，再叠加角色可见性和筛选；详情与更新同时按 ID、学校过滤。Create 强制 `creator_id=principal.UserID` 和 `draft`。教师 Update/Delete 额外要求本人和 draft；管理员状态接口只允许 draft→published 或 draft/published→archived。软删除只设置 `deleted_at`。
 
-- [ ] **Step 4: 验证权限与筛选**
+- [x] **Step 4: 验证权限与筛选**
 
 Run: `cd backend && go test ./internal/question -v && go test ./...`
 Expected: 全部通过；两所学校夹具互不可见，六种筛选可组合，分页总数准确，恶意 HTML 不进入数据库。
 
-- [ ] **Step 5: 提交并推送**
+- [x] **Step 5: 提交并推送**
 
 ```bash
 git add backend/internal/question backend/cmd/api/main.go
@@ -305,7 +305,7 @@ git push origin main
 - Produces: Go `POST /api/v1/ocr/recognize`，响应 `{"text":"已知 $x^2=4$"}`，不写数据库。
 - Produces: `ocrToEditorJSON(text string): JSONContent`，供 TipTap 直接插入。
 
-- [ ] **Step 1: 写 OCR 转换和 sidecar 失败测试**
+- [x] **Step 1: 写 OCR 转换和 sidecar 失败测试**
 
 ```ts
 it("converts Chinese text and inline math without interpreting HTML", () => {
@@ -318,26 +318,26 @@ it("converts Chinese text and inline math without interpreting HTML", () => {
 
 Python 测试 monkeypatch 引擎，验证空文件返回 400、错误 MIME 返回 415、模型未就绪返回 503、识别为空返回 422；这些模拟只用于适配层单元测试。
 
-- [ ] **Step 2: 运行前端与 OCR 测试并确认失败**
+- [x] **Step 2: 运行前端与 OCR 测试并确认失败**
 
 Run: `cd frontend && pnpm test --run lib/ocr-to-editor.test.ts`
 Run: `cd ocr && python3 -m pytest app/main_test.py -v`
 Expected: FAIL，因为转换函数和 OCR 路由尚未实现。
 
-- [ ] **Step 3: 实现 Pix2Text、Go 客户端与题目编辑器**
+- [x] **Step 3: 实现 Pix2Text、Go 客户端与题目编辑器**
 
 Pix2Text 引擎在进程内懒加载并加锁，`/readyz` 只有模型加载完成才返回 200。识别接口使用 Pillow 从内存解码，限制 5 MB 和 20,000,000 像素，响应只包含识别文本。Go 客户端设置连接和总请求超时，有界 semaphore 控制并发，并将上游失败映射为 502/503/504。
 
 TipTap 使用 StarterKit 和 Mathematics 扩展，KaTeX 设置 `throwOnError:false`、`strict:"error"`、`trust:false`。题目页支持真实列表、组合筛选、创建和编辑草稿；OCR 面板把结果写入当前活动字段，只有点击保存才调用题目 API。
 
-- [ ] **Step 4: 执行真实模型冒烟与页面验证**
+- [x] **Step 4: 执行真实模型冒烟与页面验证**
 
 Run: `cd ocr && python3 -m pytest -v && uvicorn app.main:app --host 127.0.0.1 --port 8001`
 Run: 使用包含中文题干和二次公式的测试图片调用 `POST /v1/recognize`，保存 JSON 结果供核对。
 Run: `cd backend && go test ./... && cd ../frontend && pnpm test --run && pnpm typecheck && pnpm build`
 Expected: 真实模型返回非空文本和可识别 LaTeX；页面显示公式、筛选和保存均来自真实 API，数据库不出现图片字段或图片字节。
 
-- [ ] **Step 5: 提交并推送**
+- [x] **Step 5: 提交并推送**
 
 ```bash
 git add ocr backend/internal/ocr backend/cmd/api/main.go frontend
@@ -369,7 +369,7 @@ git push origin main
 - Produces: `POST/GET /api/v1/papers`、`GET/PATCH/DELETE /api/v1/papers/:id`。
 - Produces: 前端 `toCents(string): number`、`fromCents(number): string` 和 Zustand `usePaperStore`。
 
-- [ ] **Step 1: 写定点分值与事务失败测试**
+- [x] **Step 1: 写定点分值与事务失败测试**
 
 ```go
 func TestSumScoresWithoutFloatingPointError(t *testing.T) {
@@ -383,12 +383,12 @@ func TestSumScoresWithoutFloatingPointError(t *testing.T) {
 
 事务测试提交一道他校 published 题目，断言返回 `ErrQuestionUnavailable` 且试卷和明细均为零；再测试草稿题目被拒绝、重复题目被拒绝、教师无法读取他人试卷。
 
-- [ ] **Step 2: 运行试卷测试并确认失败**
+- [x] **Step 2: 运行试卷测试并确认失败**
 
 Run: `cd backend && go test ./internal/paper -v`
 Expected: FAIL，因为 Score 和 PaperService 尚未实现。
 
-- [ ] **Step 3: 实现试卷事务与组卷界面**
+- [x] **Step 3: 实现试卷事务与组卷界面**
 
 PaperService 在事务内逐题按 ID、`school_id` 和 published 状态查询并锁定，验证学科年级与试卷一致，删除旧明细后按 `order_index` 批量插入，汇总 NUMERIC 并更新试卷。管理员可管理本校试卷，教师只能管理自己的试卷。
 
@@ -404,12 +404,12 @@ export function toCents(value: string): number {
 
 打印页使用学校名称、密封线、大题标题和答题留白。`print.css` 设置 `@page{size:A4;margin:16mm 14mm 18mm}`，打印时 `body *{visibility:hidden}` 后仅恢复 `.paper-sheet` 及其后代，并设置 `.paper-question{break-inside:avoid}`。
 
-- [ ] **Step 4: 验证保存、刷新恢复和打印**
+- [x] **Step 4: 验证保存、刷新恢复和打印**
 
 Run: `cd backend && go test ./... && cd ../frontend && pnpm test --run && pnpm typecheck && pnpm build`
 Expected: 全部通过；实际创建试卷、拖拽排序、修改 0.10/0.20 分值、刷新恢复并打印，预览只有试卷且总分为 0.30。
 
-- [ ] **Step 5: 提交并推送**
+- [x] **Step 5: 提交并推送**
 
 ```bash
 git add backend/internal/paper backend/cmd/api/main.go frontend
@@ -440,7 +440,7 @@ git push origin main
 - Produces: `POST /api/v1/questions/import/validate` 和 `POST /api/v1/questions/import`，响应错误包含 CSV 实际行号。
 - Produces: `ParseCSV(io.Reader) ([]ImportRow, []RowError, error)` 和 `Import(context.Context, Principal, []ImportRow) (int, error)`。
 
-- [ ] **Step 1: 写 100 行成功和单行失败回滚测试**
+- [x] **Step 1: 写 100 行成功和单行失败回滚测试**
 
 ```go
 func validImportRows(n int) []importer.ImportRow {
@@ -468,23 +468,23 @@ func TestImportRollsBackAllRows(t *testing.T) {
 
 Parser 测试断言第 100 行之后的错误仍报告真实行号，BOM 被移除，标签分号拆分，选择题缺少选项或答案无效被拒绝。管理测试断言教师调用管理接口返回 403，禁用及重置密码立即使旧会话版本失效。
 
-- [ ] **Step 2: 运行导入与管理测试并确认失败**
+- [x] **Step 2: 运行导入与管理测试并确认失败**
 
 Run: `cd backend && go test ./internal/importer ./internal/admin -v`
 Expected: FAIL，因为导入 Service 和管理 Service 尚未实现。
 
-- [ ] **Step 3: 实现管理接口和 CSV 两阶段接口**
+- [x] **Step 3: 实现管理接口和 CSV 两阶段接口**
 
 CSV 使用 `encoding/csv`，限制 5 MB 和 1,000 数据行，验证固定中文表头、学科、年级、题型、难度、选项和答案。Validate 只返回规范化预览和错误；Import 重新读取上传文件、完整校验后开启事务，逐行创建当前学校、当前教师的草稿，任何错误调用 rollback。
 
 管理接口只允许 admin，Repository 所有操作包含学校条件。重置密码使用 `crypto/rand` 生成至少 16 位随机密码并递增会话版本，仅响应一次。前端提供教师筛选、启禁用确认、一次性密码展示、题目审核、学校名称设置、个人修改密码和 CSV 文件预览/确认导入。
 
-- [ ] **Step 4: 验证真实 100 题导入和回滚**
+- [x] **Step 4: 验证真实 100 题导入和回滚**
 
 Run: `cd backend && go test ./... && go vet ./... && cd ../frontend && pnpm test --run && pnpm build`
 Expected: 全部通过；真实上传 100 行合法 CSV 后总数增加 100，再将一行难度改为 6 后总数不变，页面显示准确行号。
 
-- [ ] **Step 5: 提交并推送**
+- [x] **Step 5: 提交并推送**
 
 ```bash
 git add backend frontend
@@ -511,7 +511,7 @@ git push origin main
 - Produces: 一条可重复的本地启动、迁移、测试和打印验证流程。
 - Produces: GitHub Actions Go/PostgreSQL、前端 Vitest 与构建、OCR 适配层测试。
 
-- [ ] **Step 1: 写真实端到端测试**
+- [x] **Step 1: 写真实端到端测试**
 
 ```ts
 test("teacher creates a formula draft and admin publishes it", async ({ page }) => {
@@ -529,7 +529,7 @@ test("teacher creates a formula draft and admin publishes it", async ({ page }) 
 
 E2E 使用通过初始化与管理 API 创建的真实测试账号，不在前端写死返回数据。每个用例清理自己的数据库记录，打印用例调用 Chromium PDF 并检查 CSS 页面尺寸和导航隐藏。
 
-- [ ] **Step 2: 运行完整验证并修复失败**
+- [x] **Step 2: 运行完整验证并修复失败**
 
 Run: `cd backend && go test ./... && go vet ./...`
 Run: `cd frontend && pnpm lint && pnpm typecheck && pnpm test --run && pnpm build && pnpm exec playwright test`
@@ -537,7 +537,7 @@ Run: `cd ocr && python3 -m pytest -v`
 Run: 使用真实 Pix2Text 模型和测试公式图片执行一次端到端 OCR，再人工校对并保存题目。
 Expected: 所有可运行检查通过；若 Docker 或模型资源阻塞，记录具体命令、错误和未验收行为，不宣称通过。
 
-- [ ] **Step 3: 编写启动和交付文档**
+- [x] **Step 3: 编写启动和交付文档**
 
 README 必须列出 Node.js 22.9+、pnpm 10、Go 1.25+、Python 3.11+、PostgreSQL 16、Redis 7，提供以下真实命令：
 
@@ -549,13 +549,13 @@ cd frontend && pnpm install && pnpm dev
 
 文档说明首次访问 `/init` 创建管理员，不存在预置弱密码；列出学校代码注册、CSV 模板、OCR 首次模型下载、资源需求、测试库隔离、A4 浏览器打印和常见故障。部署文档明确生产环境 TLS、Secure Cookie、强 JWT_SECRET、备份 PostgreSQL 和限制 OCR 内网访问。
 
-- [ ] **Step 4: 最终权限与安全检查**
+- [x] **Step 4: 最终权限与安全检查**
 
 Run: `git diff --check && git status --short`
 Run: 搜索仓库中的 `ghp_`、真实密码和私钥，确认 `.env`、模型缓存、测试报告及数据库文件未跟踪。
 Expected: 无空白错误或敏感文件；第二所学校越权测试、CSV 回滚、禁用用户、XSS 和真实 OCR 结果均有验证记录。
 
-- [ ] **Step 5: 提交、推送并确认远端**
+- [x] **Step 5: 提交、推送并确认远端**
 
 ```bash
 git add .github README.md docs frontend backend ocr .env.example
@@ -565,3 +565,15 @@ gh repo view --json name,visibility,url
 ```
 
 Expected: GitHub 私有仓库 `school-exam-studio` 包含全部里程碑提交，工作区干净，最终回复列出启动方式、验证结果和任何真实阻塞。
+
+---
+
+## 完成记录（2026-11-26）
+
+- 环境：PostgreSQL 16.16（PGDG 本地安装）、Redis 7.0.15、Go 1.26.11、Node 22.23 + pnpm 10.22、Playwright Chromium；Docker 不可用，按计划改用真实本地数据库验证。
+- 后端：`go build ./...`、`go vet ./...`、`go test ./...`（真实 PostgreSQL，测试库按用例隔离）全部通过。
+- 前端：`pnpm lint`、`pnpm typecheck`、`pnpm test --run`（124 项）、`pnpm build` 全部通过。
+- 端到端：Playwright 24 项全部通过，覆盖初始化、注册登录、录题审核、组合筛选、组卷排序与定点总分、购物车刷新恢复、教师禁用/启用、重置密码、学校设置、UI 动效与键盘可访问性、移动摘要、A4 屏幕预览与 PDF MediaBox。
+- OCR：适配层 pytest 14 项通过；真实 Pix2Text 模型冒烟通过（`POST /v1/recognize` 与 Go `/api/v1/ocr/recognize` 全链路），识别结果与测试图见 `docs/verification/ocr-smoke-2026-11-26.*`。修复 cnstd 与 rapidocr>=3.10 的导入不兼容（固定 `rapidocr==3.9.2`）。
+- 限流：新增 `RATE_LIMIT_LOGIN` / `RATE_LIMIT_REGISTER`（默认 10/5，15 分钟窗口），E2E 调高避免同 IP 多教师注册误伤。
+- 阻塞说明：无未解决阻塞；CSV 100 行导入回滚、跨学校越权、XSS 消毒等由后端集成测试覆盖并随 `go test ./...` 通过。

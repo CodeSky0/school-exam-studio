@@ -61,7 +61,7 @@
 - Produces: `StatusMessage({ message, tone, className })`，error 使用 `role="alert"`，其余使用 `role="status"`。
 - Produces: `listItemVariants`、`listContainerVariants`、`cartSpring`，供题库和组卷复用。
 
-- [ ] **Step 1: 安装已确认的唯一新依赖**
+- [x] **Step 1: 安装已确认的唯一新依赖**
 
 Run:
 
@@ -71,7 +71,7 @@ pnpm add framer-motion
 
 Expected: `package.json` 只新增 `framer-motion`，锁文件由 pnpm 更新。
 
-- [ ] **Step 2: 接入字体与 MotionConfig**
+- [x] **Step 2: 接入字体与 MotionConfig**
 
 `app/layout.tsx` 使用以下字体定义，并把变量放到 `html` 的 `className`：
 
@@ -92,7 +92,7 @@ return (
 );
 ```
 
-- [ ] **Step 3: 替换设计令牌与基础排版**
+- [x] **Step 3: 替换设计令牌与基础排版**
 
 `globals.css` 的浅色核心值设为：
 
@@ -113,7 +113,7 @@ return (
 
 字体令牌使用 `var(--font-geist)`、`var(--font-geist-mono)` 与中文系统无衬线回退；工作台 `h1–h4` 使用 sans，`--font-serif` 仅供卷面。移除 body 的放射渐变，保留暖色背景、清晰分隔线和柔和阴影。增加 `:focus-visible` 统一焦点环，以及 coarse pointer 下至少 44px 的按钮目标。
 
-- [ ] **Step 4: 创建共享动画和页面原语**
+- [x] **Step 4: 创建共享动画和页面原语**
 
 `motion-presets.ts` 导出：
 
@@ -134,7 +134,7 @@ export const listItemVariants: Variants = {
 
 `PageHeader` 接收 `eyebrow: string`、`title: string`、`description?: string`、`actions?: ReactNode`、`back?: ReactNode`、`className?: string`，输出左标题右操作、移动单列的 `header`。`StatusMessage` 用 `AnimatePresence mode="wait"` 和 `motion.p` 呈现非空消息，稳定 key 为 `${tone}:${message}`。
 
-- [ ] **Step 5: 统一基础控件并运行静态检查**
+- [x] **Step 5: 统一基础控件并运行静态检查**
 
 保留 Button CVA、asChild 与所有表单原生 props。主按钮使用 `bg-accent text-accent-foreground hover:bg-accent-strong`，active 使用 `scale-[0.98]`，disabled 保留明确透明度；输入框使用 `bg-neutral-1`、清晰边框和 accent 焦点环。
 
@@ -146,7 +146,7 @@ pnpm lint && pnpm typecheck && pnpm build
 
 Expected: 全部通过；若字体下载受网络阻塞，记录错误并改用随 Next.js 构建可访问的字体方案，不保留 Inter。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/package.json frontend/pnpm-lock.yaml frontend/app/layout.tsx frontend/app/globals.css frontend/components/providers.tsx frontend/components/motion-presets.ts frontend/components/page-header.tsx frontend/components/ui
@@ -171,7 +171,7 @@ git commit -m "feat(web): 建立暖纸感视觉与动画基础"
 - Produces: `MobileNavigation({ user, open, onClose, triggerRef })`。
 - Consumes: 现有 `AppShell({ user, children })`、Dialog 与 ConfirmDialog 公共 props 全部不变。
 
-- [ ] **Step 1: 先写移动导航与唯一 ID 的失败用例**
+- [x] **Step 1: 先写移动导航与唯一 ID 的失败用例**
 
 `ui-motion.spec.ts` 使用 390×844 viewport 和已有管理员 storageState，断言：
 
@@ -187,7 +187,7 @@ await expect(page.getByRole("button", { name: "打开导航" })).toBeFocused();
 
 再断言首次 Tab 显示“跳到主内容”，Enter 后 `#main-content` 聚焦。`admin.spec.ts` 增加两个 ConfirmDialog 的 `aria-labelledby` 各自指向本对话框标题，且文档 ID 不重复。
 
-- [ ] **Step 2: 运行用例并确认失败原因**
+- [x] **Step 2: 运行用例并确认失败原因**
 
 Run:
 
@@ -197,7 +197,7 @@ pnpm exec playwright test tests/e2e/ui-motion.spec.ts tests/e2e/admin.spec.ts
 
 Expected: 移动 dialog、焦点归还、skip link 或唯一 ID 断言失败；若服务环境不可用，保留用例并明确记录阻塞，不删除断言。
 
-- [ ] **Step 3: 实现 AnimatedDialog**
+- [x] **Step 3: 实现 AnimatedDialog**
 
 组件在 mount effect 中执行 `dialog.showModal()`，cleanup 中关闭 dialog 并释放滚动锁；`onCancel` 始终 `preventDefault()`，仅非 pending 时调用 `onClose`。父组件使用：
 
@@ -220,7 +220,7 @@ Expected: 移动 dialog、焦点归还、skip link 或唯一 ID 断言失败；�
 
 `AnimatedDialog` 内层 `motion.div` 使用 `initial={{ opacity: 0, y: 10, scale: 0.985 }}`、`animate={{ opacity: 1, y: 0, scale: 1 }}`、`exit={{ opacity: 0, y: 6, scale: 0.99 }}`，时长 0.2。原生 dialog 在退出完成前保持 mounted，因此保留旧标题、描述和临时密码。
 
-- [ ] **Step 4: 修复 Dialog 与 ConfirmDialog**
+- [x] **Step 4: 修复 Dialog 与 ConfirmDialog**
 
 两者改用 AnimatedDialog；ConfirmDialog 增加：
 
@@ -231,7 +231,7 @@ const descriptionId = useId();
 
 并把 `aria-labelledby`、`aria-describedby`、标题和描述绑定到这两个唯一值。pending 时 Escape、取消和确认继续禁用。
 
-- [ ] **Step 5: 实现移动导航与应用壳**
+- [x] **Step 5: 实现移动导航与应用壳**
 
 MobileNavigation 使用原生 `dialog.showModal()`、全视口透明 dialog 和 `motion.div` 侧栏；mount 后聚焦关闭按钮，关闭退出完成后 cleanup 归还 trigger 焦点。监听 `(min-width: 1024px)`，进入桌面时调用 `onClose`。AppShell 添加：
 
@@ -242,7 +242,7 @@ MobileNavigation 使用原生 `dialog.showModal()`、全视口透明 dialog 和 
 
 菜单按钮增加 `ref`、`aria-controls="mobile-navigation"` 和现有 `aria-expanded`；桌面侧栏继续使用原角色导航配置。
 
-- [ ] **Step 6: 验证并 Commit**
+- [x] **Step 6: 验证并 Commit**
 
 Run:
 
@@ -280,7 +280,7 @@ Expected: 静态检查通过；可运行环境中新增用例通过，Escape、�
 - Consumes: Task 1 的 PageHeader、StatusMessage 和 variants。
 - Preserves: `GuestHome({ error, retry })`、`ProfileContent({ user })`、StatsCards 数据 props 和所有认证 mutation。
 
-- [ ] **Step 1: 添加首页与认证响应式失败用例**
+- [x] **Step 1: 添加首页与认证响应式失败用例**
 
 在 `ui-motion.spec.ts` 分别以 1440×1000 和 390×844 打开 `/`，断言主标题、登录、注册、初始化入口和装饰卷面存在，并执行：
 
@@ -291,19 +291,19 @@ expect(overflow).toBe(false);
 
 认证用例断言每页只有一个 `h1`，所有输入有可见 label，reduced-motion 下登录表单仍可提交。
 
-- [ ] **Step 2: 实现首页非对称首屏**
+- [x] **Step 2: 实现首页非对称首屏**
 
 首页使用 `lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]`，左栏依次放 eyebrow、控制尺寸的 `h1`、真实说明、登录/注册/初始化操作；右栏渲染 HomePaperPreview。预览只含“校本试卷”“题目”“解析”等抽象卷面线框，`aria-hidden="true"`，不显示伪造数量或学校名称。动画叶子使用 0.2 秒 opacity/y 进入，无持续漂浮。
 
-- [ ] **Step 3: 统一认证状态过渡**
+- [x] **Step 3: 统一认证状态过渡**
 
 AuthLayout 品牌侧标题改为 `p` 或 `h2`，表单 AuthHeading 输出唯一 `h1`。登录仅显示真实 pending/error；注册与初始化用 `AnimatePresence mode="wait"` 切换表单和真实成功结果，key 分别为 `form` 与 `success`。错误使用 FormError/StatusMessage，不清空退出动画中的学校代码。
 
-- [ ] **Step 4: 重构真实统计与个人中心**
+- [x] **Step 4: 重构真实统计与个人中心**
 
 StatsCards 保留 `StatCardItem[]`，改为一个容器内的响应式 `grid divide-*` 数据带，数字使用 Geist Mono，不给非交互统计加 misleading hover。管理员与教师仪表盘使用 PageHeader 和真实快捷入口；个人中心桌面双栏、移动单栏，学校设置与密码表单继承统一状态消息和骨架。
 
-- [ ] **Step 5: 浏览器检查并 Commit**
+- [x] **Step 5: 浏览器检查并 Commit**
 
 Run:
 
@@ -339,7 +339,7 @@ Expected: 无横向溢出、无重复 h1、真实会话与统计请求不变，�
 - Produces: `adminQueryKeys.teacherOptions`。
 - Produces: `AdminCreatorSelect({ user, value, onChange })`，value 与 onChange 均为 UUID 字符串；空字符串表示全部创建人。
 
-- [ ] **Step 1: 写分页聚合失败测试**
+- [x] **Step 1: 写分页聚合失败测试**
 
 在 `admin.test.ts` 添加 total=101 的两页响应，第二页含一个跨页重复 ID，并断言：
 
@@ -351,7 +351,7 @@ expect(fetchMock.mock.calls.every((call) => new URL(call[0] as string).searchPar
 
 另写第二页返回 500 时 Promise reject、total=0 时只请求第一页的测试。
 
-- [ ] **Step 2: 运行测试并确认函数不存在**
+- [x] **Step 2: 运行测试并确认函数不存在**
 
 Run:
 
@@ -361,7 +361,7 @@ pnpm test -- lib/admin.test.ts
 
 Expected: 因 `listAllTeachers` 未导出而失败。
 
-- [ ] **Step 3: 实现最小聚合函数**
+- [x] **Step 3: 实现最小聚合函数**
 
 ```ts
 export async function listAllTeachers() {
@@ -376,13 +376,13 @@ export async function listAllTeachers() {
 
 增加 `teacherOptions: ["admin", "teacher-options"] as const`，不改 `listTeachers` 和现有筛选序列化。
 
-- [ ] **Step 4: 实现 AdminCreatorSelect 并同步筛选 draft**
+- [x] **Step 4: 实现 AdminCreatorSelect 并同步筛选 draft**
 
 AdminCreatorSelect 用 `useQuery({ queryKey: adminQueryKeys.teacherOptions, queryFn: listAllTeachers })`，选项顺序为“全部创建人”、当前管理员、全部 active/disabled 教师；重复姓名用 `${name} · ${subject || "未设置学科"} · ${email}` 区分。失败时显示 FormError 与“重新读取”按钮，其他筛选保持可用。
 
 QuestionFilterBar 在 `filters` 改变时 `setDraft(filters)`；reset 同时更新 draft 和 applied filters。两个题库父组件删除 `key={JSON.stringify(filters)}`，不改 `creator_id` 序列化。
 
-- [ ] **Step 5: 验证并 Commit**
+- [x] **Step 5: 验证并 Commit**
 
 Run:
 
@@ -414,11 +414,11 @@ Expected: 聚合、去重、失败和原 UUID 请求契约测试通过；Playwri
 - Preserves: PaperSummary 列表、删除回退、教师状态与重置密码 mutations。
 - Consumes: Task 1 variants、StatusMessage；Task 2 ConfirmDialog；Task 4 draft 同步方式。
 
-- [ ] **Step 1: 添加移动记录与焦点失败用例**
+- [x] **Step 1: 添加移动记录与焦点失败用例**
 
 三类测试均设置 390×844，断言移动摘要主要操作可见且根节点无横向溢出；桌面仍通过 `getByRole("row")` 读取原表格。题目测试额外断言展开后答案/解析可见且焦点留在展开按钮，筛选后应用按钮焦点不丢失。教师测试分别按 dialog 名称打开禁用和重置确认框。
 
-- [ ] **Step 2: 实现题库双呈现与详情动画**
+- [x] **Step 2: 实现题库双呈现与详情动画**
 
 桌面容器使用 `hidden md:block`，移动容器使用 `md:hidden`，确保 CSS 隐藏记录不进入可访问树。移动记录由同一 `data.items` map 渲染，包含题干摘要、学科/年级、题型、难度、标签、创建人、状态、更新时间及原权限操作。展开内容复用 QuestionDetails：
 
@@ -434,15 +434,15 @@ Expected: 聚合、去重、失败和原 UUID 请求契约测试通过；Playwri
 
 桌面不为表格插入非法 div；行动画放在合法单元格内容或移动 `motion.article`。所有 key 只用 `question.id`。
 
-- [ ] **Step 3: 实现试卷和教师移动记录**
+- [x] **Step 3: 实现试卷和教师移动记录**
 
 PaperList 移动记录直接显示编辑、打印、删除，次要 UUID 放展开区；TeacherManagement 移动记录直接显示启禁用和重置密码，保留完整邮箱、学科、状态、创建时间和 ID。两者用 `motion.article`、listItemVariants 和稳定 ID，不给整个列表设置 filters/page key。
 
-- [ ] **Step 4: 移除筛选重挂载并统一状态反馈**
+- [x] **Step 4: 移除筛选重挂载并统一状态反馈**
 
 TeacherFilterBar 在 applied filters 改变时同步 draft，reset 同时 `setDraft(next)` 与 `onApply(next)`，父组件删除 JSON key。三类列表用 StatusMessage 替换静态成功提示；保留原加载、错误、空状态和分页回退逻辑。
 
-- [ ] **Step 5: 验证并 Commit**
+- [x] **Step 5: 验证并 Commit**
 
 Run:
 
@@ -474,7 +474,7 @@ Expected: 桌面旧流程兼容，390px 主要操作无需横滑，筛选焦点�
 - Preserves: `usePaperStore` selectors、add/remove/setScore/move/reorder、HTML5 drag、保存与恢复顺序。
 - Consumes: `cartSpring`、`listItemVariants`、StatusMessage、PageHeader。
 
-- [ ] **Step 1: 添加购物车与预览失败用例**
+- [x] **Step 1: 添加购物车与预览失败用例**
 
 paper.spec 添加：添加两题后上移/下移，按钮保持焦点且 DOM 顺序正确；删除后焦点落在下一题、上一题或 `#paper-cart-title`；reduced-motion 下操作一致。print.spec 增加：
 
@@ -488,7 +488,7 @@ expect(ratio).toBeCloseTo(210 / 297, 1);
 
 390px 下断言根节点不溢出，`.paper-preview-stage` 可横向滚动，原 A4 PDF MediaBox 断言保留。
 
-- [ ] **Step 2: 为购物车加入布局动画**
+- [x] **Step 2: 为购物车加入布局动画**
 
 `ol` 内使用 `AnimatePresence initial={false}` 和 `motion.li`：
 
@@ -507,11 +507,11 @@ expect(ratio).toBeCloseTo(210 / 297, 1);
 
 保留原 drag events，不添加 Framer drag。move 后通过 `data-question-id` 找同一记录的原操作按钮并聚焦；remove 前计算相邻 ID，退出后聚焦相邻记录或购物车标题。批量恢复失效题目不主动抢焦点。增加 `aria-live="polite"` 的中文排序消息。
 
-- [ ] **Step 3: 优化选题、表单与真实状态**
+- [x] **Step 3: 优化选题、表单与真实状态**
 
 QuestionPicker 保留 keepPreviousData，对已有 li 使用稳定 question ID 和 stagger；把仅 sr-only 的添加消息改为可见 StatusMessage，同时保留播报。PaperForm 只整理间距、错误与 pending；PaperStoreProvider 骨架匹配双栏工作区；保存、加载、失效和 onSaved 顺序不改。
 
-- [ ] **Step 4: 隔离屏幕 A4 规则**
+- [x] **Step 4: 隔离屏幕 A4 规则**
 
 将屏幕预览覆盖放入：
 
@@ -534,7 +534,7 @@ QuestionPicker 保留 keepPreviousData，对已有 li 使用稳定 question ID �
 
 PaperPrint 外层复用 `.paper-preview-stage`。不得修改 `@media print` 中 `.paper-sheet` 的复位、A4 page、分页或 UI 隐藏规则。
 
-- [ ] **Step 5: 验证并 Commit**
+- [x] **Step 5: 验证并 Commit**
 
 Run:
 
@@ -559,7 +559,7 @@ Expected: 购物车原单元测试和 E2E 通过，焦点与顺序可追踪，�
 - Consumes: 前六个任务的全部实现。
 - Produces: 可复现的验证结果、最终提交和 GitHub main 推送。
 
-- [ ] **Step 1: 运行全部前端静态与单元检查**
+- [x] **Step 1: 运行全部前端静态与单元检查**
 
 Run:
 
@@ -569,7 +569,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 
 Expected: 全部通过；任何本次引入的错误修复后重跑同一组命令。
 
-- [ ] **Step 2: 运行完整 E2E**
+- [x] **Step 2: 运行完整 E2E**
 
 Run:
 
@@ -579,11 +579,11 @@ pnpm test:e2e
 
 Expected: 初始化、注册登录、题库、审核、组卷、教师管理、A4 打印和新增 UI 用例全部通过。若 Docker、Go、PostgreSQL 或浏览器二进制阻塞，记录具体命令与错误，不把未执行描述为通过。
 
-- [ ] **Step 3: 做最终浏览器视觉检查**
+- [x] **Step 3: 做最终浏览器视觉检查**
 
 覆盖 1440px、768px、390px，检查首页、认证、管理员和教师工作台；验证深色、reduced-motion、键盘导航、加载/空/错误状态、移动列表操作、购物车重排和屏幕/打印预览。不得通过隐藏内容或缩短业务断言消除失败。
 
-- [ ] **Step 4: 检查最终差异与敏感信息**
+- [x] **Step 4: 检查最终差异与敏感信息**
 
 Run:
 
@@ -596,7 +596,7 @@ git log --oneline origin/main..HEAD
 
 Expected: 无空白错误、无依赖/构建/测试产物、无 Token 或认证头；所有计划项已勾选或有明确阻塞说明。
 
-- [ ] **Step 5: Commit 并推送**
+- [x] **Step 5: Commit 并推送**
 
 如有回归修复或计划状态更新：
 
@@ -612,3 +612,11 @@ git push origin main
 ```
 
 Expected: GitHub `CodeSky0/school-exam-studio` 的 main 包含设计文档和全部已验证实施提交；最终回复列出主要改动、验证结果、提交范围与任何未解决阻塞。
+
+---
+
+## 完成记录（2026-11-26）
+
+- 补齐 `tests/e2e/ui-motion.spec.ts`：移动导航焦点归还、跳到主内容链接、首页 1440/390 无横向溢出、登录/注册单 h1 与可见标签、已初始化 `/init` 跳转、reduced-motion 登录可提交。
+- `admin.spec.ts` 补充确认框 `aria-labelledby` 唯一性与文档 ID 去重、390px 教师摘要操作；`question.spec.ts` 补充 390px 摘要展开答案/解析与筛选焦点稳定；`paper.spec.ts` 补充购物车上移/下移/删除的焦点与 DOM 顺序（含 reduced-motion）；`print.spec.ts` 补充屏幕 A4 比例与 390px 舞台横滚。
+- 全部 24 项 E2E 在真实 PostgreSQL 16 + Redis 7 + Chromium 环境通过；静态检查与生产构建通过。

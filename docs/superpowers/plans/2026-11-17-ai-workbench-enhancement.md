@@ -58,7 +58,7 @@ README.md / .env.example  修改
 - Modify: `backend/internal/ai/llm.go`
 - Modify: `backend/internal/ai/llm_tools.go`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 func TestClassifyProviderError(t *testing.T) {
@@ -80,12 +80,12 @@ func TestClassifyProviderError(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd backend && go test ./internal/ai -run TestClassifyProviderError`
 Expected: FAIL `undefined: ErrorKind`
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```go
 type ErrorKind string
@@ -120,12 +120,12 @@ func classifyStatus(status int) ErrorKind {
 
 在 `llm.go`/`llm_tools.go` 构造 `ProviderError` 时填入 `Kind: classifyStatus(response.StatusCode)`；网络错误包装为 `&ProviderError{Kind: ErrorKindRetryable, Message: ...}`；JSON 解码失败包装为 `ErrorKindParse`。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd backend && go test ./internal/ai -run TestClassifyProviderError`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add backend/internal/ai/llm_error.go backend/internal/ai/llm_error_test.go backend/internal/ai/llm.go backend/internal/ai/llm_tools.go
@@ -148,7 +148,7 @@ git commit -m "feat(ai): classify model provider errors"
 - `(s *Service) chatToolsTurn(ctx, principal, requestedModel string, run func(*LLMClient, LLMConfig) (LLMReply, []ToolCall, error)) (...)`
 - `breaker`：`allow(modelKey) bool`、`failure(modelKey)`、`success(modelKey)`
 
-- [ ] **Step 1: 写失败测试（重试与熔断）**
+- [x] **Step 1: 写失败测试（重试与熔断）**
 
 ```go
 func TestBreakerOpensAfterConsecutiveFailures(t *testing.T) {
@@ -161,12 +161,12 @@ func TestBreakerOpensAfterConsecutiveFailures(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd backend && go test ./internal/ai -run TestBreaker`
 Expected: FAIL `undefined: newBreakerSet`
 
-- [ ] **Step 3: 实现 `llm_runtime.go`**
+- [x] **Step 3: 实现 `llm_runtime.go`**
 
 实现要点：
 - `resolveCandidates`：学校配置启用时返回默认模型优先、去重后最多 3 个候选；显式 `requestedModel` 只返回该模型；环境变量配置作为单候选。
@@ -175,12 +175,12 @@ Expected: FAIL `undefined: newBreakerSet`
 - 熔断器按 `schoolID|model` 计数，连续 3 次可重试失败后 60s 内 `allow=false`；成功清零。
 - 返回尝试过的模型列表与最后错误；`AI_ALLOW_LOCAL_FALLBACK=true` 时由调用方决定是否用本地。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd backend && go test ./internal/ai -run 'TestBreaker|TestRetry'`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add backend/internal/ai/llm_runtime.go backend/internal/ai/llm_runtime_test.go backend/internal/ai/service.go
@@ -195,7 +195,7 @@ git commit -m "feat(ai): add resilient model runtime with retry and circuit brea
 - Modify: `backend/internal/ai/service.go`
 - Create: `backend/internal/ai/resilience_test.go`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 func TestAnalyzeDoesNotSilentlyFallbackWhenConfiguredModelFails(t *testing.T) {
@@ -219,24 +219,24 @@ func TestAnalyzeUsesLocalWhenNoModelConfigured(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd backend && go test ./internal/ai -run TestAnalyze`
 Expected: FAIL `undefined: ErrModelUnavailable`
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 - 在 `types.go` 增加 `ErrModelUnavailable = errors.New("ai model unavailable")`。
 - `Analyze`：先 `local := s.local.Analyze(input)` 用于字段兜底；未配置模型时返回 local；配置了模型时调用 `s.completeJSON`，失败返回 `fmt.Errorf("%w: %v", ErrModelUnavailable, err)`，除非 `allowLocalFallback()` 为真。
 - `generate`/`generateVariants`：同样改为 `s.completeJSON`；失败时返回 `ErrModelUnavailable`（或开启兜底时使用本地并标注 `ProviderFallback`）。
 - `allowLocalFallback()` 读取 `AI_ALLOW_LOCAL_FALLBACK`，默认 false。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd backend && go test ./internal/ai -run 'TestAnalyze|TestGenerate'`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add backend/internal/ai/service.go backend/internal/ai/types.go backend/internal/ai/resilience_test.go
@@ -251,7 +251,7 @@ git commit -m "fix(ai): stop silent local fallback when configured model fails"
 - Modify: `backend/internal/ai/conversation_service.go`
 - Create: `backend/internal/ai/conversation_resilience_test.go`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 func TestChatDoesNotUseLocalPlannerWhenModelConfiguredButFails(t *testing.T) {
@@ -267,23 +267,23 @@ func TestChatDoesNotUseLocalPlannerWhenModelConfiguredButFails(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd backend && go test ./internal/ai -run TestChatDoesNotUseLocalPlanner`
 Expected: FAIL（当前会返回本地规划结果）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 - `runChatTurn`：有模型配置时只走 `runLLMTurn`；失败且 `len(calls)>0` 保留摘要并提示"继续"；失败且无工具结果返回可读错误（`ProviderLLM` + 错误文本），不再调用 `planChatTurn`。
 - 未配置模型时才调用 `planChatTurn`，保持现有离线能力。
 - `runLLMTurn` 内部改为按候选模型尝试；仅在**尚未执行任何工具**时允许切换模型，已执行工具后失败立即停止。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd backend && go test ./internal/ai -run TestChat`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add backend/internal/ai/conversation_service.go backend/internal/ai/conversation_resilience_test.go
@@ -315,7 +315,7 @@ func (s *Service) toolReviewQueue(ctx context.Context, tc ToolContext, args map[
 func (s *Service) toolSearchSimilar(ctx context.Context, tc ToolContext, args map[string]any) (ToolResult, error)
 ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 func TestBankStatsCountsDistribution(t *testing.T) {
@@ -326,12 +326,12 @@ func TestBankStatsCountsDistribution(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd backend && go test ./internal/ai -run TestBankStats`
 Expected: FAIL `不支持的工具`
 
-- [ ] **Step 3: 实现工具与描述**
+- [x] **Step 3: 实现工具与描述**
 
 - `list_papers` 参数：`subject`、`grade`、`keyword`、`limit`。
 - `get_paper`：`paper_id`；返回 `paper` 与题目快照。
@@ -343,12 +343,12 @@ Expected: FAIL `不支持的工具`
 - `search_similar_questions`：`question_id` 或 `keyword`、`subject`、`grade`、`limit`；对快照做题干分词重叠度 + 知识点重叠打分，返回 top N。
 - 在 `toolRegistry` 注册，在 `validateToolArguments` 增加白名单，在 `tool_descriptors.go` 增加描述与 `category`。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd backend && go test ./internal/ai -run 'TestBankStats|TestPaper|TestDuplicate|TestReviewQueue|TestSimilar'`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add backend/internal/ai/tools_paper.go backend/internal/ai/tools_analytics.go backend/internal/ai/tools_*_test.go backend/internal/ai/tool_descriptors.go backend/internal/ai/tools.go
@@ -363,7 +363,7 @@ git commit -m "feat(ai): add paper, analytics, review and similarity tools"
 - Modify: `backend/internal/ai/handler.go:29-56`
 - Modify: `backend/internal/ai/handler_test.go`（或新增）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 func TestRunToolEndpointRejectsUnknownField(t *testing.T) {
@@ -376,12 +376,12 @@ func TestRunToolEndpointRejectsUnknownField(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd backend && go test ./internal/ai -run TestRunToolEndpoint`
 Expected: 404 / FAIL
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```go
 group.POST("/ai/tools/:name", h.RunTool)
@@ -400,12 +400,12 @@ func (h *Handler) RunTool(c echo.Context) error {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd backend && go test ./internal/ai -run TestRunToolEndpoint`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add backend/internal/ai/handler.go backend/internal/ai/*_test.go
@@ -422,7 +422,7 @@ git commit -m "feat(ai): expose direct tool execution endpoint"
 - Modify: `backend/internal/ai/conversation_service.go`（新增 `RunSkill` service 方法）
 - Create: `backend/internal/ai/skills_test.go`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 func TestListSkillsIncludesNewSkills(t *testing.T) {
@@ -435,24 +435,24 @@ func TestListSkillsIncludesNewSkills(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd backend && go test ./internal/ai -run TestListSkills`
 Expected: FAIL
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 - `Skill` 增加 `Category string`、`Steps []string`。
 - 新增 6 个技能（spec 第 6 节）。
 - `Service.RunSkill(ctx, principal, skillID, content, model)`：查找技能，创建会话，调用 `SendMessage`，返回 `SkillRunResult{ConversationID, Message, SkillID}`。
 - `POST /ai/skills/:id/run` 绑定 `{content?, model?}`。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd backend && go test ./internal/ai -run 'TestListSkills|TestRunSkill'`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add backend/internal/ai/skills.go backend/internal/ai/skills_test.go backend/internal/ai/handler.go backend/internal/ai/conversation_service.go
@@ -468,7 +468,7 @@ git commit -m "feat(ai): expand skills catalog and add skill run endpoint"
 - Modify: `backend/internal/ai/service.go:68-121`
 - Create: `backend/internal/ai/status_test.go`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```go
 func TestStatusExposesModelHealth(t *testing.T) {
@@ -477,9 +477,9 @@ func TestStatusExposesModelHealth(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 实现**：`Status` 填充 `FallbackPolicy`（`error` 或 `local`）与 `ModelsHealth`（模型、是否熔断、失败次数）。
+- [x] **Step 2: 实现**：`Status` 填充 `FallbackPolicy`（`error` 或 `local`）与 `ModelsHealth`（模型、是否熔断、失败次数）。
 
-- [ ] **Step 3: 运行测试并提交**
+- [x] **Step 3: 运行测试并提交**
 
 Run: `cd backend && go test ./internal/ai -run TestStatus`
 Expected: PASS
@@ -501,7 +501,7 @@ git commit -m "feat(ai): expose model health and fallback policy"
 - Modify: `frontend/app/admin/questions/page.tsx`
 - Modify: `frontend/app/teacher/papers/page.tsx`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, expect, it, vi } from "vitest";
@@ -518,12 +518,12 @@ describe("runTool", () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `cd frontend && npm run test -- ai-tools`
 Expected: FAIL（依赖未安装时先 `npm ci`）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 ```ts
 export async function runTool<T = unknown>(name: string, args: Record<string, unknown> = {}): Promise<{ summary: string; data: T; warnings: string[] }> {
@@ -542,12 +542,12 @@ export async function runTool<T = unknown>(name: string, args: Record<string, un
 - 试卷页加"AI 质检"按钮：选中试卷后调用 `paper_audit`，以卡片展示结果。
 - 所有操作完成后 `invalidateQueries` 刷新题库/试卷缓存。
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `cd frontend && npm run test -- ai-tools && npx tsc --noEmit`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add frontend/lib/ai-tools.ts frontend/lib/ai-tools.test.ts frontend/components/ai/ai-status-card.tsx frontend/app/teacher/questions/page.tsx frontend/app/admin/questions/page.tsx frontend/app/teacher/papers/page.tsx
@@ -563,8 +563,8 @@ git commit -m "feat(ai): add tool client and business entry points"
 - Modify: `README.md`
 - Modify: `.env.example`
 
-- [ ] **Step 1: 更新文档**：工具表新增 8 行、技能表新增 6 行、新增两个端点、补充弹性策略与 `AI_ALLOW_LOCAL_FALLBACK`。
-- [ ] **Step 2: 全量验证**
+- [x] **Step 1: 更新文档**：工具表新增 8 行、技能表新增 6 行、新增两个端点、补充弹性策略与 `AI_ALLOW_LOCAL_FALLBACK`。
+- [x] **Step 2: 全量验证**
 
 Run:
 ```bash
@@ -573,7 +573,7 @@ cd ../frontend && npx tsc --noEmit
 ```
 Expected: 全部通过。
 
-- [ ] **Step 3: 提交并推送**
+- [x] **Step 3: 提交并推送**
 
 ```bash
 git add docs/ai-agent-tools.md README.md .env.example
@@ -586,3 +586,10 @@ git push origin HEAD
 - 规格覆盖：弹性层（Task 1-4）、工具（Task 5-6）、技能（Task 7）、状态（Task 8）、前端（Task 9）、文档与推送（Task 10）。
 - 无占位符；所有新增类型与函数在任务中给出签名。
 - 类型一致：`ErrorKind`、`modelCandidate`、`ToolResult`、`SkillRunResult` 在各任务中命名一致。
+
+---
+
+## 完成记录（2026-11-26）
+
+- 弹性运行时、错误分类、熔断与 JSON 修复（`llm_error.go` / `llm_runtime.go`）、8 个新工具、`POST /ai/tools/:name`、技能扩展与 `POST /ai/skills/:id/run`、模型健康状态、前端 `lib/ai-tools.ts` 与业务入口均已在先前提交落地。
+- 2026-11-26 全量回归：`go test ./...`、`go vet ./...`、前端 lint/typecheck/124 项单测/生产构建、Playwright 24 项 E2E 全部通过。
